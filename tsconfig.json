@@ -1,0 +1,21 @@
+{
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowSyntheticDefaultImports": true,
+    "esModuleInterop": true,
+    "jsx": "preserve",
+    "jsxImportSource": "solid-js",
+    "allowJs": true,
+    "noEmit": true,
+    "strict": true,
+    "types": ["vinxi/types/client", "vidstack/solid"],
+    "isolatedModules": true,
+    "paths": {
+      "~/*": ["./src/*"]
+    },
+    "strictNullChecks": true
+  }
+}
