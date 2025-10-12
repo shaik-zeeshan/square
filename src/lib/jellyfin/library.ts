@@ -1,11 +1,12 @@
-import { query } from '.';
-import { getUserViewsApi } from '@jellyfin/sdk/lib/utils/api/user-views-api';
-import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api';
-import type { Api } from '@jellyfin/sdk/lib/api';
-import { ImageUrlsApi } from '@jellyfin/sdk/lib/utils/api/image-urls-api';
-import { getMediaInfoApi } from '@jellyfin/sdk/lib/utils/api/media-info-api';
-import { ItemFields } from '@jellyfin/sdk/lib/generated-client/models';
-import type { ItemsApiGetItemsRequest } from '@jellyfin/sdk/lib/generated-client/api/items-api';
+import { query } from ".";
+import { getLibraryApi } from "@jellyfin/sdk/lib/utils/api/library-api";
+import { getItemsApi } from "@jellyfin/sdk/lib/utils/api/items-api";
+import { getUserLibraryApi } from "@jellyfin/sdk/lib/utils/api/user-library-api";
+import type { Api } from "@jellyfin/sdk/lib/api";
+import { ImageUrlsApi } from "@jellyfin/sdk/lib/utils/api/image-urls-api";
+import { getMediaInfoApi } from "@jellyfin/sdk/lib/utils/api/media-info-api";
+import { ItemFields } from "@jellyfin/sdk/lib/generated-client/models";
+import type { ItemsApiGetItemsRequest } from "@jellyfin/sdk/lib/generated-client/api/items-api";
 
 const mutation = {};
 
@@ -15,14 +16,12 @@ const getImageFromTag = (
   basePath: string,
   itemId: string,
   keyTag: string,
-  value: string
+  value: string,
 ) => `${basePath}/Items/${itemId}/Images/${keyTag}?tag=${value}`;
 
 const queries = {
   getLibraries: query(async (jf: Api, id: string | undefined) => {
-    let libraryViewReq = await getUserViewsApi(jf).getUserViews({
-      userId: id,
-    });
+    let libraryViewReq = await getLibraryApi(jf).getMediaFolders();
 
     let libraryReq = libraryViewReq.data;
 
@@ -30,14 +29,14 @@ const queries = {
       let library = item;
       if (
         !(
-          library.CollectionType === 'movies' ||
-          library.CollectionType === 'tvshows'
+          library.CollectionType === "movies" ||
+          library.CollectionType === "tvshows"
         )
       ) {
         return;
       }
 
-      let image = getImageUrlsApi(jf).getItemImageUrlById(library?.Id || '');
+      let image = getImageUrlsApi(jf).getItemImageUrlById(library?.Id || "");
 
       return { ...library, Image: image };
     }).filter((item) => item !== undefined);
@@ -47,7 +46,7 @@ const queries = {
     }
 
     return newData;
-  }, 'allLibraries'),
+  }, "allLibraries"),
 
   getItem: query(
     async (
@@ -55,19 +54,19 @@ const queries = {
       id: string,
       userId?: string,
       fields: ItemFields[] = [],
-      searchTerm?: string
+      searchTerm?: string,
     ) => {
       let itemReq = await getItemsApi(jf).getItems({
         userId,
         ids: [id],
-        fields: ['ChildCount', 'Path', 'MediaStreams', ...fields],
+        fields: ["ChildCount", "Path", "MediaStreams", ...fields],
         enableImages: true,
         enableUserData: true,
         searchTerm,
       });
 
       if (!itemReq.data.Items) {
-        throw new Error('no items found');
+        throw new Error("no items found");
       }
 
       let item = itemReq.data.Items![0];
@@ -86,7 +85,7 @@ const queries = {
         Backdrop: image,
       };
     },
-    'item'
+    "item",
   ),
 
   getPlayBackInfo: query(async (jf: Api, id: string, userId?: string) => {
@@ -96,18 +95,18 @@ const queries = {
     });
 
     return mediaInfo.data;
-  }, 'playbackInfo'),
+  }, "playbackInfo"),
 
   getItems: query(
     async (
       jf: Api,
-      params: ItemsApiGetItemsRequest & { enableImage?: boolean }
+      params: ItemsApiGetItemsRequest & { enableImage?: boolean },
     ) => {
       const { enableImage = false, fields = [], ...apiParams } = params;
 
       let item = await getItemsApi(jf).getItems({
         ...apiParams,
-        fields: ['ParentId', ...fields],
+        fields: ["ParentId", ...fields],
         enableUserData: true,
       });
 
@@ -120,9 +119,9 @@ const queries = {
             Object.entries(item.ImageTags ?? {}).forEach(([key, value]) => {
               imageEntries[key] = getImageFromTag(
                 url,
-                item.Id || '',
+                item.Id || "",
                 key,
-                value
+                value,
               );
             });
 
@@ -136,7 +135,7 @@ const queries = {
 
       return newItems;
     },
-    'itemsOfLibrary'
+    "itemsOfLibrary",
   ),
 
   getResumeItems: query(async (jf: Api, userId: string | undefined) => {
@@ -144,7 +143,7 @@ const queries = {
       userId,
       limit: 6,
       enableUserData: true,
-      fields: ['ParentId', 'MediaSources', 'MediaStreams'],
+      fields: ["ParentId", "MediaSources", "MediaStreams"],
     });
 
     let newItems = item.data.Items?.map((item) => {
@@ -153,14 +152,14 @@ const queries = {
 
       let imageEntries: Record<string, string> = {};
       Object.entries(item.ImageTags ?? {}).forEach(([key, value]) => {
-        imageEntries[key] = getImageFromTag(url, item.Id || '', key, value);
+        imageEntries[key] = getImageFromTag(url, item.Id || "", key, value);
       });
 
       return { ...item, Images: imageEntries, Backdrop: image };
     });
 
     return newItems;
-  }, 'resumeItems'),
+  }, "resumeItems"),
 };
 
 export default {

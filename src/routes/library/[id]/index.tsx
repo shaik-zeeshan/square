@@ -42,20 +42,42 @@ export default function Page(props: RouteSectionProps) {
       {/* Background with enhanced overlay */}
 
       {/* Navigation Bar */}
-      <Nav
-        variant="light"
-        class="relative z-50"
-        breadcrumbs={[
-          {
-            label: 'Libraries',
-            icon: <LibraryIcon class="w-4 h-4 opacity-70 flex-shrink-0" />,
-          },
-        ]}
-        currentPage={libraryDetails.data?.Name || 'Loading...'}
-        showSearch={true}
-        searchValue={searchTerm()}
-        onSearchChange={setSearchTerm}
-      />
+      <QueryBoundary
+        query={libraryDetails}
+        loadingFallback={
+          <Nav
+            variant="light"
+            class="relative z-50"
+            breadcrumbs={[
+              {
+                label: 'Libraries',
+                icon: <LibraryIcon class="w-4 h-4 opacity-70 flex-shrink-0" />,
+              },
+            ]}
+            currentPage="Loading..."
+            showSearch={true}
+            searchValue={searchTerm()}
+            onSearchChange={setSearchTerm}
+          />
+        }
+      >
+        {(library) => (
+          <Nav
+            variant="light"
+            class="relative z-50"
+            breadcrumbs={[
+              {
+                label: 'Libraries',
+                icon: <LibraryIcon class="w-4 h-4 opacity-70 flex-shrink-0" />,
+              },
+            ]}
+            currentPage={library?.Name || 'Library'}
+            showSearch={true}
+            searchValue={searchTerm()}
+            onSearchChange={setSearchTerm}
+          />
+        )}
+      </QueryBoundary>
 
       {/* Content Area */}
       <div class="relative z-20 flex-1 overflow-y-auto px-8 py-6">

@@ -203,7 +203,7 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
             </h3>
           </div>
 
-          <p class="text-xs opacity-70 line-clamp-2 leading-relaxed">
+          <p class="text-sm opacity-70 line-clamp-3 leading-relaxed">
             {item.Overview}
           </p>
 

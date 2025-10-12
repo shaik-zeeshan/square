@@ -1,18 +1,17 @@
-import { Api } from '@jellyfin/sdk/lib/api';
+import { Api } from "@jellyfin/sdk/lib/api";
 import {
   QueryKey,
   useQuery,
   UseQueryResult,
   SolidQueryOptions,
   QueryFunctionContext,
-} from '@tanstack/solid-query';
-import { Accessor } from 'solid-js';
-import { useJellyfin } from '~/components/jellyfin-provider';
+} from "@tanstack/solid-query";
+import { Accessor } from "solid-js";
+import { useJellyfin } from "~/components/jellyfin-provider";
 
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-import { serversStore } from './persist-store';
-import { useServerStore } from './store-hooks';
+import { clsx, type ClassValue } from "clsx";
+import { twMerge } from "tailwind-merge";
+import { useServerStore } from "./store-hooks";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -20,7 +19,7 @@ export function cn(...inputs: ClassValue[]) {
 
 export function safeJsonParse<T>(
   json: string | null | undefined,
-  fallback: T
+  fallback: T,
 ): T {
   if (!json) return fallback;
   try {
@@ -40,7 +39,7 @@ export function createQuery<
       initialData?: undefined;
       onError?: (error: Error) => void;
     }
-  >
+  >,
 ): UseQueryResult<A, E> {
   return useQuery<A, E, A, QueryKeyType>(opts);
 }
@@ -56,14 +55,14 @@ export function createJellyFinQuery<
         initialData?: undefined;
         onError?: (error: Error) => void;
       },
-      'queryFn'
+      "queryFn"
     > & {
       queryFn: (
         jellyfin: Api,
-        context?: QueryFunctionContext<QueryKeyType>
+        context?: QueryFunctionContext<QueryKeyType>,
       ) => A | Promise<A>;
     }
-  >
+  >,
 ): UseQueryResult<A, E> {
   const jf = useJellyfin();
   let { store } = useServerStore();
@@ -77,7 +76,7 @@ export function createJellyFinQuery<
     enabled: !!jf.api?.accessToken && opts().enabled,
     queryFn: async (context) => {
       if (!jf.api) {
-        throw new Error('Jellyfin API not found');
+        throw new Error("Jellyfin API not found");
       }
       let data = await opts().queryFn(jf.api, context);
       return data;
@@ -96,11 +95,11 @@ export function queryJellfinOptions<
           initialData?: undefined;
           onError?: (error: Error) => void;
         },
-        'queryFn'
+        "queryFn"
       > & {
         queryFn: (
           jellyfin: Api,
-          context?: QueryFunctionContext<QueryKeyType>
+          context?: QueryFunctionContext<QueryKeyType>,
         ) => A | Promise<A>;
       }
     >

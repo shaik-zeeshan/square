@@ -9,4 +9,5 @@ export {
   type GlassDropdownProps,
   type GlassDropdownItemProps,
 } from './glass-dropdown';
+export { Toaster } from './sonner';
 

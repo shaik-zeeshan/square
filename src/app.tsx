@@ -8,7 +8,9 @@ import { SolidQueryDevtools } from '@tanstack/solid-query-devtools';
 import './app.css';
 import { GeneralInfoProvider } from './components/current-user-provider';
 import { JellyFinProvider } from './components/jellyfin-provider';
-
+import { ErrorBoundary as AppErrorBoundary } from './components/error/ErrorBoundary';
+import { PageLoading } from './components/ui/loading';
+import { Toaster } from './components/ui/sonner';
 
 import { commands } from './lib/tauri';
 import { ServerStoreProvider } from './lib/store-hooks';
@@ -39,22 +41,27 @@ export default function App() {
   return (
     <Router
       root={(props) => (
-        <ErrorBoundary
-          fallback={(e: Error) => <div>error occured : {e.message}</div>}
-        >
-          <QueryClientProvider client={queryClient}>
-            <ServerStoreProvider>
-              <JellyFinProvider>
-                <GeneralInfoProvider>
-                  <AppContainer>
-                    <Suspense>{props.children}</Suspense>
-                  </AppContainer>
-                  <SolidQueryDevtools initialIsOpen={false} position="top" />
-                </GeneralInfoProvider>
-              </JellyFinProvider>
-            </ServerStoreProvider>
-          </QueryClientProvider>
-        </ErrorBoundary>
+        <AppErrorBoundary>
+          <ErrorBoundary
+            fallback={(e: Error) => <div>error occured : {e.message}</div>}
+          >
+            <QueryClientProvider client={queryClient}>
+              <ServerStoreProvider>
+                <JellyFinProvider>
+                  <GeneralInfoProvider>
+                    <AppContainer>
+                      <Suspense fallback={<PageLoading />}>
+                        {props.children}
+                      </Suspense>
+                    </AppContainer>
+                    <Toaster />
+                    <SolidQueryDevtools initialIsOpen={false} position="top" />
+                  </GeneralInfoProvider>
+                </JellyFinProvider>
+              </ServerStoreProvider>
+            </QueryClientProvider>
+          </ErrorBoundary>
+        </AppErrorBoundary>
       )}
     >
       <FileRoutes />
