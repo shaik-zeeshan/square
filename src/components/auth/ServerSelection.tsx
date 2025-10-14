@@ -2,8 +2,8 @@ import type { RecommendedServerInfo } from '@jellyfin/sdk';
 import { ArrowLeft, Edit, Server as ServerIcon, Trash2 } from 'lucide-solid';
 import { For, Show } from 'solid-js';
 import { useAuthentication } from '~/hooks/useAuthentication';
-import { useServerStore } from '~/lib/store-hooks';
 import type { Server } from '~/lib/persist-store';
+import { useServerStore } from '~/lib/store-hooks';
 
 interface ServerSelectionProps {
   onBack?: () => void;
