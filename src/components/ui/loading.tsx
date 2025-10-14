@@ -1,5 +1,5 @@
 import { LoaderCircleIcon } from "lucide-solid";
-import { createSignal, onMount, onCleanup } from "solid-js";
+import {  splitProps } from "solid-js";
 import { cn } from "~/lib/utils";
 
 export interface LoadingProps {
@@ -26,8 +26,8 @@ export function Loading(props: LoadingProps) {
   const content = (
     <div class={cn("flex", props.class)}>
       <div class="relative">
-        <div class={`text-foreground/80`}>
-          <LoaderCircleIcon class={cn(sizeClasses[size], "animate-spin")} />
+        <div>
+          <LoaderCircleIcon class={cn(sizeClasses[size], "animate-spin text-inherit")} />
         </div>
       </div>
     </div>
@@ -53,7 +53,9 @@ export function PageLoading() {
 }
 
 export function InlineLoading(props: Omit<LoadingProps, "backdrop">) {
-  return <Loading {...props} backdrop={false} />;
+  let [{ class: classes }, others] = splitProps(props, ['class']);
+
+  return <Loading  backdrop={false} class={cn("text-foreground/80", classes)} {...others} />;
 }
 
 export function FullscreenLoading() {

@@ -94,6 +94,7 @@ impl MpvPlayer {
         mpv.set_property("vo", "libmpv")?;
         mpv.set_property("idle", "yes")?;
         mpv.set_property("pause", true)?;
+        mpv.set_property("keep-open", "yes")?;
         mpv.set_property("input-ipc-server", "/tmp/sreal")?;
 
         // Observe properties
@@ -158,8 +159,11 @@ impl MpvPlayer {
                 self.mpv.set_property("aid", audio).unwrap();
             }
             PlaybackEvent::Load(url) => {
-                self.mpv.command("loadfile", &[&url, "replace"]).unwrap();
+                self.mpv.command("loadfile", &[&url, "replace"]).unwrap();  
                 self.mpv.set_property("pause", false).unwrap();
+            }
+            PlaybackEvent::FileLoaded => {
+                // self.mpv.set_property("time-pos", "0").unwrap();
             }
             _ => {}
         }
@@ -235,7 +239,10 @@ impl EventHandler {
         render_tx: Sender<PlaybackEvent>,
     ) {
         match event {
-            libmpv2::events::Event::FileLoaded => {}
+            libmpv2::events::Event::FileLoaded => {
+            //    render_tx.send(PlaybackEvent::FileLoaded).unwrap();
+                window.emit("file-loaded", ()).unwrap();
+            }
 
             libmpv2::events::Event::PropertyChange {
                 name: "pause",
@@ -321,6 +328,8 @@ impl EventHandler {
             libmpv2::events::Event::EndFile(reason) => {
                 eprintln!("MPV: End of file: {:?}", reason);
                 render_tx.send(PlaybackEvent::EndOfFile).unwrap();
+                // Also emit to frontend for autoplay handling with reason code
+                window.emit("end-of-file", reason).unwrap();
             }
             _ => {}
         }
@@ -425,6 +434,7 @@ pub enum PlaybackEvent {
     Load(String),
     Clear,
     Redraw,
+    FileLoaded,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

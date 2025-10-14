@@ -1,12 +1,14 @@
 import { query } from ".";
 import { getLibraryApi } from "@jellyfin/sdk/lib/utils/api/library-api";
 import { getItemsApi } from "@jellyfin/sdk/lib/utils/api/items-api";
-import { getUserLibraryApi } from "@jellyfin/sdk/lib/utils/api/user-library-api";
 import type { Api } from "@jellyfin/sdk/lib/api";
 import { ImageUrlsApi } from "@jellyfin/sdk/lib/utils/api/image-urls-api";
 import { getMediaInfoApi } from "@jellyfin/sdk/lib/utils/api/media-info-api";
 import { ItemFields } from "@jellyfin/sdk/lib/generated-client/models";
-import type { ItemsApiGetItemsRequest } from "@jellyfin/sdk/lib/generated-client/api/items-api";
+import type { ItemsApiGetItemsRequest, ItemsApiGetResumeItemsRequest } from "@jellyfin/sdk/lib/generated-client/api/items-api";
+import type { TvShowsApiGetNextUpRequest } from "@jellyfin/sdk/lib/generated-client/api/tv-shows-api";
+import { UserLibraryApiGetLatestMediaRequest } from "@jellyfin/sdk/lib/generated-client/api/user-library-api";
+
 
 const mutation = {};
 
@@ -59,7 +61,7 @@ const queries = {
       let itemReq = await getItemsApi(jf).getItems({
         userId,
         ids: [id],
-        fields: ["ChildCount", "Path", "MediaStreams", ...fields],
+        fields: ["ChildCount", "Path", "MediaStreams", "Chapters", "MediaSources", ...fields],
         enableImages: true,
         enableUserData: true,
         searchTerm,
@@ -138,12 +140,13 @@ const queries = {
     "itemsOfLibrary",
   ),
 
-  getResumeItems: query(async (jf: Api, userId: string | undefined) => {
+  getResumeItems: query(async (jf: Api, userId: string | undefined, options?: ItemsApiGetResumeItemsRequest) => {
     let item = await getItemsApi(jf).getResumeItems({
       userId,
+            enableUserData: true,
       limit: 6,
-      enableUserData: true,
-      fields: ["ParentId", "MediaSources", "MediaStreams"],
+      ...options,
+      fields: ["ParentId", "MediaSources", "MediaStreams"].concat(options?.fields ?? []) as ItemFields[],
     });
 
     let newItems = item.data.Items?.map((item) => {
@@ -160,6 +163,125 @@ const queries = {
 
     return newItems;
   }, "resumeItems"),
+
+  getNextupItems: query(async (jf: Api, userId: string | undefined, options?: TvShowsApiGetNextUpRequest) => {
+    const { getTvShowsApi  } = await import('@jellyfin/sdk/lib/utils/api/tv-shows-api')
+
+    let items = await getTvShowsApi(jf).getNextUp({
+      userId,
+      enableUserData: true,
+      limit: 6,
+      ...options,
+      fields: ["ParentId", "MediaSources", "MediaStreams"].concat(options?.fields ?? []) as ItemFields[],
+    });
+
+    let newItems = items.data.Items?.map((item) => {
+      let image = getImageUrlsApi(jf).getItemBackdropImageUrls(item);
+      let url = jf.basePath;
+      let imageEntries: Record<string, string> = {};
+      Object.entries(item.ImageTags ?? {}).forEach(([key, value]) => {
+        imageEntries[key] = getImageFromTag(url, item.Id || "", key, value);
+      });
+      return { ...item, Images: imageEntries, Backdrop: image };
+    });
+
+    return newItems;
+  },"nextupItems"),
+  getLatestItems: query(async (jf: Api, userId: string | undefined, options?: UserLibraryApiGetLatestMediaRequest) => {
+    const {getUserLibraryApi} = await import('@jellyfin/sdk/lib/utils/api/user-library-api')
+    
+    let items = await getUserLibraryApi(jf).getLatestMedia({
+      userId,
+      enableUserData: true,
+      limit: 6,
+      ...options,
+      fields: ["ParentId"].concat(options?.fields ?? []) as ItemFields[],
+    });
+
+    let newItems = items.data.map((item) => {
+      let image = getImageUrlsApi(jf).getItemBackdropImageUrls(item);
+      let url = jf.basePath;
+      let imageEntries: Record<string, string> = {};
+      Object.entries(item.ImageTags ?? {}).forEach(([key, value]) => {
+        imageEntries[key] = getImageFromTag(url, item.Id || "", key, value);
+      });
+      return { ...item, Images: imageEntries, Backdrop: image };
+    });
+
+    return newItems;
+  },"latestItems"),
+
+  getNextEpisode: query(async (jf: Api, currentEpisodeId: string, userId?: string) => {
+    // First get the current episode details
+    const currentEpisode = await getItemsApi(jf).getItems({
+      userId,
+      ids: [currentEpisodeId],
+      fields: ['ParentId'],
+      enableUserData: true,
+    });
+
+    if (!currentEpisode.data.Items?.[0]) {
+      return null;
+    }
+
+    const episode = currentEpisode.data.Items[0];
+    const seasonId = episode.ParentId;
+    const currentIndex = episode.IndexNumber || 0;
+
+    if (!seasonId) {
+      return null;
+    }
+
+    // Get all episodes in the same season
+    const seasonEpisodes = await getItemsApi(jf).getItems({
+      userId,
+      parentId: seasonId,
+      fields: ['MediaStreams'],
+      enableUserData: true,
+      includeItemTypes: ['Episode'],
+      sortBy: ['IndexNumber'],
+      sortOrder: ['Ascending'],
+    });
+
+    if (!seasonEpisodes.data.Items) {
+      return null;
+    }
+
+    // Find the next episode by index number
+    const nextEpisode = seasonEpisodes.data.Items.find(
+      (ep) => (ep.IndexNumber || 0) === currentIndex + 1
+    );
+
+    if (nextEpisode) {
+      // Get full details with images for the next episode
+      const fullNextEpisode = await getItemsApi(jf).getItems({
+        userId,
+        ids: [nextEpisode.Id!],
+        fields: ['Overview', 'ParentId', 'MediaStreams'],
+        enableImages: true,
+        enableUserData: true,
+      });
+
+      if (fullNextEpisode.data.Items?.[0]) {
+        const item = fullNextEpisode.data.Items[0];
+        let image = getImageUrlsApi(jf).getItemBackdropImageUrls(item);
+        let url = jf.basePath;
+
+        let imageEntries: Record<string, string> = {};
+        Object.entries(item.ImageTags ?? {}).forEach(([key, value]) => {
+          imageEntries[key] = getImageFromTag(url, item.Id || "", key, value);
+        });
+
+        return {
+          ...item,
+          Images: imageEntries,
+          Backdrop: image,
+        };
+      }
+    }
+
+    return null;
+  }, "nextEpisode"),
 };
 
 export default {

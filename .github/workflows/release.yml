@@ -1,0 +1,232 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Check if commit message contains "release" keyword
+  check-release:
+    runs-on: ubuntu-latest
+    outputs:
+      is-release: ${{ steps.check.outputs.is-release }}
+    steps:
+      - name: Check for release commit
+        id: check
+        run: |
+          if echo "${{ github.event.head_commit.message }}" | grep -qi "release"; then
+            echo "is-release=true" >> $GITHUB_OUTPUT
+            echo "🚀 Release commit detected!"
+          else
+            echo "is-release=false" >> $GITHUB_OUTPUT
+            echo "📝 Regular commit detected"
+          fi
+
+  # Build for macOS
+  build-macos:
+    needs: check-release
+    if: needs.check-release.outputs.is-release == 'true'
+    runs-on: macos-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install system dependencies
+        run: |
+          # Install Homebrew dependencies
+          brew install git pkg-config cmake nasm yasm autoconf automake libtool meson ninja curl
+          
+          # Install Rust dependencies
+          cargo install tauri-cli
+
+      - name: Install Bun dependencies
+        run: bun install
+
+      - name: Download and setup dynamic libraries
+        run: |
+          # Create necessary directories
+          mkdir -p lib/dylib
+          mkdir -p /tmp/sreal-build
+          
+          # Download file list from IINA repository
+          curl -s https://iina.io/dylibs/universal/filelist.txt -o /tmp/sreal-build/filelist.txt
+          
+          # Download all dynamic libraries
+          while IFS= read -r filename; do
+            if [ -n "$filename" ]; then
+              echo "Downloading: $filename"
+              curl -s "https://iina.io/dylibs/universal/$filename" -o "lib/dylib/$filename"
+              if [ $? -eq 0 ]; then
+                echo "✅ $filename"
+              else
+                echo "❌ Failed to download $filename"
+                exit 1
+              fi
+            fi
+          done < /tmp/sreal-build/filelist.txt
+          
+          # Create symlink for libmpv
+          cd lib/dylib
+          if [ -f "libmpv.2.dylib" ] && [ ! -L "libmpv.dylib" ]; then
+            ln -sf libmpv.2.dylib libmpv.dylib
+            echo "✅ Created symlink: libmpv.dylib -> libmpv.2.dylib"
+          fi
+
+      - name: Code sign dynamic libraries
+        run: |
+          # Make signing script executable
+          chmod +x src-tauri/scripts/sign-libs.sh
+          
+          # Run signing script
+          ./src-tauri/scripts/sign-libs.sh
+
+      - name: Build frontend
+        run: bun run build
+
+      - name: Build Tauri app
+        run: bun run tauri build --bundles dmg
+        env:
+          APPLE_SIGNING_IDENTITY: "-"  # Use ad-hoc signing for CI
+
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sreal-macos-dmg
+          path: src-tauri/target/release/bundle/dmg/*.dmg
+          retention-days: 30
+
+      - name: Upload app bundle artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: sreal-macos-app
+          path: src-tauri/target/release/bundle/macos/sreal.app
+          retention-days: 30
+
+
+  # Create GitHub Release
+  create-release:
+    needs: [check-release, build-macos]
+    if: needs.check-release.outputs.is-release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Generate Changelog
+        run: |
+          # Install conventional changelog
+          npm install -g conventional-changelog-cli
+          
+          # Generate changelog from commits
+          conventional-changelog -p angular -i CHANGELOG.md -s -r 0
+          
+          # Show the generated changelog
+          cat CHANGELOG.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: Release v${{ github.run_number }}
+          body_path: CHANGELOG.md
+          files: |
+            artifacts/sreal-macos-dmg/*.dmg
+            artifacts/sreal-macos-app/sreal.app
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Regular CI (non-release builds)
+  ci:
+    needs: check-release
+    if: needs.check-release.outputs.is-release == 'false'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: Cache Bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install Bun dependencies
+        run: bun install
+
+      - name: Run linting
+        run: |
+          bun run biome check src/
+          cargo fmt --all -- --check
+          cargo clippy --all-targets --all-features -- -D warnings
+
+      - name: Build frontend
+        run: bun run build
+
+      - name: Test Rust code
+        run: |
+          cd src-tauri
+          cargo test
+
+      - name: Build Tauri app (dev)
+        run: bun run tauri build

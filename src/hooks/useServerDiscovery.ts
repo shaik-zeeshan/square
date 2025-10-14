@@ -1,4 +1,5 @@
 import { createSignal, createMemo, Accessor } from 'solid-js';
+import { createStore } from 'solid-js/store';
 import { createMutation, useQuery } from '@tanstack/solid-query';
 import { RecommendedServerInfo } from '@jellyfin/sdk';
 import { getServers } from '~/lib/jellyfin';
@@ -11,6 +12,7 @@ import {
   createFormField,
   updateFormField,
   touchFormField,
+  validateField,
   commonRules
 } from '~/lib/validation';
 import { showErrorToast, showSuccessToast } from '~/lib/toast';
@@ -22,37 +24,37 @@ export interface UseServerDiscoveryOptions {
 }
 
 export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
-  // URL input state
-  const [urlField, setUrlField] = createSignal<FormFieldState<string>>(
-    createFormField('', commonRules.serverUrl)
-  );
+  // Use store for form data like LoginForm
+  const [formData, setFormData] = createStore<{
+    url: { value: string; error: string | null; touched: boolean; dirty: boolean };
+  }>({
+    url: createFormField('', commonRules.serverUrl),
+  });
 
   // Search state
   const [searchAttempted, setSearchAttempted] = createSignal(false);
   const [selectedServer, setSelectedServer] = createSignal<RecommendedServerInfo | undefined>();
 
   // URL validation
-  const urlError = createMemo(() => {
-    const field = urlField();
-    return field.touched ? field.error : null;
+  const urlErrorDisplay = createMemo(() => {
+    return formData.url.touched ? formData.url.error : null;
   });
 
   const isUrlValid = createMemo(() => {
-    const field = urlField();
-    return !field.error && field.value.trim().length > 0;
+    return !formData.url.error && formData.url.value.trim().length > 0;
   });
 
   // Server discovery query
   const serversQuery = useQuery(() => ({
-    queryKey: ['discover-servers', urlField().value],
+    queryKey: ['discover-servers', formData.url.value],
     queryFn: async () => {
-      const url = urlField().value.trim();
+      const url = formData.url.value.trim();
       if (!url) {
         throw new Error('Server URL is required');
       }
 
       if (!isUrlValid()) {
-        throw new Error(urlError() || 'Invalid server URL');
+        throw new Error(formData.url.error || 'Invalid server URL');
       }
 
       setSearchAttempted(true);
@@ -83,12 +85,11 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
   const searchMutation = createMutation(() => ({
     mutationFn: async () => {
       // Validate URL first
-      const field = urlField();
-      const touchedField = touchFormField(field, commonRules.serverUrl, 'server-url');
-      setUrlField(touchedField);
+      const field = touchFormField(formData.url, commonRules.serverUrl, 'server-url');
+      setFormData('url', field);
 
-      if (touchedField.error) {
-        throw new Error(touchedField.error);
+      if (field.error) {
+        throw new Error(field.error);
       }
 
       return serversQuery.refetch();
@@ -105,15 +106,13 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
 
   // Form handlers
   const handleUrlChange = (value: string) => {
-    const field = urlField();
-    const updatedField = updateFormField(field, value, commonRules.serverUrl, 'server-url');
-    setUrlField(updatedField);
+    const field = updateFormField(formData.url, value, commonRules.serverUrl, 'server-url');
+    setFormData('url', field);
   };
 
   const handleUrlBlur = () => {
-    const field = urlField();
-    const touchedField = touchFormField(field, commonRules.serverUrl, 'server-url');
-    setUrlField(touchedField);
+    const field = touchFormField(formData.url, commonRules.serverUrl, 'server-url');
+    setFormData('url', field);
   };
 
   const handleSearch = () => {
@@ -161,17 +160,18 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
 
   // Reset function
   const reset = () => {
-    setUrlField(createFormField('', commonRules.serverUrl));
+    setFormData('url', createFormField('', commonRules.serverUrl));
     setSearchAttempted(false);
     setSelectedServer(undefined);
     searchMutation.reset();
-    serversQuery.remove();
+    // Note: serversQuery doesn't have remove method, just reset mutation
   };
 
   return {
     // State
-    urlField,
-    urlError,
+    urlValue: () => formData.url.value,
+    urlError: urlErrorDisplay,
+    urlTouched: () => formData.url.touched,
     isUrlValid,
     searchAttempted,
     selectedServer,

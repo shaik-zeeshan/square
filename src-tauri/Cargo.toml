@@ -16,9 +16,8 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.3.1", features = [] }
+ffmpeg-sys-next = { version = "8.0.1", features = ["build", "static"] }
 
-[env]
-MPV_SOURCE = { value = "bin/tool", relative = true }
 
 [dependencies]
 tokio = "1.47.1"
@@ -35,8 +34,8 @@ specta = { version = "=2.0.0-rc.20", features = [
 ] }
 tauri-specta = { version = "=2.0.0-rc.20", features = ["derive", "typescript"] }
 specta-typescript = "0.0.7"
-#libmpv2 = "5.0.0"
-libmpv2 = { git = "https://github.com/kohsine/libmpv2-rs"}
+
+libmpv2 = { git = "https://github.com/kohsine/libmpv2-rs" }
 
 raw-window-handle = "0.6.2"
 tauri-plugin-http = { version = "2" ,features = ["default"] }

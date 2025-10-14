@@ -81,6 +81,7 @@ export function createJellyFinQuery<
       let data = await opts().queryFn(jf.api, context);
       return data;
     },
+    deferStream:true,
   }));
 }
 

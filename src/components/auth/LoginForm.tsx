@@ -2,7 +2,6 @@ import { Show, createSignal } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { ArrowLeft, AlertCircle, CheckCircle2, Edit, Loader2 } from 'lucide-solid';
 import { RecommendedServerInfo } from '@jellyfin/sdk';
-import { GlassButton, GlassCard } from '~/components/ui';
 import { Input } from '~/components/input';
 import { useServerStore } from '~/lib/store-hooks';
 import { useAuthentication } from '~/hooks/useAuthentication';
@@ -87,38 +86,38 @@ export function LoginForm(props: LoginFormProps) {
   return (
     <div class="space-y-6">
       <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-green-500/20 to-blue-500/20 mb-4">
+        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4">
           <Show
             when={props.isEditing}
-            fallback={<CheckCircle2 class="w-8 h-8 text-green-400" />}
+            fallback={<CheckCircle2 class="w-8 h-8 text-orange-600 dark:text-orange-400" />}
           >
-            <Edit class="w-8 h-8 text-blue-400" />
+            <Edit class="w-8 h-8 text-orange-600 dark:text-orange-400" />
           </Show>
         </div>
-        <h2 class="text-3xl font-bold mb-2">
+        <h2 class="text-3xl font-bold mb-2 text-foreground">
           {props.isEditing ? 'Edit Credentials' : 'Welcome Back'}
         </h2>
-        <p class="text-sm opacity-60 mb-3">
+        <p class="text-sm text-muted-foreground mb-3">
           {props.isEditing
             ? 'Update your login credentials'
             : 'Sign in to continue'}
         </p>
-        <GlassCard preset="card" class="inline-block px-4 py-2">
+        <div class="inline-block px-4 py-2 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
           <div class="flex items-center gap-2">
-            <AlertCircle class="w-4 h-4 text-blue-400" />
-            <p class="text-sm font-medium">
+            <AlertCircle class="w-4 h-4 text-orange-600 dark:text-orange-400" />
+            <p class="text-sm font-medium text-foreground">
               {props.server.systemInfo?.ServerName || 'Jellyfin Server'}
             </p>
           </div>
-          <p class="text-xs opacity-50 mt-1">{props.server.address}</p>
-        </GlassCard>
+          <p class="text-xs text-muted-foreground mt-1">{props.server.address}</p>
+        </div>
       </div>
 
-      <GlassCard preset="card" class="p-6">
+      <div class="p-6 bg-card rounded-lg border">
         <form class="space-y-5" onSubmit={handleSubmit}>
           <div class="space-y-2">
-            <label for="username" class="text-sm font-medium opacity-80">
-              Username <span class="text-red-400">*</span>
+            <label for="username" class="text-sm font-medium text-foreground">
+              Username <span class="text-destructive">*</span>
             </label>
             <Input
               id="username"
@@ -135,12 +134,12 @@ export function LoginForm(props: LoginFormProps) {
                   ? 'username-error'
                   : undefined
               }
-              class={formData.username.error && formData.username.touched ? 'border-red-400' : ''}
+              class={formData.username.error && formData.username.touched ? 'border-destructive' : ''}
             />
             <Show when={formData.username.error && formData.username.touched}>
               <p
                 id="username-error"
-                class="text-xs text-red-400 flex items-center gap-1"
+                class="text-xs text-destructive flex items-center gap-1"
               >
                 <AlertCircle class="w-3 h-3" />
                 {formData.username.error}
@@ -149,7 +148,7 @@ export function LoginForm(props: LoginFormProps) {
           </div>
 
           <div class="space-y-2">
-            <label for="password" class="text-sm font-medium opacity-80">
+            <label for="password" class="text-sm font-medium text-foreground">
               Password
             </label>
             <div class="relative">
@@ -169,12 +168,12 @@ export function LoginForm(props: LoginFormProps) {
                     ? 'password-error'
                     : undefined
                 }
-                class={formData.password.error && formData.password.touched ? 'border-red-400 pr-10' : 'pr-10'}
+                class={formData.password.error && formData.password.touched ? 'border-destructive pr-10' : 'pr-10'}
               />
               <button
                 type="button"
                 onClick={togglePasswordVisibility}
-                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-300 transition-colors"
+                class="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
                 aria-label={showPassword() ? "Hide password" : "Show password"}
               >
                 {showPassword() ? (
@@ -192,19 +191,18 @@ export function LoginForm(props: LoginFormProps) {
             <Show when={formData.password.error && formData.password.touched}>
               <p
                 id="password-error"
-                class="text-xs text-red-400 flex items-center gap-1"
+                class="text-xs text-destructive flex items-center gap-1"
               >
                 <AlertCircle class="w-3 h-3" />
                 {formData.password.error}
               </p>
             </Show>
-            <p class="text-xs opacity-50">Leave empty if no password is set</p>
+            <p class="text-xs text-muted-foreground">Leave empty if no password is set</p>
           </div>
 
-          <GlassButton
+          <button
             type="submit"
-            variant="glass"
-            class="w-full"
+            class="w-full h-10 px-4 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
             disabled={isLoading() || !isFormValid()}
           >
             <Show
@@ -214,20 +212,19 @@ export function LoginForm(props: LoginFormProps) {
               <Loader2 class="w-4 h-4 mr-2 animate-spin" />
               {props.isEditing ? 'Updating...' : 'Signing In...'}
             </Show>
-          </GlassButton>
+          </button>
         </form>
-      </GlassCard>
+      </div>
 
       <Show when={props.onBack}>
-        <GlassButton
-          variant="ghost"
-          class="w-full"
+        <button
+          class="w-full h-10 px-4 bg-transparent border border-orange-500 dark:border-orange-400 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
           onClick={props.onBack}
           disabled={isLoading()}
         >
           <ArrowLeft class="w-4 h-4 mr-2" />
           Back
-        </GlassButton>
+        </button>
       </Show>
     </div>
   );

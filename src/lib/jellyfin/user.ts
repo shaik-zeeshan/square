@@ -3,8 +3,6 @@ import { getUserApi } from '@jellyfin/sdk/lib/utils/api/user-api';
 import {
   AUTH_PRESIST_KEY,
   AuthStore,
-  GENERAL_INFO_KEY,
-  GeneralInfo,
   SERVERS_KEY,
   ServerStore,
 } from '../persist-store';
@@ -18,6 +16,7 @@ const getAuthStore = () => {
   return safeJsonParse(auth_store, {
     isUserLoggedIn: false,
     accessToken: null,
+    user: null,
   });
 };
 
@@ -28,7 +27,7 @@ export const setAuthStore = (
   let auth_store = localStorage.getItem(AUTH_PRESIST_KEY);
   let new_value = JSON.stringify({
     ...(!replace
-      ? safeJsonParse(auth_store, { isUserLoggedIn: false, accessToken: null })
+      ? safeJsonParse(auth_store, { isUserLoggedIn: false, accessToken: null, user: null })
       : {}),
     ...value,
   });
@@ -44,26 +43,6 @@ export const setAuthStore = (
   window.dispatchEvent(storageEvent);
 };
 
-export const setGeneralStore = (
-  value: GeneralInfo | {},
-  replace: boolean = false
-) => {
-  let generalInfo = localStorage.getItem(GENERAL_INFO_KEY);
-  let newValue = JSON.stringify({
-    ...(!replace ? safeJsonParse(generalInfo, { user: null }) : {}),
-    ...value,
-  });
-
-  localStorage.setItem(GENERAL_INFO_KEY, newValue);
-
-  let storageEvent = new StorageEvent('storage', {
-    key: GENERAL_INFO_KEY,
-    oldValue: generalInfo,
-    newValue: newValue,
-  });
-
-  window.dispatchEvent(storageEvent);
-};
 
 export const setServerStore = (
   value: ServerStore | {},
@@ -116,9 +95,8 @@ const mutation = {
     return token;
   },
   logout: async () => {
-    setAuthStore({ isUserLoggedIn: false, accessToken: null }, true);
+    setAuthStore({ isUserLoggedIn: false, accessToken: null, user: null }, true);
     setServerStore({ current: null });
-    setGeneralStore({ user: null });
   },
 };
 

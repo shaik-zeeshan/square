@@ -10,6 +10,8 @@ interface VideoInfoOverlayProps {
       Type?: string | null;
       Id?: string | null;
       ParentId?: string | null;
+      IndexNumber?: number | null;
+      ParentIndexNumber?: number | null;
     };
   };
   parentDetails: {
@@ -57,6 +59,21 @@ export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
                 {props.itemDetails.data?.SeriesName ||
                   props.itemDetails.data?.Name}
               </button>
+            </Show>
+            
+            {/* Season and Episode Info for Episodes */}
+            <Show when={props.itemDetails.data?.Type === 'Episode' && (props.itemDetails.data?.ParentIndexNumber || props.itemDetails.data?.IndexNumber)}>
+              <div class="text-lg text-white/80 mb-3 text-center drop-shadow-lg">
+                <Show when={props.itemDetails.data?.ParentIndexNumber}>
+                  Season {props.itemDetails.data?.ParentIndexNumber}
+                </Show>
+                <Show when={props.itemDetails.data?.ParentIndexNumber && props.itemDetails.data?.IndexNumber}>
+                  {' • '}
+                </Show>
+                <Show when={props.itemDetails.data?.IndexNumber}>
+                  Episode {props.itemDetails.data?.IndexNumber}
+                </Show>
+              </div>
             </Show>
             <Show when={props.itemDetails.data?.Overview}>
               <p class="text-sm text-white/70 line-clamp-3 drop-shadow-md leading-relaxed text-center">

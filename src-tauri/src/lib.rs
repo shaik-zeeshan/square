@@ -1,5 +1,5 @@
 use specta::specta;
-use tauri::{Manager, WebviewBuilder, WindowBuilder, Wry};
+use tauri::{Manager, WebviewBuilder, WindowBuilder, Wry, Emitter};
 
 use tauri_plugin_http;
 
@@ -16,14 +16,18 @@ struct AppState {
 #[tauri::command]
 fn playback_play(app: tauri::AppHandle) {
     let app_state = app.state::<AppState>();
-    let _ = app_state.render_tx.send(PlaybackEvent::Play);
+    if let Err(e) = app_state.render_tx.send(PlaybackEvent::Play) {
+        log::error!("Failed to send play event to render thread: {}", e);
+    }
 }
 
 #[specta]
 #[tauri::command]
 fn playback_pause(app: tauri::AppHandle) {
     let app_state = app.state::<AppState>();
-    let _ = app_state.render_tx.send(PlaybackEvent::Pause);
+    if let Err(e) = app_state.render_tx.send(PlaybackEvent::Pause) {
+        log::error!("Failed to send pause event to render thread: {}", e);
+    }
 }
 
 #[specta]
@@ -51,7 +55,9 @@ fn playback_speed(app: tauri::AppHandle, speed: f64) {
 #[tauri::command]
 fn playback_load(app: tauri::AppHandle, url: String) {
     let app_state = app.state::<AppState>();
-    let _ = app_state.render_tx.send(PlaybackEvent::Load(url));
+    if let Err(e) = app_state.render_tx.send(PlaybackEvent::Load(url)) {
+        log::error!("Failed to send load event to render thread: {}", e);
+    }
 }
 
 #[specta]
@@ -77,16 +83,37 @@ fn playback_clear(app: tauri::AppHandle) {
     let _ = app_state.render_tx.send(PlaybackEvent::Clear);
 }
 
+
 #[specta]
 #[tauri::command]
-fn toggle_fullscreen(app: tauri::AppHandle) {
-    let window = app.get_webview_window("main").unwrap();
-    let is_fullscreen = window.is_fullscreen().unwrap_or(false);
-    let _ = window.set_fullscreen(!is_fullscreen);
+fn toggle_fullscreen(app: tauri::AppHandle) -> Result<(), String> {
+    let window = app.get_window("main")
+        .ok_or_else(|| "Main window not found".to_string())?;
+    
+    let is_fullscreen = window.is_fullscreen()
+        .map_err(|e| format!("Failed to get fullscreen state: {}", e))?;
+    
+    log::info!("Current fullscreen state: {}, toggling to: {}", is_fullscreen, !is_fullscreen);
+    
+    // Use native Tauri fullscreen method without custom style mask manipulation
+    window.set_fullscreen(!is_fullscreen)
+        .map_err(|e| format!("Failed to set fullscreen state: {}", e))?;
+    
+    Ok(())
 }
 
-fn toggle_titlebar(window: &tauri::Window, hide: bool) {
-    let ns_window = window.ns_window().unwrap() as *mut cidre::ns::Window;
+fn toggle_titlebar(window: &tauri::Window, hide: bool) -> Result<(), String> {
+    // Check if window is in fullscreen mode - if so, don't modify style mask
+    if let Ok(is_fullscreen) = window.is_fullscreen() {
+        if is_fullscreen {
+            log::info!("Window is in fullscreen mode, skipping titlebar manipulation");
+            return Ok(());
+        }
+    }
+    
+    let ns_window = window.ns_window()
+        .map_err(|e| format!("Failed to get NS window handle: {}", e))? as *mut cidre::ns::Window;
+    
     unsafe {
         use cidre::ns::{WindowStyleMask, WindowTitleVisibility};
         let window = &mut *ns_window;
@@ -94,6 +121,7 @@ fn toggle_titlebar(window: &tauri::Window, hide: bool) {
         // get style mask
         let mut style_mask = window.style_mask();
 
+        // Only modify non-fullscreen related style masks
         style_mask.set(WindowStyleMask::FULL_SIZE_CONTENT_VIEW, true);
 
         if hide {
@@ -108,19 +136,25 @@ fn toggle_titlebar(window: &tauri::Window, hide: bool) {
             style_mask.set(WindowStyleMask::MINIATURIZABLE, true);
         };
 
-        let _ = window.set_style_mask(style_mask);
+        window.set_style_mask(style_mask)
+            .map_err(|e| format!("Failed to set window style mask: {}", e))?;
 
         window.set_title_visibility(WindowTitleVisibility::Hidden);
-
         window.set_titlebar_appears_transparent(true);
     }
+    
+    Ok(())
 }
 
 #[specta]
 #[tauri::command]
-fn toggle_titlebar_hide(app: tauri::AppHandle, hide: bool) {
-    let window = app.get_window("main").unwrap();
-    toggle_titlebar(&window, hide);
+fn toggle_titlebar_hide(app: tauri::AppHandle, hide: bool) -> Result<(), String> {
+    let window = app.get_window("main")
+        .ok_or_else(|| "Main window not found".to_string())?;
+    
+    toggle_titlebar(&window, hide)?;
+    
+    Ok(())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -171,6 +205,7 @@ pub async fn run() {
             let handle = app.handle().clone();
 
             let window = WindowBuilder::new(&handle, "main")
+                .hidden_title(true)
                 .title_bar_style(tauri::TitleBarStyle::Overlay)
                 .build()
                 .unwrap();
@@ -178,7 +213,6 @@ pub async fn run() {
             // webview should be transparent if window url start with /video
             let webview =
                 WebviewBuilder::new("main", tauri::WebviewUrl::App("/".into())).transparent(true);
-
             window
                 .add_child(
                     webview,
@@ -220,12 +254,23 @@ pub async fn run() {
                 match event {
                     tauri::WindowEvent::Resized(physical_size) => {
                         let (width, height): (u32, u32) = physical_size.into();
-                        let _ = app_state
+                        if let Err(e) = app_state
                             .render_tx
-                            .send(PlaybackEvent::Resize(width, height));
+                            .send(PlaybackEvent::Resize(width, height)) {
+                            log::error!("Failed to send resize event to render thread: {}", e);
+                        }
 
-                        let webview = _app.get_webview("main").unwrap();
-                        webview.set_size(physical_size).unwrap();
+                        if let Some(webview) = _app.get_webview("main") {
+                            if let Err(e) = webview.set_size(physical_size) {
+                                log::error!("Failed to resize webview: {}", e);
+                            }
+
+                            let _ = webview.set_focus();
+                        } else {
+                            log::warn!("Main webview not found during resize");
+                        }
+
+
                     }
                     _ => {}
                 };

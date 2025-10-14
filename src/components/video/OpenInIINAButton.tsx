@@ -21,7 +21,13 @@ export const OpenInIINAButton = (props: OpenInIINAButtonProps) => {
   };
 
   return (
-    <button on:click={openIninna} class="cursor-pointer">
+    <button 
+      onClick={(e) => {
+        e.stopPropagation();
+        openIninna();
+      }} 
+      class="cursor-pointer"
+    >
       <span>
         <img src="https://raw.githubusercontent.com/iina/iina/master/iina/Assets.xcassets/AppIcon.appiconset/iina-icon-32.png" />
       </span>

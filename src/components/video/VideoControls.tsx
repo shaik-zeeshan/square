@@ -9,12 +9,13 @@ import {
   Captions,
   CaptionsOff,
   Gauge,
+  BookOpen,
 } from 'lucide-solid';
-import { createMemo, Show } from 'solid-js';
+import { createMemo, Show, For } from 'solid-js';
 import { commands } from '~/lib/tauri';
 import { formatTime } from '~/components/video/utils';
 import { cn } from '~/lib/utils';
-import type { Track } from '~/components/video/types';
+import type { Track, Chapter } from '~/components/video/types';
 
 interface VideoControlsProps {
   state: {
@@ -28,14 +29,16 @@ interface VideoControlsProps {
     playbackSpeed: number;
     audioList: Track[];
     subtitleList: Track[];
+    chapters: Chapter[];
   };
-  openPanel: () => 'audio' | 'subtitles' | 'speed' | null;
-  setOpenPanel: (panel: 'audio' | 'subtitles' | 'speed' | null) => void;
+  openPanel: () => 'audio' | 'subtitles' | 'speed' | 'chapters' | null;
+  setOpenPanel: (panel: 'audio' | 'subtitles' | 'speed' | 'chapters' | null) => void;
   onTogglePlay: () => void;
   onToggleMute: () => void;
   onVolumeChange: (value: number) => void;
   onProgressClick: (value: number) => void;
   onSetSpeed: (speed: number) => void;
+  onNavigateToChapter: (chapter: Chapter) => void;
   audioBtnRef?: HTMLButtonElement;
   subsBtnRef?: HTMLButtonElement;
   speedBtnRef?: HTMLButtonElement;
@@ -44,6 +47,9 @@ interface VideoControlsProps {
 export default function VideoControls(props: VideoControlsProps) {
   const progressPercentage = () =>
     (Number(props.state.currentTime) / props.state.duration) * 100 || 0;
+
+  // Debug chapters
+  console.log('VideoControls chapters:', props.state.chapters);
 
   const getVolumeIcon = () => {
     if (props.state.isMuted || props.state.volume === 0) {
@@ -80,20 +86,79 @@ export default function VideoControls(props: VideoControlsProps) {
           {formatTime(Number(props.state.currentTime))}
         </span>
         <div class="flex-1 relative">
-          <div class="h-1.5 bg-white/30 rounded-lg overflow-hidden">
+          <div class="h-1.5 bg-white/30 rounded-lg overflow-hidden relative">
             <div
               class="h-full bg-white/80 transition-all duration-150"
               style={{ width: `${progressPercentage()}%` }}
             />
+            {/* Chapter markers */}
+            <Show when={props.state.chapters.length > 0}>
+              <For each={props.state.chapters}>
+                {(chapter, index) => {
+                  const chapterPosition = () => {
+                    const startTimeSeconds = chapter.startPositionTicks / 10000000;
+                    return (startTimeSeconds / props.state.duration) * 100;
+                  };
+                  
+                  const chapterName = () => chapter.name || `Chapter ${index() + 1}`;
+                  const chapterTime = () => {
+                    const startTimeSeconds = chapter.startPositionTicks / 10000000;
+                    return formatTime(startTimeSeconds);
+                  };
+                  
+                  const isCurrentChapter = () => {
+                    const currentTime = Number(props.state.currentTime || 0);
+                    const chapterTime = chapter.startPositionTicks / 10000000;
+                    const nextChapterTime = props.state.chapters[index() + 1] 
+                      ? props.state.chapters[index() + 1].startPositionTicks / 10000000 
+                      : props.state.duration;
+                    return currentTime >= chapterTime && currentTime < nextChapterTime;
+                  };
+                  
+                  return (
+                    <div class="absolute top-0 group" style={{ left: `${chapterPosition()}%` }}>
+                      {/* Chapter marker button */}
+                      <button
+                        class={cn(
+                          "w-2 h-full transition-all duration-200 cursor-pointer rounded-sm hover:scale-y-110",
+                          isCurrentChapter() 
+                            ? "bg-blue-400 hover:bg-blue-300" 
+                            : "bg-white/60 hover:bg-white/90"
+                        )}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          props.onNavigateToChapter(chapter);
+                        }}
+                      />
+                      
+                      {/* Enhanced tooltip */}
+                      <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                        <div class="flex items-center gap-2">
+                          <div class="font-medium">{chapterName()}</div>
+                          <Show when={isCurrentChapter()}>
+                            <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                          </Show>
+                        </div>
+                        <div class="text-xs text-white/70 mt-1">{chapterTime()}</div>
+                        {/* Tooltip arrow */}
+                        <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-black/90"></div>
+                      </div>
+                    </div>
+                  );
+                }}
+              </For>
+            </Show>
           </div>
           <input
             type="range"
             min="0"
             max="100"
             value={progressPercentage()}
-            onInput={(e) =>
-              props.onProgressClick(Number(e.currentTarget.value))
-            }
+            onInput={(e) => {
+              e.stopPropagation();
+              props.onProgressClick(Number(e.currentTarget.value));
+            }}
+            onClick={(e) => e.stopPropagation()}
             class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
           />
         </div>
@@ -107,7 +172,10 @@ export default function VideoControls(props: VideoControlsProps) {
         {/* Left Controls */}
         <div class="flex items-center gap-3 sm:gap-4">
           <button
-            onClick={props.onTogglePlay}
+            onClick={(e) => {
+              e.stopPropagation();
+              props.onTogglePlay();
+            }}
             class="p-2.5 text-white rounded-full transition-all hover:scale-105"
           >
             <Show
@@ -120,7 +188,10 @@ export default function VideoControls(props: VideoControlsProps) {
 
           <div class="flex items-center gap-x-2">
             <button
-              onClick={props.onToggleMute}
+              onClick={(e) => {
+                e.stopPropagation();
+                props.onToggleMute();
+              }}
               class="p-2 text-white rounded-full transition-all"
             >
               {(() => {
@@ -141,9 +212,11 @@ export default function VideoControls(props: VideoControlsProps) {
                 min="0"
                 max="200"
                 value={props.state.volume}
-                onInput={(e) =>
-                  props.onVolumeChange(Number(e.currentTarget.value))
-                }
+                onInput={(e) => {
+                  e.stopPropagation();
+                  props.onVolumeChange(Number(e.currentTarget.value));
+                }}
+                onClick={(e) => e.stopPropagation()}
                 class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               />
             </div>
@@ -161,9 +234,10 @@ export default function VideoControls(props: VideoControlsProps) {
               )}
               aria-expanded={props.openPanel() === 'audio'}
               aria-label={`Audio: ${currentAudioTrack()}`}
-              onClick={() =>
-                props.setOpenPanel(props.openPanel() === 'audio' ? null : 'audio')
-              }
+              onClick={(e) => {
+                e.stopPropagation();
+                props.setOpenPanel(props.openPanel() === 'audio' ? null : 'audio');
+              }}
             >
               <Show
                 when={props.state.audioIndex !== -1 && props.state.audioIndex !== 0}
@@ -183,11 +257,12 @@ export default function VideoControls(props: VideoControlsProps) {
               )}
               aria-expanded={props.openPanel() === 'subtitles'}
               aria-label={`Subtitles: ${currentSubtitleTrack()}`}
-              onClick={() =>
+              onClick={(e) => {
+                e.stopPropagation();
                 props.setOpenPanel(
                   props.openPanel() === 'subtitles' ? null : 'subtitles'
-                )
-              }
+                );
+              }}
             >
               <Show
                 when={props.state.subtitleIndex > 0}
@@ -206,12 +281,30 @@ export default function VideoControls(props: VideoControlsProps) {
             )}
             aria-expanded={props.openPanel() === 'speed'}
             aria-label={`Speed: ${currentSpeed()}`}
-            onClick={() =>
-              props.setOpenPanel(props.openPanel() === 'speed' ? null : 'speed')
-            }
+            onClick={(e) => {
+              e.stopPropagation();
+              props.setOpenPanel(props.openPanel() === 'speed' ? null : 'speed');
+            }}
           >
             <Gauge class="h-5 w-5" />
           </button>
+
+          <Show when={props.state.chapters.length > 0}>
+            <button
+              class={cn(
+                'p-2 text-white rounded-full transition-all',
+                props.openPanel() === 'chapters' && 'bg-white/20'
+              )}
+              aria-expanded={props.openPanel() === 'chapters'}
+              aria-label="Chapters"
+              onClick={(e) => {
+                e.stopPropagation();
+                props.setOpenPanel(props.openPanel() === 'chapters' ? null : 'chapters');
+              }}
+            >
+              <BookOpen class="h-5 w-5" />
+            </button>
+          </Show>
         </div>
       </div>
     </div>

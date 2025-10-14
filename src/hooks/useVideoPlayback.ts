@@ -5,15 +5,14 @@ import { commands } from '~/lib/tauri';
 import { useJellyfin } from '~/components/jellyfin-provider';
 import { getPlaystateApi } from '@jellyfin/sdk/lib/utils/api/playstate-api';
 import { PlayMethod } from '@jellyfin/sdk/lib/generated-client';
-import type { Track, OpenPanel } from '~/components/video/types';
+import type { Track, OpenPanel, Chapter } from '~/components/video/types';
 import {
   DEFAULT_AUDIO_LANG,
   DEFAULT_SUBTITLE_LANG,
 } from '~/components/video/types';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
-
-export function useVideoPlayback(itemId: string, itemDetails: any) {
+export function useVideoPlayback(itemId: () => string, itemDetails: any) {
   const jf = useJellyfin();
 
   let [state, setState] = createStore({
@@ -26,10 +25,13 @@ export function useVideoPlayback(itemId: string, itemDetails: any) {
     playbackSpeed: 1,
     audioList: [] as Track[],
     subtitleList: [] as Track[],
+    chapters: [] as Chapter[],
     duration: 0,
     showControls: true,
     controlsLocked: false,
     url: '',
+    currentItemId: itemId(),
+    isHoveringControls: false,
   });
 
   const [openPanel, setOpenPanel] = createSignal<OpenPanel>(null);
@@ -50,11 +52,15 @@ export function useVideoPlayback(itemId: string, itemDetails: any) {
     const existing = hideControlsTimeout();
     if (existing) clearTimeout(existing);
 
-    const timeout = setTimeout(() => {
-      commands.toggleTitlebarHide(true);
-    }, 1000);
+    // Only set timeout to hide if not hovering over controls
+    if (!state.isHoveringControls) {
+      const timeout = setTimeout(() => {
+        setState('showControls', false);
+        commands.toggleTitlebarHide(true);
+      }, 1000);
 
-    setHideControlsTimeout(timeout);
+      setHideControlsTimeout(timeout);
+    }
   };
 
   const toggleControlsLock = () => {
@@ -107,31 +113,173 @@ export function useVideoPlayback(itemId: string, itemDetails: any) {
     setState('playbackSpeed', speed);
   };
 
+  const navigateToChapter = (chapter: Chapter) => {
+    // Convert ticks to seconds (1 tick = 100 nanoseconds = 0.0000001 seconds)
+    const startTimeSeconds = chapter.startPositionTicks / 10000000;
+    console.log('Navigating to chapter:', chapter.name, 'at time:', startTimeSeconds);
+    
+    // Use relative time approach like handleProgressClick
+    const currentTime = Number(state.currentTime);
+    const relativeTime = startTimeSeconds - currentTime;
+    
+    console.log('Current time:', currentTime, 'Target time:', startTimeSeconds, 'Relative time:', relativeTime);
+    
+    // Only call the seek command - let the 'playback-time' event update the state
+    console.log('Calling playbackSeek with relative time:', relativeTime);
+    commands.playbackSeek(relativeTime);
+    
+    // Don't immediately update state - let Tauri's playback-time event handle it
+    // This prevents the state from being overwritten by stale time events
+  };
+
   const handleProgressClick = (value: number) => {
     if (state.duration === 0) return;
     const newTime = (value / 100) * state.duration;
     let relativeTime = newTime - Number(state.currentTime);
+    console.log('Progress click - Current time:', state.currentTime, 'New time:', newTime, 'Relative time:', relativeTime);
     commands.playbackSeek(relativeTime);
     setState('currentTime', newTime.toString());
   };
 
-  onMount(async () => {
+  const loadNewVideo = (url: string, newItemId: string) => {
+    setState('url', url);
+    setState('currentItemId', newItemId);
+    setState('currentTime', '0');
+    setState('duration', 0);
+    setState('playing', true);
+    commands.playbackLoad(url);
+  };
+
+  const handleControlMouseEnter = () => {
+    setState('isHoveringControls', true);
+    // Clear any existing timeout when entering control area
+    const existing = hideControlsTimeout();
+    if (existing) clearTimeout(existing);
+  };
+
+  const handleControlMouseLeave = () => {
+    setState('isHoveringControls', false);
+    // Start timeout to hide controls when leaving control area
+    if (!state.controlsLocked) {
+      const timeout = setTimeout(() => {
+        setState('showControls', false);
+        commands.toggleTitlebarHide(true);
+      }, 1000);
+      setHideControlsTimeout(timeout);
+    }
+  };
+
+  createEffect(async () => {
+    const currentItemId = itemId();
     let token = jf.api?.accessToken;
     let basePath = jf.api?.basePath;
 
-    if (!token || !jf.api) {
+    if (!token || !jf.api || !currentItemId) {
       return;
     }
 
-    let url = `${basePath}/Videos/${itemId}/Stream?api_key=${token}&container=mp4&static=true`;
+    let url = `${basePath}/Videos/${currentItemId}/Stream?api_key=${token}&container=mp4&static=true`;
+    console.log('Loading video:', url);
     setState('url', url);
-
+    setState('currentItemId', currentItemId);
+    setState('currentTime', '0');
+    setState('duration', 0);
+    
+    // Process chapters from item details
+    console.log('Item details:', itemDetails.data);
+    console.log('All item details keys:', Object.keys(itemDetails.data || {}));
+    
+    let chapters: Chapter[] = [];
+    
+    // Check for chapters in different possible fields
+    if (itemDetails.data?.Chapters) {
+      console.log('Found chapters in Chapters field:', itemDetails.data.Chapters);
+      if (Array.isArray(itemDetails.data.Chapters)) {
+        chapters = itemDetails.data.Chapters.map((chapter: any) => ({
+          startPositionTicks: chapter.StartPositionTicks || 0,
+          name: chapter.Name || null,
+          imagePath: chapter.ImagePath || null,
+          imageDateModified: chapter.ImageDateModified || null,
+          imageTag: chapter.ImageTag || null,
+        }));
+      } else if (typeof itemDetails.data.Chapters === 'string') {
+        // Handle case where chapters are stored as JSON string
+        try {
+          const chaptersData = JSON.parse(itemDetails.data.Chapters);
+          console.log('Found chapters as JSON string:', chaptersData);
+          chapters = chaptersData.map((chapter: any) => ({
+            startPositionTicks: chapter.StartPositionTicks || 0,
+            name: chapter.Name || null,
+            imagePath: chapter.ImagePath || null,
+            imageDateModified: chapter.ImageDateModified || null,
+            imageTag: chapter.ImageTag || null,
+          }));
+        } catch (e) {
+          console.error('Failed to parse chapters JSON:', e);
+        }
+      }
+    } else if (itemDetails.data?.MediaSources?.[0]?.Chapters) {
+      console.log('Found chapters in MediaSources field:', itemDetails.data.MediaSources[0].Chapters);
+      chapters = itemDetails.data.MediaSources[0].Chapters.map((chapter: any) => ({
+        startPositionTicks: chapter.StartPositionTicks || 0,
+        name: chapter.Name || null,
+        imagePath: chapter.ImagePath || null,
+        imageDateModified: chapter.ImageDateModified || null,
+        imageTag: chapter.ImageTag || null,
+      }));
+    } else {
+      // Check all possible fields that might contain chapter data
+      const possibleFields = ['Chapters', 'ChapterInfo', 'ChapterList', 'MediaChapters'];
+      for (const field of possibleFields) {
+        if (itemDetails.data?.[field]) {
+          console.log(`Found potential chapters in ${field}:`, itemDetails.data[field]);
+          if (typeof itemDetails.data[field] === 'string') {
+            try {
+              const chaptersData = JSON.parse(itemDetails.data[field]);
+              chapters = chaptersData.map((chapter: any) => ({
+                startPositionTicks: chapter.StartPositionTicks || 0,
+                name: chapter.Name || null,
+                imagePath: chapter.ImagePath || null,
+                imageDateModified: chapter.ImageDateModified || null,
+                imageTag: chapter.ImageTag || null,
+              }));
+              break;
+            } catch (e) {
+              console.error(`Failed to parse ${field} JSON:`, e);
+            }
+          }
+        }
+      }
+    }
+    
+    console.log('Processed chapters:', chapters);
+    setState('chapters', chapters);
+    
     commands.playbackLoad(url);
+    commands.playbackPlay();
   });
 
+  
+
   createEffect(async () => {
+    const currentItemId = itemId();
+    // Clean up existing listeners when itemId changes
+    unlistenFuncs.forEach((unlisten) => {
+      unlisten();
+    });
+    unlistenFuncs = [];
+
+    const fileLoaded = await listen('file-loaded', (event) => {
+      console.log('File loaded');
+      commands.playbackPlay();
+    });
+
+    unlistenFuncs.push(fileLoaded);
+
     const playbackTime = await listen('playback-time', async (event) => {
-      setState('currentTime', event.payload as string);
+      const newTime = event.payload as string;
+      console.log('Playback time event received:', newTime);
+      setState('currentTime', newTime);
 
       // Report progress to Jellyfin every 3 seconds
       const now = Date.now();
@@ -141,7 +289,7 @@ export function useVideoPlayback(itemId: string, itemDetails: any) {
           const playstateApi = getPlaystateApi(jf.api);
           await playstateApi.reportPlaybackProgress({
             playbackProgressInfo: {
-              ItemId: itemId,
+              ItemId: currentItemId,
               PlaySessionId: playSessionId,
               PositionTicks: Math.floor(Number(state.currentTime) * 10000000),
               IsPaused: !state.playing,
@@ -221,7 +369,7 @@ export function useVideoPlayback(itemId: string, itemDetails: any) {
         const playstateApi = getPlaystateApi(jf.api);
         await playstateApi.reportPlaybackStart({
           playbackStartInfo: {
-            ItemId: itemId,
+            ItemId: currentItemId,
             PlaySessionId: playSessionId,
             CanSeek: true,
             IsPaused: false,
@@ -283,7 +431,7 @@ export function useVideoPlayback(itemId: string, itemDetails: any) {
         const playstateApi = getPlaystateApi(jf.api);
         await playstateApi.reportPlaybackStopped({
           playbackStopInfo: {
-            ItemId: itemId,
+            ItemId: itemId(),
             PlaySessionId: playSessionId,
             PositionTicks: Math.floor(Number(state.currentTime) * 10000000),
           },
@@ -309,5 +457,9 @@ export function useVideoPlayback(itemId: string, itemDetails: any) {
     handleVolumeChange,
     setSpeed,
     handleProgressClick,
+    loadNewVideo,
+    handleControlMouseEnter,
+    handleControlMouseLeave,
+    navigateToChapter,
   };
 }

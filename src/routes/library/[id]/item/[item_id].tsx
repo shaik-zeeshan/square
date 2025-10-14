@@ -27,6 +27,7 @@ import library from '~/lib/jellyfin/library';
 import { createJellyFinQuery } from '~/lib/utils';
 import { GlassButton } from '~/components/ui';
 import { ItemFilter } from '@jellyfin/sdk/lib/generated-client';
+import { InlineLoading } from '~/components/ui/loading';
 
 export default function Page(props: RouteSectionProps) {
   let [{ params }] = splitProps(props, ['params']);
@@ -128,6 +129,13 @@ export default function Page(props: RouteSectionProps) {
     }
   });
 
+  onMount(() => {
+    document.body.style.setProperty('--item-color', 'white');
+  });
+  onCleanup(() => {
+    document.body.style.removeProperty('--item-color');
+  });
+
   return (
     <section class="relative min-h-screen flex flex-col">
       <QueryBoundary
@@ -211,7 +219,7 @@ export default function Page(props: RouteSectionProps) {
               ref={contentAreaRef}
               class="relative z-20 text-white px-8 py-8 flex-1 overflow-y-auto"
             >
-              <div class="flex flex-col max-w-7xl mx-auto">
+              <div class="flex flex-col max-w-7xl mx-auto h-full">
                 {/* Hero Section */}
                 <div class="space-y-4">
                   <Show when={['Series', 'Movie'].includes(item?.Type || '')}>
@@ -355,9 +363,12 @@ export default function Page(props: RouteSectionProps) {
                 </div>
 
                 {/* Content Section */}
-                <div class="mt-12 pt-8 border-t border-white/10">
+                <div class="mt-12 pt-8 border-t border-white/10 flex-1">
                   <QueryBoundary
                     query={childrens}
+                    loadingFallback={
+                     <InlineLoading class='grid place-items-center text-white/80 h-full' />
+                    }
                     errorFallback={(err) => (
                       <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
                         <div class="text-red-400 text-sm">

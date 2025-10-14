@@ -1,11 +1,10 @@
-import { Router, useLocation, useNavigate } from '@solidjs/router';
+import { Router, useLocation } from '@solidjs/router';
 import { FileRoutes } from '@solidjs/start/router';
-import { createEffect, ErrorBoundary, JSX, Show, Suspense } from 'solid-js';
+import { createEffect, ErrorBoundary, JSX, Suspense } from 'solid-js';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/solid-query';
 import { SolidQueryDevtools } from '@tanstack/solid-query-devtools';
 
-import './app.css';
 import { GeneralInfoProvider } from './components/current-user-provider';
 import { JellyFinProvider } from './components/jellyfin-provider';
 import { ErrorBoundary as AppErrorBoundary } from './components/error/ErrorBoundary';
@@ -14,12 +13,19 @@ import { Toaster } from './components/ui/sonner';
 
 import { commands } from './lib/tauri';
 import { ServerStoreProvider } from './lib/store-hooks';
+import { useOverlayScrollbars } from './hooks/useOverlayScrollbars';
+
+import './app.css';
+
+
 
 const queryClient = new QueryClient({});
 
 const AppContainer = (props: { children: JSX.Element }) => {
   const path = useLocation();
-  const navigate = useNavigate();
+
+  // Initialize custom scrollbars
+  useOverlayScrollbars();
 
   createEffect(() => {
     if (!path.pathname.startsWith('/video')) {
@@ -27,13 +33,15 @@ const AppContainer = (props: { children: JSX.Element }) => {
     }
   });
   return (
-    <div class="grid min-h-screen overflow-hidden relative">
+
+      <div class="grid min-h-screen relative">
       <div
         data-tauri-drag-region
         class="absolute top-0 left-0 w-full h-10 z-10"
       />
       {props.children}
-    </div>
+      </div>
+  
   );
 };
 

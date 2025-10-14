@@ -10,7 +10,7 @@ import {
 } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { createJellyfinClient } from '~/lib/jellyfin';
-import { AUTH_PRESIST_KEY, GENERAL_INFO_KEY } from '~/lib/persist-store';
+import { AUTH_PRESIST_KEY } from '~/lib/persist-store';
 import { useServerStore } from '~/lib/store-hooks';
 
 type JellyFinContext = {
@@ -48,7 +48,15 @@ export const JellyFinProvider = (
 
   createEffect(() => {
     if (!jf.api?.accessToken) {
-      localStorage.removeItem(GENERAL_INFO_KEY);
+      // Clear user data from auth store when access token is removed
+      const authStore = localStorage.getItem(AUTH_PRESIST_KEY);
+      if (authStore) {
+        const authData = JSON.parse(authStore);
+        if (authData.user) {
+          const updatedAuth = { ...authData, user: null };
+          localStorage.setItem(AUTH_PRESIST_KEY, JSON.stringify(updatedAuth));
+        }
+      }
     }
   });
 

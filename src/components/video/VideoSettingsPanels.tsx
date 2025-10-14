@@ -1,7 +1,8 @@
 import { For, Show } from 'solid-js';
 import { commands } from '~/lib/tauri';
 import { cn } from '~/lib/utils';
-import type { Track, OpenPanel } from '~/components/video/types';
+import { formatTime } from '~/components/video/utils';
+import type { Track, OpenPanel, Chapter } from '~/components/video/types';
 
 interface VideoSettingsPanelsProps {
   openPanel: OpenPanel;
@@ -12,8 +13,12 @@ interface VideoSettingsPanelsProps {
     playbackSpeed: number;
     audioList: Track[];
     subtitleList: Track[];
+    chapters: Chapter[];
+    duration: number;
+    currentTime: string;
   };
   setState: (key: string, value: any) => void;
+  onNavigateToChapter: (chapter: Chapter) => void;
   panelRef?: HTMLDivElement;
 }
 
@@ -39,7 +44,8 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
                 'px-4 py-2 text-left text-white rounded-md hover:bg-white/20 transition-colors font-medium',
                 props.state.audioIndex === 0 && 'bg-white/20'
               )}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 commands.playbackChangeAudio('0');
                 props.setState('audioIndex', 0);
                 props.setOpenPanel(null);
@@ -54,7 +60,8 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
                     'px-4 py-2 text-left text-white rounded-md hover:bg-white/20 transition-colors font-medium',
                     props.state.audioIndex === track.id && 'bg-white/20'
                   )}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     commands.playbackChangeAudio(track.id.toString());
                     props.setState('audioIndex', track.id);
                     props.setOpenPanel(null);
@@ -77,7 +84,8 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
                   props.state.subtitleIndex === -1) &&
                   'bg-white/20'
               )}
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
                 commands.playbackChangeSubtitle('0');
                 props.setState('subtitleIndex', 0);
                 props.setOpenPanel(null);
@@ -92,7 +100,8 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
                     'px-4 py-2 text-left text-white rounded-md hover:bg-white/20 transition-colors font-medium',
                     props.state.subtitleIndex === track.id && 'bg-white/20'
                   )}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     commands.playbackChangeSubtitle(
                       track.id.toString()
                     );
@@ -117,7 +126,8 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
                     'px-4 py-2 text-left text-white rounded-md hover:bg-white/20 transition-colors font-medium',
                     props.state.playbackSpeed === speed && 'bg-white/20'
                   )}
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     setSpeed(speed);
                     props.setOpenPanel(null);
                   }}
@@ -125,6 +135,55 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
                   {speed}x
                 </button>
               )}
+            </For>
+          </div>
+        </Show>
+
+        <Show when={props.openPanel === 'chapters'}>
+          <div class="flex flex-col gap-1 max-h-96 overflow-y-auto">
+            <div class="text-xs text-white/60 px-4 py-2 border-b border-white/20">
+              {props.state.chapters.length} chapters • Use , and . keys to navigate
+            </div>
+            <For each={props.state.chapters}>
+              {(chapter, index) => {
+                const startTimeSeconds = () => chapter.startPositionTicks / 10000000;
+                const chapterName = () => chapter.name || `Chapter ${index() + 1}`;
+                const isCurrentChapter = () => {
+                  const currentTime = Number(props.state.currentTime || 0);
+                  const chapterTime = startTimeSeconds();
+                  const nextChapterTime = props.state.chapters[index() + 1] 
+                    ? props.state.chapters[index() + 1].startPositionTicks / 10000000 
+                    : props.state.duration;
+                  return currentTime >= chapterTime && currentTime < nextChapterTime;
+                };
+                
+                return (
+                  <button
+                    class={cn(
+                      "px-4 py-3 text-left text-white rounded-md hover:bg-white/20 transition-colors w-full flex items-center gap-3",
+                      isCurrentChapter() && "bg-blue-600/30 border-l-2 border-blue-400"
+                    )}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      props.onNavigateToChapter(chapter);
+                      props.setOpenPanel(null);
+                    }}
+                  >
+                    <div class="flex-shrink-0 w-8 h-8 bg-white/10 rounded-full flex items-center justify-center text-xs font-bold">
+                      {index() + 1}
+                    </div>
+                    <div class="flex-1 min-w-0">
+                      <div class="font-medium text-sm truncate">{chapterName()}</div>
+                      <div class="text-xs text-white/60 mt-1">
+                        {formatTime(startTimeSeconds())}
+                      </div>
+                    </div>
+                    <Show when={isCurrentChapter()}>
+                      <div class="flex-shrink-0 w-2 h-2 bg-blue-400 rounded-full"></div>
+                    </Show>
+                  </button>
+                );
+              }}
             </For>
           </div>
         </Show>

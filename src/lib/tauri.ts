@@ -32,23 +32,11 @@ async playbackChangeAudio(audio: string) : Promise<void> {
 async playbackClear() : Promise<void> {
     await TAURI_INVOKE("playback_clear");
 },
-async playbackCreatePip() : Promise<void> {
-    await TAURI_INVOKE("playback_create_pip");
+async toggleTitlebarHide(hide: boolean) : Promise<null> {
+    return await TAURI_INVOKE("toggle_titlebar_hide", { hide });
 },
-async playbackSwitchToMain() : Promise<void> {
-    await TAURI_INVOKE("playback_switch_to_main");
-},
-async playbackSwitchToPip() : Promise<void> {
-    await TAURI_INVOKE("playback_switch_to_pip");
-},
-async playbackClosePip() : Promise<void> {
-    await TAURI_INVOKE("playback_close_pip");
-},
-async toggleTitlebarHide(hide: boolean) : Promise<void> {
-    await TAURI_INVOKE("toggle_titlebar_hide", { hide });
-},
-async toggleFullscreen() : Promise<void> {
-    await TAURI_INVOKE("toggle_fullscreen");
+async toggleFullscreen() : Promise<null> {
+    return await TAURI_INVOKE("toggle_fullscreen");
 }
 }
 
