@@ -217,8 +217,8 @@ jobs:
       - name: Run linting
         run: |
           bun run biome check src/
-          cargo fmt --all -- --check
-          cargo clippy --all-targets --all-features -- -D warnings
+          cd src-tauri && cargo fmt --all -- --check
+          cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings
 
       - name: Build frontend
         run: bun run build
