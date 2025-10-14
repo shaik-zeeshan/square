@@ -177,7 +177,7 @@ jobs:
   ci:
     needs: check-release
     if: needs.check-release.outputs.is-release == 'false'
-    runs-on: ubuntu-latest
+    runs-on: macos-latest
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -185,38 +185,15 @@ jobs:
       - name: Cache system dependencies
         uses: actions/cache@v4
         with:
-          path: /var/cache/apt
-          key: ${{ runner.os }}-apt-${{ hashFiles('**/Cargo.lock') }}
+          path: /Users/runner/Library/Caches/Homebrew
+          key: ${{ runner.os }}-brew-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: |
-            ${{ runner.os }}-apt-
+            ${{ runner.os }}-brew-
 
       - name: Install system dependencies
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libglib2.0-dev \
-            libmpv-dev \
-            pkg-config \
-            libssl-dev \
-            libasound2-dev \
-            libx11-dev \
-            libxext-dev \
-            libxrender-dev \
-            libxrandr-dev \
-            libxss-dev \
-            libnss3-dev \
-            libxcomposite-dev \
-            libxcursor-dev \
-            libxdamage-dev \
-            libxfixes-dev \
-            libxi-dev \
-            libxtst-dev \
-            libatspi2.0-dev \
-            libdrm-dev \
-            libxkbcommon-dev \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libjavascriptcoregtk-4.1-dev
+          brew update
+          brew install pkg-config
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
