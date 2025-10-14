@@ -16,7 +16,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2.3.1", features = [] }
-ffmpeg-sys-next = { version = "8.0.1", features = ["build", "static"] }
+#ffmpeg-sys-next = { version = "8.0.1", features = ["build", "static"] }
 
 
 [dependencies]

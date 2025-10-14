@@ -12,6 +12,38 @@ fn main() {
     println!("cargo:rustc-link-search=native={}", mpv_lib_path.display());
     println!("cargo:rustc-link-lib=dylib=mpv");
     
+    // Copy dynamic libraries to target directory for testing
+    let target_dir = std::env::var("OUT_DIR").unwrap();
+    let target_frameworks = std::path::Path::new(&target_dir)
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .join("Frameworks");
+    
+    if !target_frameworks.exists() {
+        std::fs::create_dir_all(&target_frameworks).unwrap();
+    }
+    
+    // Copy all dylib files to the target Frameworks directory
+    if let Ok(entries) = std::fs::read_dir(&mpv_lib_path) {
+        for entry in entries {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("dylib") {
+                    let filename = path.file_name().unwrap();
+                    let dest_path = target_frameworks.join(filename);
+                    if let Err(e) = std::fs::copy(&path, &dest_path) {
+                        eprintln!("Warning: Failed to copy {} to {}: {}", 
+                            path.display(), dest_path.display(), e);
+                    }
+                }
+            }
+        }
+    }
+    
     // Run code signing script for dynamic libraries
     let script_path = std::env::current_dir()
         .unwrap()
