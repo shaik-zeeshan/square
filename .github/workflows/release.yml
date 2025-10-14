@@ -236,6 +236,12 @@ jobs:
       - name: Build frontend
         run: bun run build
 
+      - name: Download dynamic libraries
+        run: make download-dylibs
+
+      - name: Create symlinks
+        run: make create-symlink
+
       - name: Test Rust code
         run: |
           cd src-tauri
