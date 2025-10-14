@@ -67,14 +67,12 @@ jobs:
         run: bun run biome check src/
 
       - name: Check Rust formatting
-        run: |
-          cd src-tauri
-          cargo fmt --all -- --check
+        run: cargo fmt --all -- --check
+        working-directory: src-tauri
 
       - name: Run Clippy
-        run: |
-          cd src-tauri
-          cargo clippy --all-targets --all-features -- -D warnings
+        run: cargo clippy --all-targets --all-features -- -D warnings
+        working-directory: src-tauri
 
   # Test frontend
   test-frontend:
