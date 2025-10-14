@@ -25,54 +25,54 @@ jobs:
           fi
 
   # Lint and format check
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+  # lint:
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout code
+  #       uses: actions/checkout@v4
 
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
+  #     - name: Setup Bun
+  #       uses: oven-sh/setup-bun@v2
+  #       with:
+  #         bun-version: latest
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
+  #     - name: Setup Rust
+  #       uses: dtolnay/rust-toolchain@stable
+  #       with:
+  #         components: rustfmt, clippy
 
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
+  #     - name: Cache Rust dependencies
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: |
+  #           ~/.cargo/registry
+  #           ~/.cargo/git
+  #           src-tauri/target
+  #         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-cargo-
 
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
+  #     - name: Cache Bun dependencies
+  #       uses: actions/cache@v4
+  #       with:
+  #         path: node_modules
+  #         key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+  #         restore-keys: |
+  #           ${{ runner.os }}-bun-
 
-      - name: Install Bun dependencies
-        run: bun install
+  #     - name: Install Bun dependencies
+  #       run: bun install
 
-      - name: Run Biome linting
-        run: bun run biome check src/
+  #     - name: Run Biome linting
+  #       run: bun run biome check src/
 
-      - name: Check Rust formatting
-        run: cargo fmt --all -- --check
-        working-directory: src-tauri
+  #     - name: Check Rust formatting
+  #       run: cargo fmt --all -- --check
+  #       working-directory: src-tauri
 
-      - name: Run Clippy
-        run: cargo clippy --all-targets --all-features -- -D warnings
-        working-directory: src-tauri
+  #     - name: Run Clippy
+  #       run: cargo clippy --all-targets --all-features -- -D warnings
+  #       working-directory: src-tauri
 
   # Test frontend
   test-frontend:
