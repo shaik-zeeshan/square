@@ -1,10 +1,9 @@
-import { createSignal, createMemo, Accessor } from 'solid-js';
 import { createMutation } from '@tanstack/solid-query';
-import { RecommendedServerInfo } from '@jellyfin/sdk';
-import { useServerStore } from '~/lib/store-hooks';
+import { createMemo } from 'solid-js';
 import { user } from '~/lib/jellyfin/user';
-import { AuthCredentials, AuthState } from '~/types';
-import { showSuccessToast, showErrorToast } from '~/lib/toast';
+import { useServerStore } from '~/lib/store-hooks';
+import { showErrorToast, showSuccessToast } from '~/lib/toast';
+import type { AuthCredentials, AuthState } from '~/types';
 
 export interface UseAuthenticationOptions {
   onSuccess?: (credentials: AuthCredentials) => void;
@@ -30,13 +29,15 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
         if (error instanceof Error) {
           throw error;
         }
-        throw new Error('Login failed. Please check your credentials and try again.');
+        throw new Error(
+          'Login failed. Please check your credentials and try again.'
+        );
       }
     },
     onSuccess: ({ token, credentials }) => {
       // Store server credentials
       const existingServerIndex = serverStore.servers.findIndex(
-        s => s.info.address === credentials.server.address
+        (s) => s.info.address === credentials.server.address
       );
 
       const serverConnection = {
@@ -69,9 +70,9 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
       options.onSuccess?.(credentials);
     },
     onError: (error: Error) => {
-      console.error('Login error:', error);
-
-      const errorMessage = error.message || 'Login failed. Please check your credentials and try again.';
+      const errorMessage =
+        error.message ||
+        'Login failed. Please check your credentials and try again.';
 
       showErrorToast(errorMessage);
 
@@ -87,8 +88,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
     onSuccess: () => {
       showSuccessToast('Successfully signed out');
     },
-    onError: (error: Error) => {
-      console.error('Logout error:', error);
+    onError: (_error: Error) => {
       showErrorToast('Failed to sign out');
     },
   }));
@@ -100,25 +100,22 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
     user: null, // This would come from general info store
     server: serverStore.current?.info || null,
     isLoading: loginMutation.isPending || logoutMutation.isPending,
-    error: loginMutation.error?.message || logoutMutation.error?.message || null,
+    error:
+      loginMutation.error?.message || logoutMutation.error?.message || null,
   }));
 
   // Computed states
-  const isLoading = createMemo(() =>
-    loginMutation.isPending || logoutMutation.isPending
+  const isLoading = createMemo(
+    () => loginMutation.isPending || logoutMutation.isPending
   );
 
-  const error = createMemo(() =>
-    loginMutation.error?.message || logoutMutation.error?.message || null
+  const error = createMemo(
+    () => loginMutation.error?.message || logoutMutation.error?.message || null
   );
 
-  const isAuthenticated = createMemo(() =>
-    serverStore.current !== null
-  );
+  const isAuthenticated = createMemo(() => serverStore.current !== null);
 
-  const currentServer = createMemo(() =>
-    serverStore.current?.info || null
-  );
+  const currentServer = createMemo(() => serverStore.current?.info || null);
 
   // Actions
   const login = (credentials: AuthCredentials) => {
@@ -142,7 +139,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
 
   const removeServer = (serverAddress: string) => {
     const updatedServers = serverStore.servers.filter(
-      server => server.info.address !== serverAddress
+      (server) => server.info.address !== serverAddress
     );
 
     const isCurrentServer = serverStore.current?.info.address === serverAddress;
@@ -164,7 +161,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
     newCredentials: Partial<AuthCredentials>
   ) => {
     const serverIndex = serverStore.servers.findIndex(
-      server => server.info.address === serverAddress
+      (server) => server.info.address === serverAddress
     );
 
     if (serverIndex >= 0) {

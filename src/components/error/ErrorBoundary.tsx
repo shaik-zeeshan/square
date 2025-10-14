@@ -1,8 +1,11 @@
-import { ErrorBoundary as SolidErrorBoundary, createSignal, ParentComponent } from 'solid-js';
-import { AlertTriangle, RefreshCw, Home } from 'lucide-solid';
+import { AlertTriangle, Home, RefreshCw } from 'lucide-solid';
+import {
+  createSignal,
+  type ParentComponent,
+  ErrorBoundary as SolidErrorBoundary,
+} from 'solid-js';
 import { GlassCard } from '~/components/ui';
 import { GlassButton } from '~/components/ui/glass-button';
-import { AppError } from '~/types';
 
 interface ErrorBoundaryProps {
   fallback?: (error: Error, reset: () => void) => JSX.Element;
@@ -68,31 +71,32 @@ function DefaultErrorFallback(props: DefaultErrorFallbackProps) {
   };
 
   return (
-    <div class="min-h-screen flex items-center justify-center p-4">
+    <div class="flex min-h-screen items-center justify-center p-4">
       <div class="w-full max-w-lg space-y-6">
         {/* Error Icon and Title */}
         <div class="text-center">
-          <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-red-500/20 mb-4">
-            <AlertTriangle class="w-8 h-8 text-red-400" />
+          <div class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full bg-red-500/20">
+            <AlertTriangle class="h-8 w-8 text-red-400" />
           </div>
-          <h1 class="text-2xl font-bold text-white mb-2">
+          <h1 class="mb-2 font-bold text-2xl text-white">
             Oops! Something went wrong
           </h1>
           <p class="text-sm opacity-60">
-            We encountered an unexpected error. This has been logged and we'll look into it.
+            We encountered an unexpected error. This has been logged and we'll
+            look into it.
           </p>
         </div>
 
         {/* Error Message */}
-        <GlassCard preset="card" class="p-4">
+        <GlassCard class="p-4" preset="card">
           <div class="space-y-2">
             <div class="flex items-start gap-3">
-              <AlertTriangle class="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <AlertTriangle class="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
               <div class="flex-1">
-                <p class="text-sm font-medium text-red-300">
+                <p class="font-medium text-red-300 text-sm">
                   {props.error.name || 'Application Error'}
                 </p>
-                <p class="text-xs text-red-400 mt-1 break-words">
+                <p class="mt-1 break-words text-red-400 text-xs">
                   {props.error.message || 'An unexpected error occurred'}
                 </p>
               </div>
@@ -101,22 +105,24 @@ function DefaultErrorFallback(props: DefaultErrorFallbackProps) {
         </GlassCard>
 
         {/* Action Buttons */}
-        <div class="flex flex-col sm:flex-row gap-3">
+        <div class="flex flex-col gap-3 sm:flex-row">
           <GlassButton
-            variant="glass"
             class="flex-1"
-            onClick={handleRetry}
             disabled={isRetrying()}
+            onClick={handleRetry}
+            variant="glass"
           >
-            <RefreshCw class={`w-4 h-4 mr-2 ${isRetrying() ? 'animate-spin' : ''}`} />
+            <RefreshCw
+              class={`mr-2 h-4 w-4 ${isRetrying() ? 'animate-spin' : ''}`}
+            />
             {isRetrying() ? 'Retrying...' : 'Try Again'}
           </GlassButton>
           <GlassButton
-            variant="glass-subtle"
             class="flex-1"
             onClick={handleGoHome}
+            variant="glass-subtle"
           >
-            <Home class="w-4 h-4 mr-2" />
+            <Home class="mr-2 h-4 w-4" />
             Go Home
           </GlassButton>
         </div>
@@ -124,11 +130,11 @@ function DefaultErrorFallback(props: DefaultErrorFallbackProps) {
         {/* Error Details (Development Only) */}
         {import.meta.env.DEV && (
           <details class="text-left">
-            <summary class="cursor-pointer text-xs opacity-60 hover:opacity-80 transition-opacity">
+            <summary class="cursor-pointer text-xs opacity-60 transition-opacity hover:opacity-80">
               Error Details (Development)
             </summary>
-            <GlassCard preset="card" class="mt-2 p-3">
-              <pre class="text-xs text-red-400 whitespace-pre-wrap break-words font-mono">
+            <GlassCard class="mt-2 p-3" preset="card">
+              <pre class="whitespace-pre-wrap break-words font-mono text-red-400 text-xs">
                 {JSON.stringify(getErrorDetails(), null, 2)}
               </pre>
             </GlassCard>
@@ -147,8 +153,8 @@ export function AuthErrorBoundary(props: { children: JSX.Element }) {
       fallback={(error, reset) => (
         <AuthErrorFallback error={error} reset={reset} />
       )}
-      onError={(error) => {
-        console.error('Authentication Error:', error);
+      onError={(_error) => {
+        // Error handling is managed by the error boundary state
       }}
     >
       {props.children}
@@ -158,20 +164,16 @@ export function AuthErrorBoundary(props: { children: JSX.Element }) {
 
 function AuthErrorFallback(props: { error: Error; reset: () => void }) {
   return (
-    <div class="w-full max-w-md mx-auto p-4">
-      <GlassCard preset="card" class="p-6 text-center">
-        <AlertTriangle class="w-12 h-12 text-red-400 mx-auto mb-4" />
-        <h3 class="text-lg font-semibold text-white mb-2">
+    <div class="mx-auto w-full max-w-md p-4">
+      <GlassCard class="p-6 text-center" preset="card">
+        <AlertTriangle class="mx-auto mb-4 h-12 w-12 text-red-400" />
+        <h3 class="mb-2 font-semibold text-lg text-white">
           Authentication Error
         </h3>
-        <p class="text-sm opacity-60 mb-4">
+        <p class="mb-4 text-sm opacity-60">
           {props.error.message || 'Failed to authenticate. Please try again.'}
         </p>
-        <GlassButton
-          variant="glass"
-          class="w-full"
-          onClick={props.reset}
-        >
+        <GlassButton class="w-full" onClick={props.reset} variant="glass">
           Try Again
         </GlassButton>
       </GlassCard>
@@ -185,8 +187,8 @@ export function MediaErrorBoundary(props: { children: JSX.Element }) {
       fallback={(error, reset) => (
         <MediaErrorFallback error={error} reset={reset} />
       )}
-      onError={(error) => {
-        console.error('Media Loading Error:', error);
+      onError={(_error) => {
+        // Error handling is managed by the error boundary state
       }}
     >
       {props.children}
@@ -197,19 +199,14 @@ export function MediaErrorBoundary(props: { children: JSX.Element }) {
 function MediaErrorFallback(props: { error: Error; reset: () => void }) {
   return (
     <div class="w-full p-8 text-center">
-      <div class="inline-flex items-center justify-center w-12 h-12 rounded-full bg-yellow-500/20 mb-4">
-        <AlertTriangle class="w-6 h-6 text-yellow-400" />
+      <div class="mb-4 inline-flex h-12 w-12 items-center justify-center rounded-full bg-yellow-500/20">
+        <AlertTriangle class="h-6 w-6 text-yellow-400" />
       </div>
-      <h3 class="text-lg font-semibold text-white mb-2">
-        Media Loading Error
-      </h3>
-      <p class="text-sm opacity-60 mb-4">
+      <h3 class="mb-2 font-semibold text-lg text-white">Media Loading Error</h3>
+      <p class="mb-4 text-sm opacity-60">
         {props.error.message || 'Failed to load media. Please try again.'}
       </p>
-      <GlassButton
-        variant="glass"
-        onClick={props.reset}
-      >
+      <GlassButton onClick={props.reset} variant="glass">
         Retry
       </GlassButton>
     </div>

@@ -1,13 +1,12 @@
 import { Toaster as SolidToaster } from 'solid-toast';
-import { cn } from '~/lib/utils';
 
 export function Toaster() {
   return (
     <SolidToaster
-      position="top-center"
-      gutter={8}
       containerClassName=""
       containerStyle={{}}
+      gutter={8}
+      position="top-center"
       toastOptions={{
         className: '',
         duration: 5000,
@@ -16,7 +15,8 @@ export function Toaster() {
           color: 'hsl(var(--foreground))',
           border: '1px solid hsl(var(--border))',
           borderRadius: '8px',
-          boxShadow: '0 25px 50px -12px rgb(0 0 0 / 0.25), 0 0 0 1px rgb(0 0 0 / 0.05)',
+          boxShadow:
+            '0 25px 50px -12px rgb(0 0 0 / 0.25), 0 0 0 1px rgb(0 0 0 / 0.05)',
           padding: '12px 16px',
           fontSize: '14px',
           fontWeight: '500',

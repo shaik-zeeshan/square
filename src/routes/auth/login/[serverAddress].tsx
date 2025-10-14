@@ -1,11 +1,10 @@
-import { createSignal, Show } from 'solid-js';
-import { useParams, useNavigate, useSearchParams } from '@solidjs/router';
-import { RecommendedServerInfo } from '@jellyfin/sdk';
-import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
-import { RouteProtection } from '~/components/auth/RouteProtection';
+import { useNavigate, useParams, useSearchParams } from '@solidjs/router';
+import { Show } from 'solid-js';
 import { LoginForm } from '~/components/auth/LoginForm';
-import { useServerStore } from '~/lib/store-hooks';
+import { RouteProtection } from '~/components/auth/RouteProtection';
+import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
 import { useAuthentication } from '~/hooks/useAuthentication';
+import { useServerStore } from '~/lib/store-hooks';
 
 export default function LoginPage() {
   const params = useParams();
@@ -17,20 +16,17 @@ export default function LoginPage() {
   // Find the server by address from URL params
   const server = () => {
     const serverAddress = params.serverAddress;
-    if (!serverAddress) return null;
-    
-    console.log('Looking for server with address:', decodeURIComponent(serverAddress));
-    console.log('Available servers:', serverStore.servers);
-    
+    if (!serverAddress) {
+      return null;
+    }
+
     const foundServer = serverStore.servers.find(
       (s) => s.info.address === decodeURIComponent(serverAddress)
     );
-    
-    console.log('Found server:', foundServer);
     return foundServer?.info || null;
   };
 
-  const handleLoginComplete = () => {
+  const _handleLoginComplete = () => {
     // Redirect to home after successful login
     navigate('/');
   };
@@ -42,34 +38,49 @@ export default function LoginPage() {
   return (
     <RouteProtection requireAuth={false}>
       <AuthErrorBoundary>
-        <div class="h-full w-full grid place-items-center relative overflow-hidden bg-background">
-
-        <div class="w-full max-w-md px-4 relative z-10">
-          <Show when={server()}>
-            <LoginForm
-              server={server()!}
-              initialUsername={searchParams.edit ? serverStore.servers.find(s => s.info.address === decodeURIComponent(params.serverAddress))?.auth.username : undefined}
-              initialPassword={searchParams.edit ? serverStore.servers.find(s => s.info.address === decodeURIComponent(params.serverAddress))?.auth.password : undefined}
-              isEditing={!!searchParams.edit}
-              onBack={handleBack}
-            />
-          </Show>
-          <Show when={!server()}>
-            <div class="text-center">
-              <h2 class="text-2xl font-bold mb-4">Server Not Found</h2>
-              <p class="text-sm opacity-60 mb-6">
-                The requested server could not be found.
-              </p>
-              <button
-                onClick={handleBack}
-                class="px-6 py-2 bg-orange-500/20 hover:bg-orange-500/30 rounded-lg transition-colors"
-              >
-                Back to Onboarding
-              </button>
-            </div>
-          </Show>
+        <div class="relative grid h-full w-full place-items-center overflow-hidden bg-background">
+          <div class="relative z-10 w-full max-w-md px-4">
+            <Show when={server()}>
+              <LoginForm
+                initialPassword={
+                  searchParams.edit
+                    ? serverStore.servers.find(
+                        (s) =>
+                          s.info.address ===
+                          decodeURIComponent(params.serverAddress)
+                      )?.auth.password
+                    : undefined
+                }
+                initialUsername={
+                  searchParams.edit
+                    ? serverStore.servers.find(
+                        (s) =>
+                          s.info.address ===
+                          decodeURIComponent(params.serverAddress)
+                      )?.auth.username
+                    : undefined
+                }
+                isEditing={!!searchParams.edit}
+                onBack={handleBack}
+                server={server()!}
+              />
+            </Show>
+            <Show when={!server()}>
+              <div class="text-center">
+                <h2 class="mb-4 font-bold text-2xl">Server Not Found</h2>
+                <p class="mb-6 text-sm opacity-60">
+                  The requested server could not be found.
+                </p>
+                <button
+                  class="rounded-lg bg-orange-500/20 px-6 py-2 transition-colors hover:bg-orange-500/30"
+                  onClick={handleBack}
+                >
+                  Back to Onboarding
+                </button>
+              </div>
+            </Show>
+          </div>
         </div>
-      </div>
       </AuthErrorBoundary>
     </RouteProtection>
   );

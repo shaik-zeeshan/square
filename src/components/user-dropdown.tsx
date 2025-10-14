@@ -1,9 +1,9 @@
 import { useNavigate } from '@solidjs/router';
-import { User, Settings, LogOut } from 'lucide-solid';
-import { Show, createSignal, createEffect, onCleanup, onMount } from 'solid-js';
-import { useGeneralInfo } from './current-user-provider';
 import { useMutation } from '@tanstack/solid-query';
+import { LogOut, Settings, User } from 'lucide-solid';
+import { createEffect, createSignal, onCleanup, Show } from 'solid-js';
 import { user } from '~/lib/jellyfin/user';
+import { useGeneralInfo } from './current-user-provider';
 
 interface UserDropdownProps {
   /** Color variant for the button */
@@ -58,31 +58,31 @@ export function UserDropdown(props: UserDropdownProps) {
     <div class={` ${props.class ?? ''}`} ref={userDropdownRef}>
       <div class="relative">
         <button
-          onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen())}
-          class={`p-2 rounded-md ${hoverBgClass} transition-colors ${isUserDropdownOpen() ? activeBgClass : ''}`}
           aria-label="User profile"
+          class={`rounded-md p-2 ${hoverBgClass} transition-colors ${isUserDropdownOpen() ? activeBgClass : ''}`}
+          onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen())}
           title="Profile"
         >
-          <User class="w-5 h-5" />
+          <User class="h-5 w-5" />
         </button>
 
         <Show when={isUserDropdownOpen()}>
-          <div class="absolute right-0 mt-2 w-64 bg-popover rounded-lg shadow-[var(--glass-shadow-lg)] border border-border overflow-hidden z-50 backdrop-blur-sm">
+          <div class="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-popover shadow-[var(--glass-shadow-lg)] backdrop-blur-sm">
             {/* User Info Section */}
-            <div class="px-4 py-3 border-b border-border">
+            <div class="border-border border-b px-4 py-3">
               <Show
-                when={generalInfo.store?.user}
                 fallback={
-                  <div class="text-sm text-foreground font-medium">
+                  <div class="font-medium text-foreground text-sm">
                     Guest User
                   </div>
                 }
+                when={generalInfo.store?.user}
               >
-                <div class="text-sm text-foreground font-medium">
+                <div class="font-medium text-foreground text-sm">
                   {generalInfo.store?.user?.Name}
                 </div>
                 <Show when={generalInfo.store?.user?.ServerId}>
-                  <div class="text-xs text-muted-foreground mt-1">
+                  <div class="mt-1 text-muted-foreground text-xs">
                     Server: {generalInfo.store?.user?.ServerId?.slice(0, 8)}...
                   </div>
                 </Show>
@@ -92,21 +92,21 @@ export function UserDropdown(props: UserDropdownProps) {
             {/* Menu Items */}
             <div class="py-1">
               <button
+                class="flex w-full items-center gap-3 px-4 py-2.5 text-foreground text-sm transition-colors hover:bg-accent"
                 onClick={() => {
                   setIsUserDropdownOpen(false);
                   navigate('/settings');
                 }}
-                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-foreground hover:bg-accent transition-colors"
               >
-                <Settings class="w-4 h-4" />
+                <Settings class="h-4 w-4" />
                 <span>Settings</span>
               </button>
 
               <button
+                class="flex w-full items-center gap-3 px-4 py-2.5 text-destructive-foreground text-sm transition-colors hover:bg-accent"
                 onClick={handleLogout}
-                class="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-destructive-foreground hover:bg-accent transition-colors"
               >
-                <LogOut class="w-4 h-4" />
+                <LogOut class="h-4 w-4" />
                 <span>Logout</span>
               </button>
             </div>

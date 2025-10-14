@@ -1,6 +1,6 @@
 import { useNavigate } from '@solidjs/router';
-import { Home, Search, ChevronRight, X } from 'lucide-solid';
-import { Show, createSignal, createEffect, type JSX } from 'solid-js';
+import { ChevronRight, Home, Search, X } from 'lucide-solid';
+import { createEffect, createSignal, type JSX, Show } from 'solid-js';
 import { UserDropdown } from './user-dropdown';
 
 interface NavProps {
@@ -65,35 +65,37 @@ export function Nav(props: NavProps) {
     >
       <div class="flex items-center justify-between gap-4">
         {/* Left Side - Breadcrumb Navigation */}
-        <div class="flex items-center gap-3 min-w-0">
+        <div class="flex min-w-0 items-center gap-3">
           <button
-            onClick={() => navigate('/')}
-            class={`p-2 rounded-md ${hoverBgClass} transition-colors flex-shrink-0`}
             aria-label="Go home"
+            class={`rounded-md p-2 ${hoverBgClass} flex-shrink-0 transition-colors`}
+            onClick={() => navigate('/')}
             title="Home"
+            type="button"
           >
-            <Home class="w-5 h-5" />
+            <Home class="h-5 w-5" />
           </button>
 
           <div class={`h-6 w-px ${dividerClass} flex-shrink-0`} />
 
-          <div class="flex items-center gap-2 text-sm min-w-0 overflow-hidden">
+          <div class="flex min-w-0 items-center gap-2 overflow-hidden text-sm">
             <Show when={props.breadcrumbs && props.breadcrumbs.length > 0}>
               {props.breadcrumbs?.map((breadcrumb, index) => (
                 <>
                   <Show when={breadcrumb.icon}>{breadcrumb.icon}</Show>
                   <Show
-                    when={breadcrumb.onClick}
                     fallback={
-                      <span class="opacity-70 truncate">
+                      <span class="truncate opacity-70">
                         {breadcrumb.label}
                       </span>
                     }
+                    when={breadcrumb.onClick}
                   >
                     <button
-                      onClick={breadcrumb.onClick}
-                      class="opacity-70 hover:opacity-100 transition-opacity truncate"
                       aria-label={`Navigate to ${breadcrumb.label}`}
+                      class="truncate opacity-70 transition-opacity hover:opacity-100"
+                      onClick={breadcrumb.onClick}
+                      type="button"
                     >
                       {breadcrumb.label}
                     </button>
@@ -104,52 +106,54 @@ export function Nav(props: NavProps) {
                       props.currentPage
                     }
                   >
-                    <ChevronRight class="w-4 h-4 opacity-50 flex-shrink-0" />
+                    <ChevronRight class="h-4 w-4 flex-shrink-0 opacity-50" />
                   </Show>
                 </>
               ))}
             </Show>
 
             <Show when={props.currentPage}>
-              <span class="font-semibold truncate">{props.currentPage}</span>
+              <span class="truncate font-semibold">{props.currentPage}</span>
             </Show>
           </div>
         </div>
 
         {/* Right Side - Actions & Search */}
-        <div class="flex items-center gap-2 flex-shrink-0">
+        <div class="flex flex-shrink-0 items-center gap-2">
           <Show when={props.showSearch}>
             <Show
-              when={isSearchOpen()}
               fallback={
                 <button
-                  onClick={() => setIsSearchOpen(true)}
-                  class={`p-2 rounded-md ${hoverBgClass} transition-colors`}
                   aria-label="Search"
+                  class={`rounded-md p-2 ${hoverBgClass} transition-colors`}
+                  onClick={() => setIsSearchOpen(true)}
                   title="Search"
+                  type="button"
                 >
-                  <Search class="w-5 h-5" />
+                  <Search class="h-5 w-5" />
                 </button>
               }
+              when={isSearchOpen()}
             >
               <div
-                class={`flex items-center gap-2 ${searchBgClass} rounded-lg px-3 py-1.5 backdrop-blur-sm border`}
+                class={`flex items-center gap-2 ${searchBgClass} rounded-lg border px-3 py-1.5 backdrop-blur-sm`}
               >
-                <Search class="w-4 h-4 opacity-60 flex-shrink-0" />
+                <Search class="h-4 w-4 flex-shrink-0 opacity-60" />
                 <input
+                  class={`w-48 bg-transparent text-sm outline-none ${searchTextClass}`}
+                  onInput={(e) => props.onSearchChange?.(e.currentTarget.value)}
+                  placeholder="Search..."
                   ref={searchInputRef}
                   type="text"
                   value={props.searchValue ?? ''}
-                  onInput={(e) => props.onSearchChange?.(e.currentTarget.value)}
-                  placeholder="Search..."
-                  class={`bg-transparent outline-none text-sm w-48 ${searchTextClass}`}
                 />
                 <button
-                  onClick={handleSearchClose}
-                  class={`p-1 rounded ${hoverBgClass} transition-colors`}
                   aria-label="Close search"
+                  class={`rounded p-1 ${hoverBgClass} transition-colors`}
+                  onClick={handleSearchClose}
+                  type="button"
                 >
-                  <X class="w-4 h-4" />
+                  <X class="h-4 w-4" />
                 </button>
               </div>
             </Show>

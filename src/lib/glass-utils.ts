@@ -3,61 +3,58 @@ import { cva, type VariantProps } from 'class-variance-authority';
 /**
  * Glass effect variants using CVA
  */
-export const glassVariants = cva(
-  'backdrop-blur-md border transition-all',
-  {
-    variants: {
-      blur: {
-        subtle: 'backdrop-blur-[var(--glass-blur-subtle)]',
-        medium: 'backdrop-blur-[var(--glass-blur-medium)]',
-        strong: 'backdrop-blur-[var(--glass-blur-strong)]',
-        ultra: 'backdrop-blur-[var(--glass-blur-ultra)]',
-      },
-      background: {
-        subtle: 'bg-[var(--glass-bg-subtle)]',
-        light: 'bg-[var(--glass-bg-light)]',
-        medium: 'bg-[var(--glass-bg-medium)]',
-        heavy: 'bg-[var(--glass-bg-heavy)]',
-      },
-      border: {
-        none: 'border-transparent',
-        subtle: 'border-[var(--glass-border-subtle)]',
-        light: 'border-[var(--glass-border-light)]',
-        medium: 'border-[var(--glass-border-medium)]',
-        strong: 'border-[var(--glass-border-strong)]',
-      },
-      shadow: {
-        none: 'shadow-none',
-        sm: 'shadow-[var(--glass-shadow-sm)]',
-        md: 'shadow-[var(--glass-shadow-md)]',
-        lg: 'shadow-[var(--glass-shadow-lg)]',
-        xl: 'shadow-[var(--glass-shadow-xl)]',
-      },
-      rounded: {
-        none: 'rounded-none',
-        sm: 'rounded-sm',
-        md: 'rounded-md',
-        lg: 'rounded-lg',
-        xl: 'rounded-xl',
-        '2xl': 'rounded-2xl',
-        full: 'rounded-full',
-      },
-      elevation: {
-        '1': 'bg-[var(--glass-elevation-1)]',
-        '2': 'bg-[var(--glass-elevation-2)]',
-        '3': 'bg-[var(--glass-elevation-3)]',
-        '4': 'bg-[var(--glass-elevation-4)]',
-      },
+export const glassVariants = cva('border backdrop-blur-md transition-all', {
+  variants: {
+    blur: {
+      subtle: 'backdrop-blur-[var(--glass-blur-subtle)]',
+      medium: 'backdrop-blur-[var(--glass-blur-medium)]',
+      strong: 'backdrop-blur-[var(--glass-blur-strong)]',
+      ultra: 'backdrop-blur-[var(--glass-blur-ultra)]',
     },
-    defaultVariants: {
-      blur: 'medium',
-      background: 'light',
-      border: 'light',
-      shadow: 'md',
-      rounded: 'lg',
+    background: {
+      subtle: 'bg-[var(--glass-bg-subtle)]',
+      light: 'bg-[var(--glass-bg-light)]',
+      medium: 'bg-[var(--glass-bg-medium)]',
+      heavy: 'bg-[var(--glass-bg-heavy)]',
     },
-  }
-);
+    border: {
+      none: 'border-transparent',
+      subtle: 'border-[var(--glass-border-subtle)]',
+      light: 'border-[var(--glass-border-light)]',
+      medium: 'border-[var(--glass-border-medium)]',
+      strong: 'border-[var(--glass-border-strong)]',
+    },
+    shadow: {
+      none: 'shadow-none',
+      sm: 'shadow-[var(--glass-shadow-sm)]',
+      md: 'shadow-[var(--glass-shadow-md)]',
+      lg: 'shadow-[var(--glass-shadow-lg)]',
+      xl: 'shadow-[var(--glass-shadow-xl)]',
+    },
+    rounded: {
+      none: 'rounded-none',
+      sm: 'rounded-sm',
+      md: 'rounded-md',
+      lg: 'rounded-lg',
+      xl: 'rounded-xl',
+      '2xl': 'rounded-2xl',
+      full: 'rounded-full',
+    },
+    elevation: {
+      '1': 'bg-[var(--glass-elevation-1)]',
+      '2': 'bg-[var(--glass-elevation-2)]',
+      '3': 'bg-[var(--glass-elevation-3)]',
+      '4': 'bg-[var(--glass-elevation-4)]',
+    },
+  },
+  defaultVariants: {
+    blur: 'medium',
+    background: 'light',
+    border: 'light',
+    shadow: 'md',
+    rounded: 'lg',
+  },
+});
 
 export type GlassVariants = VariantProps<typeof glassVariants>;
 
@@ -131,4 +128,3 @@ export const glassTransitions = {
   base: 'transition-all duration-[var(--glass-transition-base)]',
   slow: 'transition-all duration-[var(--glass-transition-slow)]',
 } as const;
-

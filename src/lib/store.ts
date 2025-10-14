@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/solid-query';
 import { Store } from '@tauri-apps/plugin-store';
 import { onCleanup } from 'solid-js';
 
-import { GeneralSettings } from '~/lib/tauri';
+import type { GeneralSettings } from '~/lib/tauri';
 
 let _store: Promise<Store> | undefined;
 const store = () => {
@@ -20,7 +20,7 @@ function declareStore<T extends object>(name: string) {
 
   return {
     get: async (key: keyof T) => {
-      let values = (await getAll()) || {};
+      const values = (await getAll()) || {};
       return (values as T)[key];
     },
     getAll,
@@ -46,8 +46,9 @@ function declareStore<T extends object>(name: string) {
     },
     setAll: async (value?: Partial<T>) => {
       const s = await store();
-      if (value === undefined) s.delete(name);
-      else {
+      if (value === undefined) {
+        s.delete(name);
+      } else {
         const current = (await s.get<T>(name)) || {};
         await s.set(name, {
           ...current,

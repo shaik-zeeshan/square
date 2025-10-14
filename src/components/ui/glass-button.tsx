@@ -1,23 +1,29 @@
-import { type ComponentProps, splitProps } from 'solid-js';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { type ComponentProps, splitProps } from 'solid-js';
 import { cn } from '~/lib/utils';
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center backdrop-blur-md border transition-all duration-[var(--glass-transition-base)] cursor-pointer disabled:opacity-50 disabled:pointer-events-none',
+  'inline-flex cursor-pointer items-center justify-center border backdrop-blur-md transition-all duration-[var(--glass-transition-base)] disabled:pointer-events-none disabled:opacity-50',
   {
     variants: {
       variant: {
-        glass: 'bg-[var(--glass-bg-light)] border-[var(--glass-border-light)] hover:bg-[var(--glass-bg-medium)] hover:border-[var(--glass-border-medium)] active:scale-95',
-        'glass-subtle': 'bg-[var(--glass-bg-subtle)] border-[var(--glass-border-subtle)] hover:bg-[var(--glass-bg-light)] hover:border-[var(--glass-border-light)] active:scale-95',
-        'glass-strong': 'bg-[var(--glass-bg-medium)] border-[var(--glass-border-medium)] hover:bg-[var(--glass-bg-heavy)] hover:border-[var(--glass-border-strong)] active:scale-95',
-        solid: 'bg-primary text-primary-foreground border-transparent hover:opacity-90 active:scale-95',
-        ghost: 'bg-transparent border-transparent hover:bg-[var(--glass-bg-subtle)] active:scale-95',
-        outline: 'bg-transparent border-[var(--glass-border-medium)] hover:bg-[var(--glass-bg-subtle)]',
+        glass:
+          'border-[var(--glass-border-light)] bg-[var(--glass-bg-light)] hover:border-[var(--glass-border-medium)] hover:bg-[var(--glass-bg-medium)] active:scale-95',
+        'glass-subtle':
+          'border-[var(--glass-border-subtle)] bg-[var(--glass-bg-subtle)] hover:border-[var(--glass-border-light)] hover:bg-[var(--glass-bg-light)] active:scale-95',
+        'glass-strong':
+          'border-[var(--glass-border-medium)] bg-[var(--glass-bg-medium)] hover:border-[var(--glass-border-strong)] hover:bg-[var(--glass-bg-heavy)] active:scale-95',
+        solid:
+          'border-transparent bg-primary text-primary-foreground hover:opacity-90 active:scale-95',
+        ghost:
+          'border-transparent bg-transparent hover:bg-[var(--glass-bg-subtle)] active:scale-95',
+        outline:
+          'border-[var(--glass-border-medium)] bg-transparent hover:bg-[var(--glass-bg-subtle)]',
       },
       size: {
-        sm: 'h-8 px-3 text-sm rounded-md',
-        md: 'h-10 px-4 text-base rounded-lg',
-        lg: 'h-12 px-6 text-lg rounded-xl',
+        sm: 'h-8 rounded-md px-3 text-sm',
+        md: 'h-10 rounded-lg px-4 text-base',
+        lg: 'h-12 rounded-xl px-6 text-lg',
         icon: 'h-10 w-10 rounded-md',
         'icon-sm': 'h-8 w-8 rounded-md',
         'icon-lg': 'h-12 w-12 rounded-lg',
@@ -65,4 +71,3 @@ export function GlassButton(props: GlassButtonProps) {
     </button>
   );
 }
-

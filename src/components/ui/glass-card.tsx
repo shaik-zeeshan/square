@@ -1,10 +1,8 @@
 import { type ComponentProps, splitProps } from 'solid-js';
+import { type GlassVariants, getGlassClasses } from '~/lib/glass-utils';
 import { cn } from '~/lib/utils';
-import { getGlassClasses, type GlassVariants } from '~/lib/glass-utils';
 
-export interface GlassCardProps
-  extends ComponentProps<'div'>,
-    GlassVariants {
+export interface GlassCardProps extends ComponentProps<'div'>, GlassVariants {
   preset?: 'panel' | 'card' | 'overlay' | 'control' | 'dropdown';
 }
 
@@ -37,4 +35,3 @@ export function GlassCard(props: GlassCardProps) {
     </div>
   );
 }
-

@@ -1,6 +1,6 @@
-import { RouteSectionProps } from '@solidjs/router';
+import type { RouteSectionProps } from '@solidjs/router';
 import { Library as LibraryIcon } from 'lucide-solid';
-import { For, splitProps, createSignal, Show } from 'solid-js';
+import { createSignal, For, splitProps } from 'solid-js';
 import { useGeneralInfo } from '~/components/current-user-provider';
 import { SeriesCard } from '~/components/media-card';
 import { Nav } from '~/components/Nav';
@@ -10,16 +10,16 @@ import { itemQueryOptions } from '~/lib/tanstack/query-options';
 import { createJellyFinQuery } from '~/lib/utils';
 
 export default function Page(props: RouteSectionProps) {
-  let [{ params }] = splitProps(props, ['params']);
+  const [{ params }] = splitProps(props, ['params']);
 
   const { store } = useGeneralInfo();
   const [searchTerm, setSearchTerm] = createSignal('');
 
-  let libraryDetails = createJellyFinQuery(() =>
+  const libraryDetails = createJellyFinQuery(() =>
     itemQueryOptions(params.id, store?.user?.Id)
   );
 
-  let itemsDetails = createJellyFinQuery(() => ({
+  const itemsDetails = createJellyFinQuery(() => ({
     queryKey: [
       library.query.getItems.key,
       library.query.getItems.keyFor(params.id),
@@ -38,62 +38,62 @@ export default function Page(props: RouteSectionProps) {
   }));
 
   return (
-    <section class="relative min-h-screen flex flex-col">
+    <section class="relative flex min-h-screen flex-col">
       {/* Background with enhanced overlay */}
 
       {/* Navigation Bar */}
       <QueryBoundary
-        query={libraryDetails}
         loadingFallback={
           <Nav
-            variant="light"
-            class="relative z-50"
             breadcrumbs={[
               {
                 label: 'Libraries',
-                icon: <LibraryIcon class="w-4 h-4 opacity-70 flex-shrink-0" />,
+                icon: <LibraryIcon class="h-4 w-4 flex-shrink-0 opacity-70" />,
               },
             ]}
+            class="relative z-50"
             currentPage="Loading..."
-            showSearch={true}
-            searchValue={searchTerm()}
             onSearchChange={setSearchTerm}
+            searchValue={searchTerm()}
+            showSearch={true}
+            variant="light"
           />
         }
+        query={libraryDetails}
       >
         {(library) => (
           <Nav
-            variant="light"
-            class="relative z-50"
             breadcrumbs={[
               {
                 label: 'Libraries',
-                icon: <LibraryIcon class="w-4 h-4 opacity-70 flex-shrink-0" />,
+                icon: <LibraryIcon class="h-4 w-4 flex-shrink-0 opacity-70" />,
               },
             ]}
+            class="relative z-50"
             currentPage={library?.Name || 'Library'}
-            showSearch={true}
-            searchValue={searchTerm()}
             onSearchChange={setSearchTerm}
+            searchValue={searchTerm()}
+            showSearch={true}
+            variant="light"
           />
         )}
       </QueryBoundary>
 
       {/* Content Area */}
       <div class="relative z-20 flex-1 overflow-y-auto px-8 py-6">
-        <div class="grid 2xl:grid-cols-8 xl:grid-cols-6 grid-cols-4 gap-6">
+        <div class="grid grid-cols-4 gap-6 xl:grid-cols-6 2xl:grid-cols-8">
           <QueryBoundary
-            query={itemsDetails}
             loadingFallback={
-              <div class="col-span-full text-center py-20">
+              <div class="col-span-full py-20 text-center">
                 <div class="inline-block animate-pulse">Loading content...</div>
               </div>
             }
             notFoundFallback={
-              <div class="col-span-full text-center py-20 opacity-60">
+              <div class="col-span-full py-20 text-center opacity-60">
                 No items found in this library
               </div>
             }
+            query={itemsDetails}
           >
             {(data) => (
               <For each={data}>

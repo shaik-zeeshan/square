@@ -1,5 +1,5 @@
-import { useNavigate } from '@solidjs/router';
 import { createEventListener } from '@solid-primitives/event-listener';
+import { useNavigate } from '@solidjs/router';
 import { commands } from '~/lib/tauri';
 
 interface UseVideoKeyboardShortcutsProps {
@@ -12,7 +12,9 @@ interface UseVideoKeyboardShortcutsProps {
     duration: number;
   };
   openPanel: () => 'audio' | 'subtitles' | 'speed' | 'chapters' | null;
-  setOpenPanel: (panel: 'audio' | 'subtitles' | 'speed' | 'chapters' | null) => void;
+  setOpenPanel: (
+    panel: 'audio' | 'subtitles' | 'speed' | 'chapters' | null
+  ) => void;
   togglePlay: () => void;
   toggleMute: () => void;
   handleVolumeChange: (value: number) => void;
@@ -20,9 +22,10 @@ interface UseVideoKeyboardShortcutsProps {
   navigateToChapter: (chapter: any) => void;
 }
 
-export function useVideoKeyboardShortcuts(props: UseVideoKeyboardShortcutsProps) {
+export function useVideoKeyboardShortcuts(
+  props: UseVideoKeyboardShortcutsProps
+) {
   const navigate = useNavigate();
-
 
   // Use SolidJS event listener primitive attached to window
   createEventListener(window, 'keydown', (e: KeyboardEvent) => {
@@ -100,7 +103,9 @@ export function useVideoKeyboardShortcuts(props: UseVideoKeyboardShortcutsProps)
       case 'KeyC':
         e.preventDefault();
         if (props.state.chapters.length > 0) {
-          props.setOpenPanel(props.openPanel() === 'chapters' ? null : 'chapters');
+          props.setOpenPanel(
+            props.openPanel() === 'chapters' ? null : 'chapters'
+          );
           props.showControls();
         }
         break;
@@ -113,11 +118,11 @@ export function useVideoKeyboardShortcuts(props: UseVideoKeyboardShortcutsProps)
           const previousChapter = props.state.chapters
             .slice()
             .reverse()
-            .find(chapter => {
-              const chapterTime = chapter.startPositionTicks / 10000000;
+            .find((chapter) => {
+              const chapterTime = chapter.startPositionTicks / 10_000_000;
               return chapterTime < currentTimeSeconds - 2; // 2 second buffer
             });
-          
+
           if (previousChapter) {
             props.navigateToChapter(previousChapter);
             props.showControls();
@@ -130,11 +135,11 @@ export function useVideoKeyboardShortcuts(props: UseVideoKeyboardShortcutsProps)
         if (props.state.chapters.length > 0) {
           // Next chapter
           const currentTimeSeconds = Number(props.state.currentTime);
-          const nextChapter = props.state.chapters.find(chapter => {
-            const chapterTime = chapter.startPositionTicks / 10000000;
+          const nextChapter = props.state.chapters.find((chapter) => {
+            const chapterTime = chapter.startPositionTicks / 10_000_000;
             return chapterTime > currentTimeSeconds + 2; // 2 second buffer
           });
-          
+
           if (nextChapter) {
             props.navigateToChapter(nextChapter);
             props.showControls();

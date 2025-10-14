@@ -1,6 +1,6 @@
-import { ErrorBoundary, Match, Suspense, Switch } from 'solid-js';
 import type { UseQueryResult } from '@tanstack/solid-query';
 import type { JSX } from 'solid-js';
+import { ErrorBoundary, Match, Suspense, Switch } from 'solid-js';
 import { showErrorToast } from '~/lib/toast';
 
 export interface QueryBoundaryProps<T = unknown> {
@@ -76,14 +76,14 @@ export function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
                 props.errorFallback(error, props.query.refetch)
               ) : (
                 <div class="p-4 text-center">
-                  <div class="text-red-500 mb-2">
+                  <div class="mb-2 text-red-500">
                     {error?.message || 'An error occurred'}
                   </div>
                   <button
+                    class="rounded bg-blue-500 px-4 py-2 text-white transition-colors hover:bg-blue-600"
                     onClick={() => {
                       props.query.refetch();
                     }}
-                    class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
                   >
                     Retry
                   </button>
@@ -100,7 +100,7 @@ export function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
             )}
           </Match>
 
-          <Match when={!props.query.isFetched && !props.query.data}>
+          <Match when={!(props.query.isFetched || props.query.data)}>
             {props.notStartedFallback ? props.notStartedFallback : <></>}
           </Match>
 

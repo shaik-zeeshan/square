@@ -1,5 +1,5 @@
+import { ChevronDown, ChevronUp, Play, SkipForward, X } from 'lucide-solid';
 import { Show } from 'solid-js';
-import { Play, X, SkipForward, ChevronDown, ChevronUp } from 'lucide-solid';
 
 interface AutoplayOverlayProps {
   nextEpisode: any | null;
@@ -11,7 +11,6 @@ interface AutoplayOverlayProps {
 }
 
 export default function AutoplayOverlay(props: AutoplayOverlayProps) {
-
   const handlePlayNow = () => {
     props.onPlayNext();
   };
@@ -20,89 +19,95 @@ export default function AutoplayOverlay(props: AutoplayOverlayProps) {
     props.onCancel();
   };
 
-
   return (
     <Show when={props.isVisible && props.nextEpisode}>
-      <div class="fixed inset-0 pointer-events-none z-50">
-        <div class="absolute bottom-4 right-4 pointer-events-auto">
-          <div 
-            class="bg-black/90 backdrop-blur-md rounded-xl border border-white/20 shadow-2xl max-w-sm w-80 transition-all duration-300"
+      <div class="pointer-events-none fixed inset-0 z-50">
+        <div class="pointer-events-auto absolute right-4 bottom-4">
+          <div
+            class="w-80 max-w-sm rounded-xl border border-white/20 bg-black/90 shadow-2xl backdrop-blur-md transition-all duration-300"
             classList={{
               'p-2': props.isCollapsed,
               'p-4': !props.isCollapsed,
             }}
           >
-          {/* Header */}
-          <div class="flex items-center justify-between" classList={{ 'mb-3': !props.isCollapsed }}>
-            <div class="flex items-center gap-2">
-              <SkipForward class="h-4 w-4 text-blue-400" />
-              <h3 class="text-sm font-semibold text-white">Next Episode</h3>
+            {/* Header */}
+            <div
+              class="flex items-center justify-between"
+              classList={{ 'mb-3': !props.isCollapsed }}
+            >
+              <div class="flex items-center gap-2">
+                <SkipForward class="h-4 w-4 text-blue-400" />
+                <h3 class="font-semibold text-sm text-white">Next Episode</h3>
+              </div>
+              <div class="flex items-center gap-1">
+                <button
+                  class="p-1 text-white/60 transition-colors hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    props.setIsCollapsed(!props.isCollapsed);
+                  }}
+                >
+                  <Show
+                    fallback={<ChevronDown class="h-4 w-4" />}
+                    when={props.isCollapsed}
+                  >
+                    <ChevronUp class="h-4 w-4" />
+                  </Show>
+                </button>
+                <button
+                  class="p-1 text-white/60 transition-colors hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCancel();
+                  }}
+                >
+                  <X class="h-4 w-4" />
+                </button>
+              </div>
             </div>
-            <div class="flex items-center gap-1">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  props.setIsCollapsed(!props.isCollapsed);
-                }}
-                class="p-1 text-white/60 hover:text-white transition-colors"
-              >
-                <Show when={props.isCollapsed} fallback={<ChevronDown class="h-4 w-4" />}>
-                  <ChevronUp class="h-4 w-4" />
+
+            {/* Episode Info and Actions - Only show when not collapsed */}
+            <Show when={!props.isCollapsed}>
+              <div class="mb-3">
+                <h4 class="mb-1 line-clamp-1 font-bold text-base text-white">
+                  {props.nextEpisode?.Name}
+                </h4>
+                <Show when={props.nextEpisode?.SeriesName}>
+                  <p class="mb-1 text-white/70 text-xs">
+                    {props.nextEpisode?.SeriesName} • Episode{' '}
+                    {props.nextEpisode?.IndexNumber}
+                  </p>
                 </Show>
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCancel();
-                }}
-                class="p-1 text-white/60 hover:text-white transition-colors"
-              >
-                <X class="h-4 w-4" />
-              </button>
-            </div>
-          </div>
+                <Show when={props.nextEpisode?.Overview}>
+                  <p class="line-clamp-2 text-white/60 text-xs leading-relaxed">
+                    {props.nextEpisode?.Overview}
+                  </p>
+                </Show>
+              </div>
 
-          {/* Episode Info and Actions - Only show when not collapsed */}
-          <Show when={!props.isCollapsed}>
-            <div class="mb-3">
-              <h4 class="text-base font-bold text-white mb-1 line-clamp-1">
-                {props.nextEpisode?.Name}
-              </h4>
-              <Show when={props.nextEpisode?.SeriesName}>
-                <p class="text-xs text-white/70 mb-1">
-                  {props.nextEpisode?.SeriesName} • Episode {props.nextEpisode?.IndexNumber}
-                </p>
-              </Show>
-              <Show when={props.nextEpisode?.Overview}>
-                <p class="text-xs text-white/60 line-clamp-2 leading-relaxed">
-                  {props.nextEpisode?.Overview}
-                </p>
-              </Show>
-            </div>
-
-            {/* Action Buttons */}
-            <div class="flex gap-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handlePlayNow();
-                }}
-                class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg transition-colors flex items-center justify-center gap-1 text-sm"
-              >
-                <Play class="h-3 w-3" />
-                Play Now
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleCancel();
-                }}
-                class="px-3 py-2 text-white/70 hover:text-white border border-white/20 hover:border-white/40 rounded-lg transition-colors text-sm"
-              >
-                Cancel
-              </button>
-            </div>
-          </Show>
+              {/* Action Buttons */}
+              <div class="flex gap-2">
+                <button
+                  class="flex flex-1 items-center justify-center gap-1 rounded-lg bg-blue-600 px-3 py-2 text-sm text-white transition-colors hover:bg-blue-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handlePlayNow();
+                  }}
+                >
+                  <Play class="h-3 w-3" />
+                  Play Now
+                </button>
+                <button
+                  class="rounded-lg border border-white/20 px-3 py-2 text-sm text-white/70 transition-colors hover:border-white/40 hover:text-white"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleCancel();
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </Show>
           </div>
         </div>
       </div>

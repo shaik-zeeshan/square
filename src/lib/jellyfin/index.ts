@@ -1,9 +1,9 @@
-import { Jellyfin, RecommendedServerInfo } from '@jellyfin/sdk';
-import { AUTH_PRESIST_KEY, AuthStore } from '../persist-store';
+import { Jellyfin, type RecommendedServerInfo } from '@jellyfin/sdk';
+import { AUTH_PRESIST_KEY, type AuthStore } from '../persist-store';
 import { safeJsonParse } from '../utils';
 
-let clientName = import.meta.env.DEV ? 'sreal-dev' : 'sreal';
-let hostname = import.meta.env.HOSTNAME;
+const clientName = import.meta.env.DEV ? 'sreal-dev' : 'sreal';
+const hostname = import.meta.env.HOSTNAME;
 
 export const jellyfin = new Jellyfin({
   clientInfo: {
@@ -24,7 +24,7 @@ export async function createAPI(token?: string) {
   const best = jellyfin.discovery.findBestServer(servers);
 
   if (!best) {
-    return undefined;
+    return;
   }
 
   // Create an API instance
@@ -38,7 +38,7 @@ export async function getServers(url: string) {
 
 export function createJellyfinClient(server: RecommendedServerInfo) {
   //let token = localStorage.getItem(ACCESS_TOKEN) ?? undefined;
-  let auth_store: AuthStore = safeJsonParse(
+  const auth_store: AuthStore = safeJsonParse(
     localStorage.getItem(AUTH_PRESIST_KEY),
     { isUserLoggedIn: false, accessToken: null }
   );
@@ -59,11 +59,11 @@ export async function createJellyfinAPI() {
   const best = jellyfin.discovery.findBestServer(servers);
 
   if (!best) {
-    return undefined;
+    return;
   }
 
   //let token = localStorage.getItem(ACCESS_TOKEN) ?? undefined;
-  let auth_store: AuthStore = safeJsonParse(
+  const auth_store: AuthStore = safeJsonParse(
     localStorage.getItem(AUTH_PRESIST_KEY),
     { isUserLoggedIn: false, accessToken: null }
   );

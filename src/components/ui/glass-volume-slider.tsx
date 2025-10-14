@@ -1,9 +1,9 @@
-import { type ComponentProps, splitProps } from 'solid-js';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { type ComponentProps, splitProps } from 'solid-js';
 import { cn } from '~/lib/utils';
 
 const sliderVariants = cva(
-  'relative w-full cursor-pointer group transition-all duration-[var(--glass-transition-base)]',
+  'group relative w-full cursor-pointer transition-all duration-[var(--glass-transition-base)]',
   {
     variants: {
       variant: {
@@ -74,25 +74,27 @@ export function GlassVolumeSlider(props: GlassVolumeSliderProps) {
     const clampedValue = Math.min(local.value, normalMax);
     return (clampedValue / normalMax) * 100;
   };
-  
+
   // Orange bar: 100-200 volume maps to 0-100% of slider width (appears on top of white)
   const warningFillPercentage = () => {
-    if (local.value <= normalMax) return 0;
+    if (local.value <= normalMax) {
+      return 0;
+    }
     const overVolume = local.value - normalMax;
     return (overVolume / normalMax) * 100;
   };
 
   return (
     <div
+      aria-valuemax={maxVolume()}
+      aria-valuemin={0}
+      aria-valuenow={local.value}
       class={cn(
         sliderVariants({ variant: local.variant, size: local.size }),
         local.class
       )}
       onClick={handleClick}
       role="slider"
-      aria-valuemin={0}
-      aria-valuemax={maxVolume()}
-      aria-valuenow={local.value}
       tabindex={0}
       {...others}
     >
@@ -101,11 +103,11 @@ export function GlassVolumeSlider(props: GlassVolumeSliderProps) {
         class={sliderFillVariants({ variant: local.variant })}
         style={{ width: `${baseFillPercentage()}%` }}
       />
-      
+
       {/* Warning fill (orange) - 100-200% volume (0-100% of slider width, overlays on top) */}
       <div
-        class="absolute top-0 left-0 h-full rounded-full transition-all duration-[var(--glass-transition-base)] bg-orange-500"
-        style={{ 
+        class="absolute top-0 left-0 h-full rounded-full bg-orange-500 transition-all duration-[var(--glass-transition-base)]"
+        style={{
           width: `${warningFillPercentage()}%`,
           opacity: warningFillPercentage() > 0 ? 0.9 : 0,
         }}
@@ -113,4 +115,3 @@ export function GlassVolumeSlider(props: GlassVolumeSliderProps) {
     </div>
   );
 }
-

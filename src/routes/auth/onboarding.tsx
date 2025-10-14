@@ -1,13 +1,13 @@
-import { createSignal, Switch, Match } from 'solid-js';
+import type { RecommendedServerInfo } from '@jellyfin/sdk';
 import { useNavigate } from '@solidjs/router';
-import { RecommendedServerInfo } from '@jellyfin/sdk';
-import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
-import { RouteProtection } from '~/components/auth/RouteProtection';
-import { ServerSelection } from '~/components/auth/ServerSelection';
-import { ServerFinder } from '~/components/auth/ServerFinder';
+import { createSignal, Match, Switch } from 'solid-js';
 import { LoginForm } from '~/components/auth/LoginForm';
-import { useServerStore } from '~/lib/store-hooks';
+import { RouteProtection } from '~/components/auth/RouteProtection';
+import { ServerFinder } from '~/components/auth/ServerFinder';
+import { ServerSelection } from '~/components/auth/ServerSelection';
+import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
 import { useAuthentication } from '~/hooks/useAuthentication';
+import { useServerStore } from '~/lib/store-hooks';
 
 type OnboardingStep = 'search-server' | 'select-server' | 'login';
 
@@ -29,28 +29,30 @@ export default function OnboardingPage() {
 
   const handleServerSelect = (server: RecommendedServerInfo) => {
     // Ensure the server is in the store first
-    let storedServer = serverStore.servers.find(s => s.info.address === server.address);
-    
+    let storedServer = serverStore.servers.find(
+      (s) => s.info.address === server.address
+    );
+
     if (!storedServer) {
       // Add the server to the store if it doesn't exist
       const newServer = {
         info: server,
-        auth: { username: '', password: '' }
+        auth: { username: '', password: '' },
       };
-      
+
       setServerStore('servers', [...serverStore.servers, newServer]);
       storedServer = newServer;
     }
-    
+
     // Now check if this server has stored credentials
-    if (storedServer && storedServer.auth.username) {
+    if (storedServer?.auth.username) {
       // Auto-login with stored credentials (password can be empty for some Jellyfin setups)
       const credentials = {
         username: storedServer.auth.username,
         password: storedServer.auth.password || '',
         server: storedServer.info, // Use the stored server info
       };
-      
+
       login(credentials);
     } else {
       // Navigate to login page with server address
@@ -62,7 +64,7 @@ export default function OnboardingPage() {
     navigate(`/auth/login/${encodeURIComponent(server.address)}?edit=true`);
   };
 
-  const handleLoginComplete = () => {
+  const _handleLoginComplete = () => {
     // Login is complete, let the auth state handle the redirect
   };
 
@@ -79,42 +81,43 @@ export default function OnboardingPage() {
   return (
     <RouteProtection requireAuth={false}>
       <AuthErrorBoundary>
-        <div class="h-full w-full grid place-items-center relative overflow-hidden bg-background">
+        <div class="relative grid h-full w-full place-items-center overflow-hidden bg-background">
+          <div class="relative z-10 w-full max-w-md px-4">
+            <Switch>
+              <Match when={step() === 'select-server'}>
+                <ServerSelection
+                  onBack={
+                    serverStore.servers.length > 0 ? undefined : handleBack
+                  }
+                  onEditServer={handleEditServer}
+                  onSearchNewServer={() => setStep('search-server')}
+                  onSelectServer={handleServerSelect}
+                />
+              </Match>
 
-        <div class="w-full max-w-md px-4 relative z-10">
-          <Switch>
-            <Match when={step() === 'select-server'}>
-              <ServerSelection
-                onBack={serverStore.servers.length > 0 ? undefined : handleBack}
-                onSelectServer={handleServerSelect}
-                onEditServer={handleEditServer}
-                onSearchNewServer={() => setStep('search-server')}
-              />
-            </Match>
+              <Match when={step() === 'search-server'}>
+                <ServerFinder
+                  onBack={
+                    serverStore.servers.length > 0
+                      ? () => setStep('select-server')
+                      : undefined
+                  }
+                  onServerSelected={handleServerSelect}
+                />
+              </Match>
 
-            <Match when={step() === 'search-server'}>
-              <ServerFinder
-                onServerSelected={handleServerSelect}
-                onBack={
-                  serverStore.servers.length > 0
-                    ? () => setStep('select-server')
-                    : undefined
-                }
-              />
-            </Match>
-
-            <Match when={step() === 'login' && selectedServer()}>
-              <LoginForm
-                server={selectedServer()!}
-                initialUsername={editingServer()?.username}
-                initialPassword={editingServer()?.password}
-                isEditing={!!editingServer()}
-                onBack={handleBack}
-              />
-            </Match>
-          </Switch>
+              <Match when={step() === 'login' && selectedServer()}>
+                <LoginForm
+                  initialPassword={editingServer()?.password}
+                  initialUsername={editingServer()?.username}
+                  isEditing={!!editingServer()}
+                  onBack={handleBack}
+                  server={selectedServer()!}
+                />
+              </Match>
+            </Switch>
+          </div>
         </div>
-      </div>
       </AuthErrorBoundary>
     </RouteProtection>
   );

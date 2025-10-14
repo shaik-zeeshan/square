@@ -1,10 +1,10 @@
+import type { RecommendedServerInfo } from '@jellyfin/sdk';
 import { useNavigate } from '@solidjs/router';
-import { RecommendedServerInfo } from '@jellyfin/sdk';
-import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
 import { RouteProtection } from '~/components/auth/RouteProtection';
 import { ServerSelection } from '~/components/auth/ServerSelection';
-import { useServerStore } from '~/lib/store-hooks';
+import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
 import { useAuthentication } from '~/hooks/useAuthentication';
+import { useServerStore } from '~/lib/store-hooks';
 
 export default function ServerSelectionPage() {
   const navigate = useNavigate();
@@ -13,16 +13,18 @@ export default function ServerSelectionPage() {
 
   const handleServerSelect = (server: RecommendedServerInfo) => {
     // Check if this server has stored credentials
-    const storedServer = serverStore.servers.find(s => s.info.address === server.address);
-    
-    if (storedServer && storedServer.auth.username && storedServer.auth.password) {
+    const storedServer = serverStore.servers.find(
+      (s) => s.info.address === server.address
+    );
+
+    if (storedServer?.auth.username && storedServer.auth.password) {
       // Auto-login with stored credentials
       const credentials = {
         username: storedServer.auth.username,
         password: storedServer.auth.password,
-        server: server,
+        server,
       };
-      
+
       login(credentials);
     } else {
       // Navigate to login page with server address
@@ -49,17 +51,16 @@ export default function ServerSelectionPage() {
   return (
     <RouteProtection requireAuth={false}>
       <AuthErrorBoundary>
-        <div class="h-full w-full grid place-items-center relative overflow-hidden bg-background">
-
-        <div class="w-full max-w-md px-4 relative z-10">
-          <ServerSelection
-            onBack={serverStore.servers.length > 0 ? undefined : handleBack}
-            onSelectServer={handleServerSelect}
-            onEditServer={handleEditServer}
-            onSearchNewServer={handleSearchNewServer}
-          />
+        <div class="relative grid h-full w-full place-items-center overflow-hidden bg-background">
+          <div class="relative z-10 w-full max-w-md px-4">
+            <ServerSelection
+              onBack={serverStore.servers.length > 0 ? undefined : handleBack}
+              onEditServer={handleEditServer}
+              onSearchNewServer={handleSearchNewServer}
+              onSelectServer={handleServerSelect}
+            />
+          </div>
         </div>
-      </div>
       </AuthErrorBoundary>
     </RouteProtection>
   );

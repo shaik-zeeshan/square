@@ -1,9 +1,9 @@
-import { type ComponentProps, splitProps } from 'solid-js';
 import { cva, type VariantProps } from 'class-variance-authority';
+import { type ComponentProps, splitProps } from 'solid-js';
 import { cn } from '~/lib/utils';
 
 const sliderVariants = cva(
-  'relative w-full cursor-pointer group transition-all duration-[var(--glass-transition-base)]',
+  'group relative w-full cursor-pointer transition-all duration-[var(--glass-transition-base)]',
   {
     variants: {
       variant: {
@@ -65,15 +65,15 @@ export function GlassSlider(props: GlassSliderProps) {
 
   return (
     <div
+      aria-valuemax={100}
+      aria-valuemin={0}
+      aria-valuenow={local.value}
       class={cn(
         sliderVariants({ variant: local.variant, size: local.size }),
         local.class
       )}
       onClick={handleClick}
       role="slider"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={local.value}
       tabindex={0}
       {...others}
     >
@@ -84,4 +84,3 @@ export function GlassSlider(props: GlassSliderProps) {
     </div>
   );
 }
-

@@ -17,20 +17,20 @@ export const OpenInIINAButton = (props: {
 }) => {
   const params = [
     `url=${encodeURIComponent(props.url).replace(/'/g, '%27')}`,
-    `mpv_input-ipc-server=/tmp/sreal`,
+    'mpv_input-ipc-server=/tmp/sreal',
   ];
 
   const openIninna = () => {
     if (props.beforePlaying) {
       props.beforePlaying();
     }
-    let iinaurl = `iina://open?${params.join('&')}`;
+    const iinaurl = `iina://open?${params.join('&')}`;
 
     openUrl(iinaurl);
   };
 
   return (
-    <button on:click={openIninna} class="cursor-pointer">
+    <button class="cursor-pointer" on:click={openIninna}>
       <span>
         <img src="https://raw.githubusercontent.com/iina/iina/master/iina/Assets.xcassets/AppIcon.appiconset/iina-icon-32.png" />
       </span>

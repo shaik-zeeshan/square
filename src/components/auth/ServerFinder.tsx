@@ -1,10 +1,21 @@
-import { Show, createMemo, createEffect, createSignal } from 'solid-js';
+import type { RecommendedServerInfo } from '@jellyfin/sdk';
+import {
+  AlertCircle,
+  ArrowLeft,
+  CheckCircle2,
+  Loader2,
+  Search,
+} from 'lucide-solid';
+import { Show } from 'solid-js';
 import { createStore } from 'solid-js/store';
-import { Search, AlertCircle, CheckCircle2, Loader2, ArrowLeft } from 'lucide-solid';
-import { RecommendedServerInfo } from '@jellyfin/sdk';
 import { Input } from '~/components/input';
 import { useServerDiscovery } from '~/hooks/useServerDiscovery';
-import { commonRules, createFormField, updateFormField, touchFormField } from '~/lib/validation';
+import {
+  commonRules,
+  createFormField,
+  touchFormField,
+  updateFormField,
+} from '~/lib/validation';
 
 interface ServerFinderProps {
   onServerSelected: (server: RecommendedServerInfo) => void;
@@ -14,7 +25,12 @@ interface ServerFinderProps {
 export function ServerFinder(props: ServerFinderProps) {
   // Use a store for form data like LoginForm does
   const [formData, setFormData] = createStore<{
-    url: { value: string; error: string | null; touched: boolean; dirty: boolean };
+    url: {
+      value: string;
+      error: string | null;
+      touched: boolean;
+      dirty: boolean;
+    };
   }>({
     url: createFormField('', commonRules.serverUrl),
   });
@@ -40,13 +56,22 @@ export function ServerFinder(props: ServerFinderProps) {
 
   // Form handlers - only update store, sync with hook on blur/search
   const handleUrlChange = (value: string) => {
-    const field = updateFormField(formData.url, value, commonRules.serverUrl, 'server-url');
+    const field = updateFormField(
+      formData.url,
+      value,
+      commonRules.serverUrl,
+      'server-url'
+    );
     setFormData('url', field);
     // Don't update hook on every keystroke to prevent focus loss
   };
 
   const handleUrlBlur = () => {
-    const field = touchFormField(formData.url, commonRules.serverUrl, 'server-url');
+    const field = touchFormField(
+      formData.url,
+      commonRules.serverUrl,
+      'server-url'
+    );
     setFormData('url', field);
     // Sync with hook on blur
     hookHandleUrlChange(field.value);
@@ -54,7 +79,11 @@ export function ServerFinder(props: ServerFinderProps) {
   };
 
   const handleSearch = () => {
-    const field = touchFormField(formData.url, commonRules.serverUrl, 'server-url');
+    const field = touchFormField(
+      formData.url,
+      commonRules.serverUrl,
+      'server-url'
+    );
     setFormData('url', field);
     // Sync with hook and search
     hookHandleUrlChange(field.value);
@@ -69,54 +98,57 @@ export function ServerFinder(props: ServerFinderProps) {
 
   return (
     <div class="w-full space-y-6">
-      <div class="text-center mb-8">
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full mb-4">
-          <Search class="w-8 h-8 text-orange-600 dark:text-orange-400" />
+      <div class="mb-8 text-center">
+        <div class="mb-4 inline-flex h-16 w-16 items-center justify-center rounded-full">
+          <Search class="h-8 w-8 text-orange-600 dark:text-orange-400" />
         </div>
-        <h2 class="text-3xl font-bold mb-2 text-foreground">Find Server</h2>
-        <p class="text-sm text-muted-foreground">Enter your Jellyfin server address</p>
+        <h2 class="mb-2 font-bold text-3xl text-foreground">Find Server</h2>
+        <p class="text-muted-foreground text-sm">
+          Enter your Jellyfin server address
+        </p>
       </div>
 
-      <div class="p-6 bg-card rounded-lg border space-y-4">
+      <div class="space-y-4 rounded-lg border bg-card p-6">
         <div class="space-y-2">
-          <label for="server-url" class="text-sm font-medium text-foreground">
+          <label class="font-medium text-foreground text-sm" for="server-url">
             Server Address
           </label>
-          <div class="w-full flex gap-2">
+          <div class="flex w-full gap-2">
             <div class="flex-1">
               <Input
-                id="server-url"
-                placeholder="https://jellyfin.example.com"
-                value={formData.url.value}
-                onInput={(e) => handleUrlChange(e.currentTarget.value)}
-                onBlur={handleUrlBlur}
-                onKeyPress={handleKeyPress}
+                aria-describedby={
+                  formData.url.error && formData.url.touched
+                    ? 'url-error'
+                    : undefined
+                }
+                aria-invalid={!!formData.url.error && formData.url.touched}
                 class="w-full"
                 disabled={isLoading()}
-                aria-invalid={!!formData.url.error && formData.url.touched}
-                aria-describedby={formData.url.error && formData.url.touched ? 'url-error' : undefined}
+                id="server-url"
+                onBlur={handleUrlBlur}
+                onInput={(e) => handleUrlChange(e.currentTarget.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="https://jellyfin.example.com"
+                value={formData.url.value}
               />
               <Show when={formData.url.error && formData.url.touched}>
                 <p
+                  class="mt-1.5 flex items-center gap-1 text-destructive text-xs"
                   id="url-error"
-                  class="text-xs text-destructive mt-1.5 flex items-center gap-1"
                 >
-                  <AlertCircle class="w-3 h-3" />
+                  <AlertCircle class="h-3 w-3" />
                   {formData.url.error}
                 </p>
               </Show>
             </div>
             <button
-              class="h-10 w-10 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-              onClick={handleSearch}
-              disabled={!formData.url.value.trim() || isLoading()}
               aria-label="Search for servers"
+              class="flex h-10 w-10 items-center justify-center rounded-lg bg-orange-600 text-white transition-colors hover:bg-orange-700 disabled:cursor-not-allowed disabled:opacity-50"
+              disabled={!formData.url.value.trim() || isLoading()}
+              onClick={handleSearch}
             >
-              <Show
-                when={isLoading()}
-                fallback={<Search class="w-5 h-5" />}
-              >
-                <Loader2 class="w-5 h-5 animate-spin" />
+              <Show fallback={<Search class="h-5 w-5" />} when={isLoading()}>
+                <Loader2 class="h-5 w-5 animate-spin" />
               </Show>
             </button>
           </div>
@@ -124,12 +156,14 @@ export function ServerFinder(props: ServerFinderProps) {
 
         {/* Search Results */}
         <Show when={searchError()}>
-          <div class="mt-4 p-4 rounded-lg bg-destructive/10 border border-destructive/30">
+          <div class="mt-4 rounded-lg border border-destructive/30 bg-destructive/10 p-4">
             <div class="flex items-start gap-3">
-              <AlertCircle class="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
+              <AlertCircle class="mt-0.5 h-5 w-5 flex-shrink-0 text-destructive" />
               <div>
-                <p class="text-sm text-destructive font-medium">Search Failed</p>
-                <p class="text-xs text-destructive/80 mt-1">
+                <p class="font-medium text-destructive text-sm">
+                  Search Failed
+                </p>
+                <p class="mt-1 text-destructive/80 text-xs">
                   {searchError()?.message ||
                     'Could not connect to server. Please check the address and try again.'}
                 </p>
@@ -140,31 +174,31 @@ export function ServerFinder(props: ServerFinderProps) {
 
         <Show when={hasServers()}>
           <div class="mt-4">
-            <div class="flex items-center gap-2 mb-3">
-              <CheckCircle2 class="w-4 h-4 text-green-600 dark:text-green-400" />
-              <p class="text-sm font-medium text-green-600 dark:text-green-400">
+            <div class="mb-3 flex items-center gap-2">
+              <CheckCircle2 class="h-4 w-4 text-green-600 dark:text-green-400" />
+              <p class="font-medium text-green-600 text-sm dark:text-green-400">
                 Found {discoveredServers().length} server
                 {discoveredServers().length !== 1 ? 's' : ''}
               </p>
             </div>
             <div class="space-y-2">
               <DiscoveredServerList
-                servers={discoveredServers()}
                 onServerSelect={handleServerSelect}
+                servers={discoveredServers()}
               />
             </div>
           </div>
         </Show>
 
         <Show when={showNoResults()}>
-          <div class="mt-4 p-4 rounded-lg bg-yellow-500/10 border border-yellow-500/30">
+          <div class="mt-4 rounded-lg border border-yellow-500/30 bg-yellow-500/10 p-4">
             <div class="flex items-start gap-3">
-              <AlertCircle class="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+              <AlertCircle class="mt-0.5 h-5 w-5 flex-shrink-0 text-yellow-600 dark:text-yellow-400" />
               <div>
-                <p class="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
+                <p class="font-medium text-sm text-yellow-600 dark:text-yellow-400">
                   No Servers Found
                 </p>
-                <p class="text-xs text-yellow-600/80 dark:text-yellow-400/80 mt-1">
+                <p class="mt-1 text-xs text-yellow-600/80 dark:text-yellow-400/80">
                   No Jellyfin servers were detected at this address.
                 </p>
               </div>
@@ -175,11 +209,11 @@ export function ServerFinder(props: ServerFinderProps) {
 
       <Show when={props.onBack}>
         <button
-          class="w-full h-10 px-4 bg-transparent border border-orange-500 dark:border-orange-400 text-orange-600 dark:text-orange-400 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-          onClick={handleBack}
+          class="flex h-10 w-full items-center justify-center rounded-lg border border-orange-500 bg-transparent px-4 text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-orange-400 dark:text-orange-400 dark:hover:bg-orange-900/20"
           disabled={isLoading()}
+          onClick={handleBack}
         >
-          <ArrowLeft class="w-4 h-4 mr-2" />
+          <ArrowLeft class="mr-2 h-4 w-4" />
           Back to Server List
         </button>
       </Show>
@@ -197,8 +231,8 @@ function DiscoveredServerList(props: DiscoveredServerListProps) {
     <>
       {props.servers.map((server) => (
         <DiscoveredServerCard
-          server={server}
           onSelect={() => props.onServerSelect(server)}
+          server={server}
         />
       ))}
     </>
@@ -213,9 +247,8 @@ interface DiscoveredServerCardProps {
 function DiscoveredServerCard(props: DiscoveredServerCardProps) {
   return (
     <div
-      role="button"
-      tabindex={0}
-      class="cursor-pointer p-4 bg-card border rounded-lg hover:bg-muted transition-colors"
+      aria-label={`Connect to ${props.server.systemInfo?.ServerName}`}
+      class="cursor-pointer rounded-lg border bg-card p-4 transition-colors hover:bg-muted"
       onClick={props.onSelect}
       onKeyPress={(e: KeyboardEvent) => {
         if (e.key === 'Enter' || e.key === ' ') {
@@ -223,21 +256,22 @@ function DiscoveredServerCard(props: DiscoveredServerCardProps) {
           props.onSelect();
         }
       }}
-      aria-label={`Connect to ${props.server.systemInfo?.ServerName}`}
+      role="button"
+      tabindex={0}
     >
       <div class="flex items-start gap-3">
-        <div class="flex-shrink-0 w-10 h-10 rounded-lg flex items-center justify-center">
-          <Search class="w-5 h-5 text-orange-600 dark:text-orange-400" />
+        <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg">
+          <Search class="h-5 w-5 text-orange-600 dark:text-orange-400" />
         </div>
-        <div class="flex-1 min-w-0">
-          <div class="font-semibold text-base truncate text-foreground">
+        <div class="min-w-0 flex-1">
+          <div class="truncate font-semibold text-base text-foreground">
             {props.server.systemInfo?.ServerName || 'Discovered Server'}
           </div>
-          <div class="text-xs text-muted-foreground truncate mt-0.5">
+          <div class="mt-0.5 truncate text-muted-foreground text-xs">
             {props.server.address}
           </div>
           <Show when={props.server.systemInfo?.Version}>
-            <div class="text-xs text-muted-foreground/60 mt-1">
+            <div class="mt-1 text-muted-foreground/60 text-xs">
               v{props.server.systemInfo?.Version}
             </div>
           </Show>

@@ -1,11 +1,11 @@
-import { createSignal, createEffect, onCleanup, onMount, createMemo } from 'solid-js';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
 import { useNavigate } from '@solidjs/router';
-import { createJellyFinQuery } from '~/lib/utils';
-import library from '~/lib/jellyfin/library';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
 import { useGeneralInfo } from '~/components/current-user-provider';
 import { useJellyfin } from '~/components/jellyfin-provider';
+import library from '~/lib/jellyfin/library';
 import { commands } from '~/lib/tauri';
+import { createJellyFinQuery } from '~/lib/utils';
 
 interface UseAutoplayProps {
   currentItemId: () => string;
@@ -20,8 +20,8 @@ interface UseAutoplayProps {
 export function useAutoplay(props: UseAutoplayProps) {
   const navigate = useNavigate();
   const { store: userStore } = useGeneralInfo();
-  const jf = useJellyfin();
-  
+  const _jf = useJellyfin();
+
   const [showAutoplay, setShowAutoplay] = createSignal(false);
   const [isCollapsed, setIsCollapsed] = createSignal(false);
   const [isCancelled, setIsCancelled] = createSignal(false);
@@ -33,24 +33,42 @@ export function useAutoplay(props: UseAutoplayProps) {
   const nextEpisode = createJellyFinQuery(() => ({
     queryKey: [
       library.query.getNextEpisode.key,
-      library.query.getNextEpisode.keyFor(props.currentItemId(), userStore?.user?.Id),
+      library.query.getNextEpisode.keyFor(
+        props.currentItemId(),
+        userStore?.user?.Id
+      ),
     ],
     queryFn: async (jf) =>
-      library.query.getNextEpisode(jf, props.currentItemId(), userStore?.user?.Id),
-    enabled: !!props.currentItemId() && !!userStore?.user?.Id && props.currentItemDetails?.data?.Type === 'Episode',
+      library.query.getNextEpisode(
+        jf,
+        props.currentItemId(),
+        userStore?.user?.Id
+      ),
+    enabled:
+      !!props.currentItemId() &&
+      !!userStore?.user?.Id &&
+      props.currentItemDetails?.data?.Type === 'Episode',
   }));
 
   // Check if we should show autoplay when query completes
   createEffect(() => {
     // If nextEpisode query just completed and we're at 80%+, show autoplay
-    if (!nextEpisode.isLoading && nextEpisode.data && !showAutoplay() && !isCancelled()) {
+    if (
+      !nextEpisode.isLoading &&
+      nextEpisode.data &&
+      !showAutoplay() &&
+      !isCancelled()
+    ) {
       const duration = props.playbackState.duration();
       const currentTime = Number(props.playbackState.currentTime());
-      
+
       if (duration > 0 && currentTime > 0) {
         const progress = (currentTime / duration) * 100;
-        
-        if (progress >= 80 && props.currentItemDetails?.data?.Type === 'Episode') {
+
+        if (
+          progress >= 80 &&
+          props.currentItemDetails?.data?.Type === 'Episode'
+        ) {
           setShowAutoplay(true);
         }
       }
@@ -70,19 +88,17 @@ export function useAutoplay(props: UseAutoplayProps) {
   };
 
   const playNextEpisode = async () => {
-    if (!nextEpisode.data?.Id) return;
-    
+    if (!nextEpisode.data?.Id) {
+      return;
+    }
+
     try {
-      console.log('Playing next episode:', nextEpisode.data.Id);
-      
       // Hide autoplay overlay first
       hideAutoplay();
-      
+
       // Navigate to the new episode
       navigate(`/video/${nextEpisode.data.Id}`, { replace: true });
-      
-    } catch (error) {
-      console.error('Failed to play next episode:', error);
+    } catch (_error) {
       setShowAutoplay(false);
     }
   };
@@ -92,16 +108,26 @@ export function useAutoplay(props: UseAutoplayProps) {
     // and only for episodes that have a next episode
     // Also check if we're at least 80% through the video
     // Don't show if user has already cancelled autoplay
-    if (reason === 0 && nextEpisode.data && props.currentItemDetails?.data?.Type === 'Episode' && !isCancelled()) {
+    if (
+      reason === 0 &&
+      nextEpisode.data &&
+      props.currentItemDetails?.data?.Type === 'Episode' &&
+      !isCancelled()
+    ) {
       const duration = props.playbackState.duration();
       const currentTime = Number(props.playbackState.currentTime());
-      
+
       if (duration > 0 && currentTime > 0) {
         const progress = (currentTime / duration) * 100;
-        
+
         // Only show autoplay if we're at least 80% through the video
         // Also wait for nextEpisode query to complete
-        if (progress >= 80 && !showAutoplay() && !nextEpisode.isLoading && nextEpisode.data) {
+        if (
+          progress >= 80 &&
+          !showAutoplay() &&
+          !nextEpisode.isLoading &&
+          nextEpisode.data
+        ) {
           // Pause the video and show overlay
           commands.playbackPause();
           setShowAutoplay(true);
@@ -114,19 +140,25 @@ export function useAutoplay(props: UseAutoplayProps) {
     // Check if we're at 80% of the video duration
     const duration = props.playbackState.duration();
     const currentTime = Number(time);
-    
+
     if (duration > 0 && currentTime > 0) {
       const progress = (currentTime / duration) * 100;
-      
+
       // Show autoplay overlay when 80% complete and not already shown
       // Don't show if user has already cancelled autoplay
       // Also wait for nextEpisode query to complete
-      if (progress >= 80 && !showAutoplay() && !nextEpisode.isLoading && nextEpisode.data && props.currentItemDetails?.data?.Type === 'Episode' && !isCancelled()) {
+      if (
+        progress >= 80 &&
+        !showAutoplay() &&
+        !nextEpisode.isLoading &&
+        nextEpisode.data &&
+        props.currentItemDetails?.data?.Type === 'Episode' &&
+        !isCancelled()
+      ) {
         setShowAutoplay(true);
       }
     }
   };
-
 
   // Reset autoplay state when current item changes
   let lastItemId = '';
@@ -139,7 +171,7 @@ export function useAutoplay(props: UseAutoplayProps) {
   });
 
   createEffect(async () => {
-    let currentID = props.currentItemId();
+    const currentID = props.currentItemId();
 
     if (currentID) {
       // Clean up existing listeners first
@@ -167,8 +199,6 @@ export function useAutoplay(props: UseAutoplayProps) {
       endOfFileUnlisten();
     }
   });
-
-
 
   // Create a memoized nextEpisode that will be reactive
   const nextEpisodeData = createMemo(() => {

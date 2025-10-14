@@ -1,8 +1,8 @@
+import type { RecommendedServerInfo } from '@jellyfin/sdk';
 import { useNavigate } from '@solidjs/router';
-import { RecommendedServerInfo } from '@jellyfin/sdk';
-import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
 import { RouteProtection } from '~/components/auth/RouteProtection';
 import { ServerFinder } from '~/components/auth/ServerFinder';
+import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
 import { useServerStore } from '~/lib/store-hooks';
 
 export default function ServerFinderPage() {
@@ -15,16 +15,12 @@ export default function ServerFinderPage() {
       (s) => s.info.address === server.address
     );
 
-    console.log('existingServer', existingServer);
-
     if (!existingServer) {
       // Add the discovered server to the store with empty auth credentials
       const newServer = {
         info: server,
-        auth: { username: '', password: '' }
+        auth: { username: '', password: '' },
       };
-      
-      console.log('newServer', newServer);
       setServerStore('servers', [...serverStore.servers, newServer]);
     }
 
@@ -39,15 +35,14 @@ export default function ServerFinderPage() {
   return (
     <RouteProtection requireAuth={false}>
       <AuthErrorBoundary>
-        <div class="h-full w-full grid place-items-center relative overflow-hidden bg-background">
-
-        <div class="w-full max-w-md px-4 relative z-10">
-          <ServerFinder
-            onServerSelected={handleServerSelected}
-            onBack={handleBack}
-          />
+        <div class="relative grid h-full w-full place-items-center overflow-hidden bg-background">
+          <div class="relative z-10 w-full max-w-md px-4">
+            <ServerFinder
+              onBack={handleBack}
+              onServerSelected={handleServerSelected}
+            />
+          </div>
         </div>
-      </div>
       </AuthErrorBoundary>
     </RouteProtection>
   );

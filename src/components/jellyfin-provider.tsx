@@ -1,10 +1,9 @@
-import { Api } from '@jellyfin/sdk/lib/api';
+import type { Api } from '@jellyfin/sdk/lib/api';
 import { useQueryClient } from '@tanstack/solid-query';
 import {
-  ComponentProps,
+  type ComponentProps,
   createContext,
   createEffect,
-  on,
   onCleanup,
   useContext,
 } from 'solid-js';
@@ -31,16 +30,20 @@ export function useJellyfin() {
 export const JellyFinProvider = (
   props: Pick<ComponentProps<'div'>, 'children'>
 ) => {
-  let [jf, setJf] = createStore<JellyFinContext>({});
-  let controller = new AbortController();
-  let { store } = useServerStore();
-  let queryclient = useQueryClient();
+  const [jf, setJf] = createStore<JellyFinContext>({});
+  const controller = new AbortController();
+  const { store } = useServerStore();
+  const queryclient = useQueryClient();
 
   createEffect(() => {
-    if (!store.current?.info) return;
+    if (!store.current?.info) {
+      return;
+    }
 
-    let jf = createJellyfinClient(store.current?.info);
-    if (!jf) return;
+    const jf = createJellyfinClient(store.current?.info);
+    if (!jf) {
+      return;
+    }
 
     setJf({ api: jf });
     queryclient.invalidateQueries();
@@ -65,10 +68,14 @@ export const JellyFinProvider = (
       'storage',
       async (e) => {
         if (e.key === AUTH_PRESIST_KEY) {
-          if (!store.current?.info) return;
+          if (!store.current?.info) {
+            return;
+          }
 
-          let newJf = createJellyfinClient(store.current?.info);
-          if (!newJf) return;
+          const newJf = createJellyfinClient(store.current?.info);
+          if (!newJf) {
+            return;
+          }
 
           setJf({ api: newJf });
         }

@@ -1,5 +1,5 @@
-import { createEffect, Show } from 'solid-js';
 import { useNavigate } from '@solidjs/router';
+import { createEffect, Show } from 'solid-js';
 import { authStore } from '~/lib/persist-store';
 
 interface RouteProtectionProps {
@@ -21,10 +21,12 @@ export function RouteProtection(props: RouteProtectionProps) {
   });
 
   return (
-    <Show when={
-      (props.requireAuth && auth.isUserLoggedIn) ||
-      (!props.requireAuth && !auth.isUserLoggedIn)
-    }>
+    <Show
+      when={
+        (props.requireAuth && auth.isUserLoggedIn) ||
+        !(props.requireAuth || auth.isUserLoggedIn)
+      }
+    >
       {props.children}
     </Show>
   );

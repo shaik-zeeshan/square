@@ -1,21 +1,15 @@
-import { createSignal, createMemo, Accessor } from 'solid-js';
-import { createStore } from 'solid-js/store';
+import type { RecommendedServerInfo } from '@jellyfin/sdk';
 import { createMutation, useQuery } from '@tanstack/solid-query';
-import { RecommendedServerInfo } from '@jellyfin/sdk';
+import { createMemo, createSignal } from 'solid-js';
+import { createStore } from 'solid-js/store';
 import { getServers } from '~/lib/jellyfin';
-import {
-  ServerSearchData,
-  FormFieldState,
-  OnboardingState
-} from '~/types';
-import {
-  createFormField,
-  updateFormField,
-  touchFormField,
-  validateField,
-  commonRules
-} from '~/lib/validation';
 import { showErrorToast, showSuccessToast } from '~/lib/toast';
+import {
+  commonRules,
+  createFormField,
+  touchFormField,
+  updateFormField,
+} from '~/lib/validation';
 
 export interface UseServerDiscoveryOptions {
   onServerSelected?: (server: RecommendedServerInfo) => void;
@@ -26,14 +20,21 @@ export interface UseServerDiscoveryOptions {
 export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
   // Use store for form data like LoginForm
   const [formData, setFormData] = createStore<{
-    url: { value: string; error: string | null; touched: boolean; dirty: boolean };
+    url: {
+      value: string;
+      error: string | null;
+      touched: boolean;
+      dirty: boolean;
+    };
   }>({
     url: createFormField('', commonRules.serverUrl),
   });
 
   // Search state
   const [searchAttempted, setSearchAttempted] = createSignal(false);
-  const [selectedServer, setSelectedServer] = createSignal<RecommendedServerInfo | undefined>();
+  const [selectedServer, setSelectedServer] = createSignal<
+    RecommendedServerInfo | undefined
+  >();
 
   // URL validation
   const urlErrorDisplay = createMemo(() => {
@@ -85,7 +86,11 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
   const searchMutation = createMutation(() => ({
     mutationFn: async () => {
       // Validate URL first
-      const field = touchFormField(formData.url, commonRules.serverUrl, 'server-url');
+      const field = touchFormField(
+        formData.url,
+        commonRules.serverUrl,
+        'server-url'
+      );
       setFormData('url', field);
 
       if (field.error) {
@@ -95,23 +100,31 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
       return serversQuery.refetch();
     },
     onError: (error: Error) => {
-      console.error('Server discovery failed:', error);
       showErrorToast(error.message || 'Failed to discover servers');
       options.onError?.(error);
     },
     onSuccess: () => {
       showSuccessToast('Servers discovered successfully');
-    }
+    },
   }));
 
   // Form handlers
   const handleUrlChange = (value: string) => {
-    const field = updateFormField(formData.url, value, commonRules.serverUrl, 'server-url');
+    const field = updateFormField(
+      formData.url,
+      value,
+      commonRules.serverUrl,
+      'server-url'
+    );
     setFormData('url', field);
   };
 
   const handleUrlBlur = () => {
-    const field = touchFormField(formData.url, commonRules.serverUrl, 'server-url');
+    const field = touchFormField(
+      formData.url,
+      commonRules.serverUrl,
+      'server-url'
+    );
     setFormData('url', field);
   };
 
@@ -135,27 +148,20 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
   };
 
   // Computed states
-  const isLoading = createMemo(() =>
-    searchMutation.isPending || serversQuery.isFetching
+  const isLoading = createMemo(
+    () => searchMutation.isPending || serversQuery.isFetching
   );
 
-  const discoveredServers = createMemo(() =>
-    serversQuery.data || []
+  const discoveredServers = createMemo(() => serversQuery.data || []);
+
+  const hasServers = createMemo(() => discoveredServers().length > 0);
+
+  const searchError = createMemo(
+    () => serversQuery.error || searchMutation.error
   );
 
-  const hasServers = createMemo(() =>
-    discoveredServers().length > 0
-  );
-
-  const searchError = createMemo(() =>
-    serversQuery.error || searchMutation.error
-  );
-
-  const showNoResults = createMemo(() =>
-    searchAttempted() &&
-    !isLoading() &&
-    !searchError() &&
-    !hasServers()
+  const showNoResults = createMemo(
+    () => searchAttempted() && !isLoading() && !searchError() && !hasServers()
   );
 
   // Reset function

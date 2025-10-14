@@ -28,9 +28,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": [
-      "../lib/dylib/*.dylib"
-    ],
+    "resources": ["../lib/dylib/*.dylib"],
     "macOS": {
       "frameworks": [
         "../lib/dylib/libarchive.13.dylib",

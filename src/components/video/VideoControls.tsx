@@ -1,21 +1,20 @@
 import {
-  Pause,
-  Play,
-  Volume2,
-  Volume1,
-  VolumeX,
   AudioLines,
   AudioWaveform,
+  BookOpen,
   Captions,
   CaptionsOff,
   Gauge,
-  BookOpen,
+  Pause,
+  Play,
+  Volume1,
+  Volume2,
+  VolumeX,
 } from 'lucide-solid';
-import { createMemo, Show, For } from 'solid-js';
-import { commands } from '~/lib/tauri';
+import { createMemo, For, Show } from 'solid-js';
+import type { Chapter, Track } from '~/components/video/types';
 import { formatTime } from '~/components/video/utils';
 import { cn } from '~/lib/utils';
-import type { Track, Chapter } from '~/components/video/types';
 
 interface VideoControlsProps {
   state: {
@@ -32,7 +31,9 @@ interface VideoControlsProps {
     chapters: Chapter[];
   };
   openPanel: () => 'audio' | 'subtitles' | 'speed' | 'chapters' | null;
-  setOpenPanel: (panel: 'audio' | 'subtitles' | 'speed' | 'chapters' | null) => void;
+  setOpenPanel: (
+    panel: 'audio' | 'subtitles' | 'speed' | 'chapters' | null
+  ) => void;
   onTogglePlay: () => void;
   onToggleMute: () => void;
   onVolumeChange: (value: number) => void;
@@ -48,29 +49,36 @@ export default function VideoControls(props: VideoControlsProps) {
   const progressPercentage = () =>
     (Number(props.state.currentTime) / props.state.duration) * 100 || 0;
 
-  // Debug chapters
-  console.log('VideoControls chapters:', props.state.chapters);
-
   const getVolumeIcon = () => {
     if (props.state.isMuted || props.state.volume === 0) {
       return VolumeX;
-    } else if (props.state.volume > 50) {
-      return Volume2;
-    } else {
-      return Volume1;
     }
+    if (props.state.volume > 50) {
+      return Volume2;
+    }
+    return Volume1;
   };
 
   const currentAudioTrack = createMemo(() => {
-    const track = props.state.audioList.find((t) => t.id === props.state.audioIndex);
-    if (!track) return 'Default';
+    const track = props.state.audioList.find(
+      (t) => t.id === props.state.audioIndex
+    );
+    if (!track) {
+      return 'Default';
+    }
     return `${track.title || ''} ${track.lang || ''}`.trim() || 'Default';
   });
 
   const currentSubtitleTrack = createMemo(() => {
-    if (props.state.subtitleIndex === 0 || props.state.subtitleIndex === -1) return 'Off';
-    const track = props.state.subtitleList.find((t) => t.id === props.state.subtitleIndex);
-    if (!track) return 'Off';
+    if (props.state.subtitleIndex === 0 || props.state.subtitleIndex === -1) {
+      return 'Off';
+    }
+    const track = props.state.subtitleList.find(
+      (t) => t.id === props.state.subtitleIndex
+    );
+    if (!track) {
+      return 'Off';
+    }
     return `${track.title || ''} ${track.lang || ''}`.trim() || 'On';
   });
 
@@ -79,14 +87,14 @@ export default function VideoControls(props: VideoControlsProps) {
   });
 
   return (
-    <div class="bg-black/90 backdrop-blur-md rounded-xl p-4 border border-white/20 shadow-2xl">
+    <div class="rounded-xl border border-white/20 bg-black/90 p-4 shadow-2xl backdrop-blur-md">
       {/* Progress Bar */}
-      <div class="flex items-center gap-3 mb-3">
-        <span class="text-white font-medium text-xs sm:text-sm min-w-[50px]">
+      <div class="mb-3 flex items-center gap-3">
+        <span class="min-w-[50px] font-medium text-white text-xs sm:text-sm">
           {formatTime(Number(props.state.currentTime))}
         </span>
-        <div class="flex-1 relative">
-          <div class="h-1.5 bg-white/30 rounded-lg overflow-hidden relative">
+        <div class="relative flex-1">
+          <div class="relative h-1.5 overflow-hidden rounded-lg bg-white/30">
             <div
               class="h-full bg-white/80 transition-all duration-150"
               style={{ width: `${progressPercentage()}%` }}
@@ -96,52 +104,64 @@ export default function VideoControls(props: VideoControlsProps) {
               <For each={props.state.chapters}>
                 {(chapter, index) => {
                   const chapterPosition = () => {
-                    const startTimeSeconds = chapter.startPositionTicks / 10000000;
+                    const startTimeSeconds =
+                      chapter.startPositionTicks / 10_000_000;
                     return (startTimeSeconds / props.state.duration) * 100;
                   };
-                  
-                  const chapterName = () => chapter.name || `Chapter ${index() + 1}`;
+
+                  const chapterName = () =>
+                    chapter.name || `Chapter ${index() + 1}`;
                   const chapterTime = () => {
-                    const startTimeSeconds = chapter.startPositionTicks / 10000000;
+                    const startTimeSeconds =
+                      chapter.startPositionTicks / 10_000_000;
                     return formatTime(startTimeSeconds);
                   };
-                  
+
                   const isCurrentChapter = () => {
                     const currentTime = Number(props.state.currentTime || 0);
-                    const chapterTime = chapter.startPositionTicks / 10000000;
-                    const nextChapterTime = props.state.chapters[index() + 1] 
-                      ? props.state.chapters[index() + 1].startPositionTicks / 10000000 
+                    const chapterTime = chapter.startPositionTicks / 10_000_000;
+                    const nextChapterTime = props.state.chapters[index() + 1]
+                      ? props.state.chapters[index() + 1].startPositionTicks /
+                        10_000_000
                       : props.state.duration;
-                    return currentTime >= chapterTime && currentTime < nextChapterTime;
+                    return (
+                      currentTime >= chapterTime &&
+                      currentTime < nextChapterTime
+                    );
                   };
-                  
+
                   return (
-                    <div class="absolute top-0 group" style={{ left: `${chapterPosition()}%` }}>
+                    <div
+                      class="group absolute top-0"
+                      style={{ left: `${chapterPosition()}%` }}
+                    >
                       {/* Chapter marker button */}
                       <button
                         class={cn(
-                          "w-2 h-full transition-all duration-200 cursor-pointer rounded-sm hover:scale-y-110",
-                          isCurrentChapter() 
-                            ? "bg-blue-400 hover:bg-blue-300" 
-                            : "bg-white/60 hover:bg-white/90"
+                          'h-full w-2 cursor-pointer rounded-sm transition-all duration-200 hover:scale-y-110',
+                          isCurrentChapter()
+                            ? 'bg-blue-400 hover:bg-blue-300'
+                            : 'bg-white/60 hover:bg-white/90'
                         )}
                         onClick={(e) => {
                           e.stopPropagation();
                           props.onNavigateToChapter(chapter);
                         }}
                       />
-                      
+
                       {/* Enhanced tooltip */}
-                      <div class="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-black/90 text-white text-sm rounded-lg shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
+                      <div class="-translate-x-1/2 pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 transform whitespace-nowrap rounded-lg bg-black/90 px-3 py-2 text-sm text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
                         <div class="flex items-center gap-2">
                           <div class="font-medium">{chapterName()}</div>
                           <Show when={isCurrentChapter()}>
-                            <div class="w-2 h-2 bg-blue-400 rounded-full"></div>
+                            <div class="h-2 w-2 rounded-full bg-blue-400" />
                           </Show>
                         </div>
-                        <div class="text-xs text-white/70 mt-1">{chapterTime()}</div>
+                        <div class="mt-1 text-white/70 text-xs">
+                          {chapterTime()}
+                        </div>
                         {/* Tooltip arrow */}
-                        <div class="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-black/90"></div>
+                        <div class="-translate-x-1/2 absolute top-full left-1/2 h-0 w-0 transform border-transparent border-t-4 border-t-black/90 border-r-4 border-l-4" />
                       </div>
                     </div>
                   );
@@ -150,19 +170,19 @@ export default function VideoControls(props: VideoControlsProps) {
             </Show>
           </div>
           <input
-            type="range"
-            min="0"
+            class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
             max="100"
-            value={progressPercentage()}
+            min="0"
+            onClick={(e) => e.stopPropagation()}
             onInput={(e) => {
               e.stopPropagation();
               props.onProgressClick(Number(e.currentTarget.value));
             }}
-            onClick={(e) => e.stopPropagation()}
-            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            type="range"
+            value={progressPercentage()}
           />
         </div>
-        <span class="text-white font-medium text-xs sm:text-sm min-w-[50px] text-right">
+        <span class="min-w-[50px] text-right font-medium text-white text-xs sm:text-sm">
           {formatTime(props.state.duration)}
         </span>
       </div>
@@ -172,15 +192,15 @@ export default function VideoControls(props: VideoControlsProps) {
         {/* Left Controls */}
         <div class="flex items-center gap-3 sm:gap-4">
           <button
+            class="rounded-full p-2.5 text-white transition-all hover:scale-105"
             onClick={(e) => {
               e.stopPropagation();
               props.onTogglePlay();
             }}
-            class="p-2.5 text-white rounded-full transition-all hover:scale-105"
           >
             <Show
-              when={props.state.playing}
               fallback={<Play class="h-6 w-6" />}
+              when={props.state.playing}
             >
               <Pause class="h-6 w-6" />
             </Show>
@@ -188,11 +208,11 @@ export default function VideoControls(props: VideoControlsProps) {
 
           <div class="flex items-center gap-x-2">
             <button
+              class="rounded-full p-2 text-white transition-all"
               onClick={(e) => {
                 e.stopPropagation();
                 props.onToggleMute();
               }}
-              class="p-2 text-white rounded-full transition-all"
             >
               {(() => {
                 const VolumeIcon = getVolumeIcon();
@@ -200,48 +220,52 @@ export default function VideoControls(props: VideoControlsProps) {
               })()}
             </button>
 
-            <div class="w-24 sm:w-32 relative">
-              <div class="h-1.5 bg-white/30 rounded-lg overflow-hidden">
+            <div class="relative w-24 sm:w-32">
+              <div class="h-1.5 overflow-hidden rounded-lg bg-white/30">
                 <div
                   class="h-full bg-white/80 transition-all duration-150"
                   style={{ width: `${(props.state.volume / 200) * 100}%` }}
                 />
               </div>
               <input
-                type="range"
-                min="0"
+                class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
                 max="200"
-                value={props.state.volume}
+                min="0"
+                onClick={(e) => e.stopPropagation()}
                 onInput={(e) => {
                   e.stopPropagation();
                   props.onVolumeChange(Number(e.currentTarget.value));
                 }}
-                onClick={(e) => e.stopPropagation()}
-                class="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                type="range"
+                value={props.state.volume}
               />
             </div>
           </div>
         </div>
 
         {/* Right Controls */}
-        <div class="flex flex-wrap items-center gap-2 justify-end">
+        <div class="flex flex-wrap items-center justify-end gap-2">
           <Show when={props.state.audioList.length > 0}>
             <button
-              ref={props.audioBtnRef}
-              class={cn(
-                'p-2 text-white rounded-full transition-all',
-                props.openPanel() === 'audio' && 'bg-white/20'
-              )}
               aria-expanded={props.openPanel() === 'audio'}
               aria-label={`Audio: ${currentAudioTrack()}`}
+              class={cn(
+                'rounded-full p-2 text-white transition-all',
+                props.openPanel() === 'audio' && 'bg-white/20'
+              )}
               onClick={(e) => {
                 e.stopPropagation();
-                props.setOpenPanel(props.openPanel() === 'audio' ? null : 'audio');
+                props.setOpenPanel(
+                  props.openPanel() === 'audio' ? null : 'audio'
+                );
               }}
+              ref={props.audioBtnRef}
             >
               <Show
-                when={props.state.audioIndex !== -1 && props.state.audioIndex !== 0}
                 fallback={<AudioLines class="h-5 w-5" />}
+                when={
+                  props.state.audioIndex !== -1 && props.state.audioIndex !== 0
+                }
               >
                 <AudioWaveform class="h-5 w-5" />
               </Show>
@@ -250,23 +274,23 @@ export default function VideoControls(props: VideoControlsProps) {
 
           <Show when={props.state.subtitleList.length > 0}>
             <button
-              ref={props.subsBtnRef}
-              class={cn(
-                'p-2 text-white rounded-full transition-all',
-                props.openPanel() === 'subtitles' && 'bg-white/20'
-              )}
               aria-expanded={props.openPanel() === 'subtitles'}
               aria-label={`Subtitles: ${currentSubtitleTrack()}`}
+              class={cn(
+                'rounded-full p-2 text-white transition-all',
+                props.openPanel() === 'subtitles' && 'bg-white/20'
+              )}
               onClick={(e) => {
                 e.stopPropagation();
                 props.setOpenPanel(
                   props.openPanel() === 'subtitles' ? null : 'subtitles'
                 );
               }}
+              ref={props.subsBtnRef}
             >
               <Show
-                when={props.state.subtitleIndex > 0}
                 fallback={<CaptionsOff class="h-5 w-5" />}
+                when={props.state.subtitleIndex > 0}
               >
                 <Captions class="h-5 w-5" />
               </Show>
@@ -274,32 +298,36 @@ export default function VideoControls(props: VideoControlsProps) {
           </Show>
 
           <button
-            ref={props.speedBtnRef}
-            class={cn(
-              'p-2 text-white rounded-full transition-all',
-              props.openPanel() === 'speed' && 'bg-white/20'
-            )}
             aria-expanded={props.openPanel() === 'speed'}
             aria-label={`Speed: ${currentSpeed()}`}
+            class={cn(
+              'rounded-full p-2 text-white transition-all',
+              props.openPanel() === 'speed' && 'bg-white/20'
+            )}
             onClick={(e) => {
               e.stopPropagation();
-              props.setOpenPanel(props.openPanel() === 'speed' ? null : 'speed');
+              props.setOpenPanel(
+                props.openPanel() === 'speed' ? null : 'speed'
+              );
             }}
+            ref={props.speedBtnRef}
           >
             <Gauge class="h-5 w-5" />
           </button>
 
           <Show when={props.state.chapters.length > 0}>
             <button
-              class={cn(
-                'p-2 text-white rounded-full transition-all',
-                props.openPanel() === 'chapters' && 'bg-white/20'
-              )}
               aria-expanded={props.openPanel() === 'chapters'}
               aria-label="Chapters"
+              class={cn(
+                'rounded-full p-2 text-white transition-all',
+                props.openPanel() === 'chapters' && 'bg-white/20'
+              )}
               onClick={(e) => {
                 e.stopPropagation();
-                props.setOpenPanel(props.openPanel() === 'chapters' ? null : 'chapters');
+                props.setOpenPanel(
+                  props.openPanel() === 'chapters' ? null : 'chapters'
+                );
               }}
             >
               <BookOpen class="h-5 w-5" />

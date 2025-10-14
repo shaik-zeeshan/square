@@ -1,37 +1,30 @@
-import { RouteSectionProps, useNavigate, useParams } from '@solidjs/router';
 import {
-  ArrowLeft,
-  Eye,
-  EyeOff,
-} from 'lucide-solid';
+  type RouteSectionProps,
+  useNavigate,
+  useParams,
+} from '@solidjs/router';
+import { ArrowLeft, Eye, EyeOff } from 'lucide-solid';
+import { createEffect, onCleanup, onMount, Show } from 'solid-js';
+import { useGeneralInfo } from '~/components/current-user-provider';
 import {
-  createEffect,
-  onCleanup,
-  onMount,
-  Show,
-  splitProps,
-} from 'solid-js';
+  AutoplayOverlay,
+  OpenInIINAButton,
+  VideoControls,
+  VideoInfoOverlay,
+  VideoSettingsPanels,
+} from '~/components/video';
+import { useAutoplay } from '~/hooks/useAutoplay';
+import { useVideoKeyboardShortcuts } from '~/hooks/useVideoKeyboardShortcuts';
+import { useVideoPlayback } from '~/hooks/useVideoPlayback';
+import library from '~/lib/jellyfin/library';
 import { commands } from '~/lib/tauri';
 import { createJellyFinQuery } from '~/lib/utils';
-import library from '~/lib/jellyfin/library';
-import { useGeneralInfo } from '~/components/current-user-provider';
-import { 
-  VideoControls, 
-  VideoSettingsPanels, 
-  VideoInfoOverlay, 
-  AutoplayOverlay,
-  OpenInIINAButton 
-} from '~/components/video';
-import { useVideoPlayback } from '~/hooks/useVideoPlayback';
-import { useVideoKeyboardShortcuts } from '~/hooks/useVideoKeyboardShortcuts';
-import { useAutoplay } from '~/hooks/useAutoplay';
 
-export default function Page(props: RouteSectionProps) {
+export default function Page(_props: RouteSectionProps) {
   // let [{ params }] = splitProps(props, ['params']);
-  let navigate = useNavigate();
+  const navigate = useNavigate();
   const routeParams = useParams();
   const { store: userStore } = useGeneralInfo();
-
 
   // Fetch item details with UserData to get playback position
   const itemDetails = createJellyFinQuery(() => ({
@@ -93,8 +86,6 @@ export default function Page(props: RouteSectionProps) {
     },
   });
 
-
-
   let audioBtnRef: HTMLButtonElement | undefined;
   let subsBtnRef: HTMLButtonElement | undefined;
   let speedBtnRef: HTMLButtonElement | undefined;
@@ -115,12 +106,22 @@ export default function Page(props: RouteSectionProps) {
   // Close panel when clicking outside
   createEffect(() => {
     const onDown = (e: MouseEvent) => {
-      if (!panelRef) return;
+      if (!panelRef) {
+        return;
+      }
       const t = e.target as Node;
-      if (panelRef.contains(t)) return;
-      if (audioBtnRef?.contains(t)) return;
-      if (subsBtnRef?.contains(t)) return;
-      if (speedBtnRef?.contains(t)) return;
+      if (panelRef.contains(t)) {
+        return;
+      }
+      if (audioBtnRef?.contains(t)) {
+        return;
+      }
+      if (subsBtnRef?.contains(t)) {
+        return;
+      }
+      if (speedBtnRef?.contains(t)) {
+        return;
+      }
       setOpenPanel(null);
     };
     document.addEventListener('mousedown', onDown);
@@ -148,14 +149,14 @@ export default function Page(props: RouteSectionProps) {
 
     const addControlListeners = () => {
       // Clean up existing listeners first
-      cleanupFunctions.forEach(cleanup => cleanup());
+      cleanupFunctions.forEach((cleanup) => cleanup());
       cleanupFunctions = [];
 
       const controlElements = document.querySelectorAll('.control-element');
       controlElements.forEach((element) => {
         element.addEventListener('mouseenter', handleControlMouseEnter);
         element.addEventListener('mouseleave', handleControlMouseLeave);
-        
+
         // Store cleanup function for this element
         cleanupFunctions.push(() => {
           element.removeEventListener('mouseenter', handleControlMouseEnter);
@@ -166,7 +167,7 @@ export default function Page(props: RouteSectionProps) {
 
     // Add listeners after a short delay to ensure DOM is ready
     const timeout = setTimeout(addControlListeners, 100);
-    
+
     // Re-add listeners when controls visibility changes (DOM updates)
     createEffect(() => {
       if (state.showControls) {
@@ -174,20 +175,21 @@ export default function Page(props: RouteSectionProps) {
         setTimeout(addControlListeners, 50);
       }
     });
-    
+
     onCleanup(() => {
       clearTimeout(timeout);
-      cleanupFunctions.forEach(cleanup => cleanup());
+      cleanupFunctions.forEach((cleanup) => cleanup());
     });
   });
-
 
   const handleMouseMove = (e: MouseEvent) => {
     if (!state.controlsLocked) {
       // Check if mouse is over any control element
       const target = e.target as HTMLElement;
-      if (target.classList.contains('control-element') || 
-          target.closest('.control-element')) {
+      if (
+        target.classList.contains('control-element') ||
+        target.closest('.control-element')
+      ) {
         return; // Don't show controls when hovering over control elements
       }
       showControls();
@@ -197,13 +199,25 @@ export default function Page(props: RouteSectionProps) {
   const handleWindowClick = (e: MouseEvent) => {
     // Check if clicking on any control element
     const target = e.target as HTMLElement;
-    if (panelRef?.contains(target)) return;
-    if (audioBtnRef?.contains(target)) return;
-    if (subsBtnRef?.contains(target)) return;
-    if (speedBtnRef?.contains(target)) return;
-    if (target.classList.contains('control-element') || 
-        target.closest('.control-element')) return;
-    
+    if (panelRef?.contains(target)) {
+      return;
+    }
+    if (audioBtnRef?.contains(target)) {
+      return;
+    }
+    if (subsBtnRef?.contains(target)) {
+      return;
+    }
+    if (speedBtnRef?.contains(target)) {
+      return;
+    }
+    if (
+      target.classList.contains('control-element') ||
+      target.closest('.control-element')
+    ) {
+      return;
+    }
+
     if (state.showControls) {
       // Hide controls immediately
       setState('showControls', false);
@@ -216,115 +230,110 @@ export default function Page(props: RouteSectionProps) {
 
   return (
     <div
-      class="bg-transparent dark w-full h-full flex flex-col gap-2 overflow-hidden relative"
-      onMouseMove={handleMouseMove}
+      class="dark relative flex h-full w-full flex-col gap-2 overflow-hidden bg-transparent"
       onClick={handleWindowClick}
+      onMouseMove={handleMouseMove}
     >
       {/* Lock Button - Always Visible */}
       <button
-        class="fixed top-6 right-4 p-3 text-white bg-black/60 hover:bg-black/80 rounded-full transition-all z-50 control-element"
         aria-label={
           state.controlsLocked ? 'Unlock controls' : 'Lock controls hidden'
         }
+        class="control-element fixed top-6 right-4 z-50 rounded-full bg-black/60 p-3 text-white transition-all hover:bg-black/80"
         onClick={(e) => {
           e.stopPropagation();
           toggleControlsLock();
         }}
       >
-        <Show when={state.controlsLocked} fallback={<Eye class="h-5 w-5" />}>
+        <Show fallback={<Eye class="h-5 w-5" />} when={state.controlsLocked}>
           <EyeOff class="h-5 w-5" />
         </Show>
       </button>
 
       <Show when={state.showControls}>
         {/* Item Info Overlay */}
-        <VideoInfoOverlay 
-          itemDetails={itemDetails} 
-          parentDetails={parentDetails} 
+        <VideoInfoOverlay
+          itemDetails={itemDetails}
+          parentDetails={parentDetails}
         />
 
         {/* Bottom Controls */}
-        <div 
-          class="control-element fixed bottom-0 left-0 right-0 p-4 pointer-events-none"
+        <div
+          class="control-element pointer-events-none fixed right-0 bottom-0 left-0 p-4"
           onClick={(e) => e.stopPropagation()}
         >
-          <div class="relative w-full max-w-4xl mx-auto flex flex-col gap-3 pointer-events-auto">
+          <div class="pointer-events-auto relative mx-auto flex w-full max-w-4xl flex-col gap-3">
             {/* Dropdown Panels */}
             <VideoSettingsPanels
-              openPanel={openPanel()}
-              setOpenPanel={setOpenPanel}
-              state={state}
-              setState={setState}
               onNavigateToChapter={navigateToChapter}
+              openPanel={openPanel()}
               panelRef={panelRef}
+              setOpenPanel={setOpenPanel}
+              setState={setState}
+              state={state}
             />
 
             {/* Main Control Bar */}
             <VideoControls
-              state={state}
-              openPanel={openPanel}
-              setOpenPanel={setOpenPanel}
-              onTogglePlay={togglePlay}
-              onToggleMute={toggleMute}
-              onVolumeChange={handleVolumeChange}
+              audioBtnRef={audioBtnRef}
+              onNavigateToChapter={navigateToChapter}
               onProgressClick={handleProgressClick}
               onSetSpeed={setSpeed}
-              onNavigateToChapter={navigateToChapter}
-              audioBtnRef={audioBtnRef}
-              subsBtnRef={subsBtnRef}
+              onToggleMute={toggleMute}
+              onTogglePlay={togglePlay}
+              onVolumeChange={handleVolumeChange}
+              openPanel={openPanel}
+              setOpenPanel={setOpenPanel}
               speedBtnRef={speedBtnRef}
+              state={state}
+              subsBtnRef={subsBtnRef}
             />
           </div>
         </div>
 
         {/* Back Button */}
         <button
+          class="control-element fixed top-6 left-4 z-50 rounded-full p-3 text-white transition-all"
           onClick={(e) => {
             e.stopPropagation();
             commands.playbackClear();
             navigate(-1);
           }}
-          class="control-element fixed top-6 left-4 p-3 text-white rounded-full transition-all z-50"
         >
           <ArrowLeft class="h-6 w-6" />
         </button>
 
         {/* IINA Button */}
         <Show when={state.url.length}>
-          <div 
+          <div
             class="control-element fixed top-8 right-20 z-50"
             onClick={(e) => e.stopPropagation()}
           >
             <OpenInIINAButton
-              url={state.url}
               beforePlaying={() => {
                 commands.playbackPause();
               }}
+              url={state.url}
             />
           </div>
         </Show>
       </Show>
 
-
       {/* Autoplay Overlay */}
- <div 
-   class="control-element"
-   onClick={(e) => e.stopPropagation()}
- >
- <AutoplayOverlay
-   nextEpisode={autoplayHook().nextEpisode}
-   onPlayNext={() => {
-    // before playing the next episode, clear the current video
-    commands.playbackPause();
-    autoplayHook().playNextEpisode()
-  }}
-   onCancel={autoplayHook().cancelAutoplay}
-   isVisible={autoplayHook().showAutoplay()}
-   isCollapsed={autoplayHook().isCollapsed()}
-   setIsCollapsed={autoplayHook().setIsCollapsed}
- />
- </div>
-  
+      <div class="control-element" onClick={(e) => e.stopPropagation()}>
+        <AutoplayOverlay
+          isCollapsed={autoplayHook().isCollapsed()}
+          isVisible={autoplayHook().showAutoplay()}
+          nextEpisode={autoplayHook().nextEpisode}
+          onCancel={autoplayHook().cancelAutoplay}
+          onPlayNext={() => {
+            // before playing the next episode, clear the current video
+            commands.playbackPause();
+            autoplayHook().playNextEpisode();
+          }}
+          setIsCollapsed={autoplayHook().setIsCollapsed}
+        />
+      </div>
     </div>
   );
 }

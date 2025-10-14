@@ -1,36 +1,36 @@
-import { RouteSectionProps, useNavigate } from '@solidjs/router';
+import { ItemFilter } from '@jellyfin/sdk/lib/generated-client';
+import { type RouteSectionProps, useNavigate } from '@solidjs/router';
 import {
+  ArrowUp,
+  Calendar,
   ChevronDown,
   ChevronUp,
-  ArrowUp,
-  Star,
-  Calendar,
   Clock,
-  Library as LibraryIcon,
   Filter,
+  Library as LibraryIcon,
+  Star,
 } from 'lucide-solid';
 import {
+  createSignal,
   For,
   Match,
-  Show,
-  splitProps,
-  Switch,
-  createSignal,
-  onMount,
   onCleanup,
+  onMount,
+  Show,
+  Switch,
+  splitProps,
 } from 'solid-js';
 import { useGeneralInfo } from '~/components/current-user-provider';
 import { EpisodeCard, SeriesCard } from '~/components/media-card';
-import { QueryBoundary } from '~/components/query-boundary';
 import { Nav } from '~/components/Nav';
+import { QueryBoundary } from '~/components/query-boundary';
+import { GlassButton } from '~/components/ui';
+import { InlineLoading } from '~/components/ui/loading';
 import library from '~/lib/jellyfin/library';
 import { createJellyFinQuery } from '~/lib/utils';
-import { GlassButton } from '~/components/ui';
-import { ItemFilter } from '@jellyfin/sdk/lib/generated-client';
-import { InlineLoading } from '~/components/ui/loading';
 
 export default function Page(props: RouteSectionProps) {
-  let [{ params }] = splitProps(props, ['params']);
+  const [{ params }] = splitProps(props, ['params']);
   const navigate = useNavigate();
 
   const { store } = useGeneralInfo();
@@ -71,20 +71,24 @@ export default function Page(props: RouteSectionProps) {
       activeFilter(),
     ],
     queryFn: async (jf) => {
-      let parentId = params.item_id;
+      const parentId = params.item_id;
 
       // Note: We can't safely access itemDetails.data here since we're outside QueryBoundary
       // This query will be enabled/disabled based on itemDetails data in the QueryBoundary
 
       // Map filter state to Jellyfin filters
-      const filters: Array<(typeof ItemFilter)[keyof typeof ItemFilter]> = [];
+      const filters: (typeof ItemFilter)[keyof typeof ItemFilter][] = [];
       const filter = activeFilter();
-      if (filter === 'unplayed') filters.push(ItemFilter.IsUnplayed);
-      else if (filter === 'played') filters.push(ItemFilter.IsPlayed);
-      else if (filter === 'resumable') filters.push(ItemFilter.IsResumable);
+      if (filter === 'unplayed') {
+        filters.push(ItemFilter.IsUnplayed);
+      } else if (filter === 'played') {
+        filters.push(ItemFilter.IsPlayed);
+      } else if (filter === 'resumable') {
+        filters.push(ItemFilter.IsResumable);
+      }
 
-      let seasons = await library.query.getItems(jf, {
-        parentId: parentId,
+      const seasons = await library.query.getItems(jf, {
+        parentId,
         userId: store?.user?.Id,
         fields: ['Overview', 'MediaStreams'],
         enableImage: true,
@@ -96,7 +100,9 @@ export default function Page(props: RouteSectionProps) {
         filters: filters.length > 0 ? filters : undefined,
       });
 
-      if (!seasons || seasons.length === 0) return [];
+      if (!seasons || seasons.length === 0) {
+        return [];
+      }
 
       return seasons;
     },
@@ -137,38 +143,38 @@ export default function Page(props: RouteSectionProps) {
   });
 
   return (
-    <section class="relative min-h-screen flex flex-col">
+    <section class="relative flex min-h-screen flex-col">
       <QueryBoundary
-        query={itemDetails}
-        loadingFallback={
-          <div class="w-full h-full flex items-center justify-center">
-            <div class="text-white">Loading item details...</div>
-          </div>
-        }
         errorFallback={(err, retry) => (
-          <div class="w-full h-full flex items-center justify-center">
+          <div class="flex h-full w-full items-center justify-center">
             <div class="text-center">
-              <div class="text-red-400 mb-4">
+              <div class="mb-4 text-red-400">
                 Error loading item: {err?.message}
               </div>
               <button
+                class="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
                 onClick={retry}
-                class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
               >
                 Retry
               </button>
             </div>
           </div>
         )}
+        loadingFallback={
+          <div class="flex h-full w-full items-center justify-center">
+            <div class="text-white">Loading item details...</div>
+          </div>
+        }
+        query={itemDetails}
       >
         {(item) => (
           <>
             {/* Background with enhanced overlay */}
-            <div class="fixed top-0 left-0 w-full h-screen">
+            <div class="fixed top-0 left-0 h-screen w-full">
               <img
-                src={item?.Backdrop?.[0]}
                 alt={item?.Name ?? ''}
-                class="w-full h-full object-cover"
+                class="h-full w-full object-cover"
+                src={item?.Backdrop?.[0]}
               />
               <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90" />
               <div class="absolute inset-0 backdrop-blur-sm" />
@@ -176,7 +182,6 @@ export default function Page(props: RouteSectionProps) {
 
             {/* Navigation Bar */}
             <Nav
-              class="relative z-50"
               breadcrumbs={[
                 {
                   label: (() => {
@@ -190,18 +195,20 @@ export default function Page(props: RouteSectionProps) {
                     return parentLibrary.data?.Name || 'Library';
                   })(),
                   icon: (
-                    <LibraryIcon class="w-4 h-4 opacity-70 flex-shrink-0" />
+                    <LibraryIcon class="h-4 w-4 flex-shrink-0 opacity-70" />
                   ),
                   onClick: () => {
                     const parentId = parentLibrary.data?.ParentId;
                     const itemType = item?.Type;
 
-                    if (!parentId) return;
+                    if (!parentId) {
+                      return;
+                    }
 
                     // If current item is Season or Episode, navigate to parent item page
                     // If current item is Series or Movie, navigate to library page
                     if (itemType === 'Season' || itemType === 'Episode') {
-                      let seriesID = item?.SeriesId;
+                      const seriesID = item?.SeriesId;
                       navigate(`/library/${parentId}/item/${seriesID}`);
                     } else {
                       navigate(`/library/${params.id}`);
@@ -209,31 +216,32 @@ export default function Page(props: RouteSectionProps) {
                   },
                 },
               ]}
+              class="relative z-50"
               currentPage={item?.Name || 'Loading...'}
-              showSearch={true}
-              searchValue={searchTerm()}
               onSearchChange={setSearchTerm}
+              searchValue={searchTerm()}
+              showSearch={true}
             />
 
             <div
+              class="relative z-20 flex-1 overflow-y-auto px-8 py-8 text-white"
               ref={contentAreaRef}
-              class="relative z-20 text-white px-8 py-8 flex-1 overflow-y-auto"
             >
-              <div class="flex flex-col max-w-7xl mx-auto h-full">
+              <div class="mx-auto flex h-full max-w-7xl flex-col">
                 {/* Hero Section */}
                 <div class="space-y-4">
                   <Show when={['Series', 'Movie'].includes(item?.Type || '')}>
                     <div class="max-w-xs">
                       <img
-                        src={item?.Images?.Logo}
                         alt={item?.Name ?? ''}
-                        class="w-full h-auto object-contain drop-shadow-xl"
+                        class="h-auto w-full object-contain drop-shadow-xl"
+                        src={item?.Images?.Logo}
                       />
                     </div>
                   </Show>
 
                   <Show when={!item?.Images?.Logo}>
-                    <h1 class="text-2xl font-bold tracking-tight">
+                    <h1 class="font-bold text-2xl tracking-tight">
                       {item?.Name}
                     </h1>
                   </Show>
@@ -241,8 +249,8 @@ export default function Page(props: RouteSectionProps) {
                   {/* Metadata Section - Compact style */}
                   <div class="flex flex-wrap items-center gap-2 text-xs">
                     <Show when={item?.CommunityRating}>
-                      <div class="flex items-center gap-1 bg-yellow-500/20 px-2 py-0.5 rounded-md">
-                        <Star class="w-3.5 h-3.5 text-yellow-400 fill-yellow-400" />
+                      <div class="flex items-center gap-1 rounded-md bg-yellow-500/20 px-2 py-0.5">
+                        <Star class="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
                         <span class="font-semibold text-yellow-400">
                           {item?.CommunityRating?.toFixed(1)}
                         </span>
@@ -251,7 +259,7 @@ export default function Page(props: RouteSectionProps) {
 
                     <Show when={item?.PremiereDate}>
                       <div class="flex items-center gap-1 opacity-70">
-                        <Calendar class="w-3.5 h-3.5" />
+                        <Calendar class="h-3.5 w-3.5" />
                         <span class="font-medium">
                           {new Date(item?.PremiereDate!).getFullYear()}
                         </span>
@@ -260,16 +268,16 @@ export default function Page(props: RouteSectionProps) {
 
                     <Show when={item?.RunTimeTicks}>
                       <div class="flex items-center gap-1 opacity-70">
-                        <Clock class="w-3.5 h-3.5" />
+                        <Clock class="h-3.5 w-3.5" />
                         <span class="font-medium">
-                          {Math.round((item?.RunTimeTicks || 0) / 600000000)}{' '}
+                          {Math.round((item?.RunTimeTicks || 0) / 600_000_000)}{' '}
                           min
                         </span>
                       </div>
                     </Show>
 
                     <Show when={item?.OfficialRating}>
-                      <div class="px-2 py-0.5 rounded-md border border-white/30">
+                      <div class="rounded-md border border-white/30 px-2 py-0.5">
                         <span class="font-semibold">
                           {item?.OfficialRating}
                         </span>
@@ -281,7 +289,7 @@ export default function Page(props: RouteSectionProps) {
                   <Show when={item?.Genres?.length}>
                     <div class="flex flex-wrap gap-1.5">
                       {item?.Genres?.slice(0, 4).map((genre) => (
-                        <span class="px-2.5 py-0.5 rounded-full bg-white/10 text-xs font-medium hover:bg-white/15 transition-colors">
+                        <span class="rounded-full bg-white/10 px-2.5 py-0.5 font-medium text-xs transition-colors hover:bg-white/15">
                           {genre}
                         </span>
                       ))}
@@ -294,22 +302,22 @@ export default function Page(props: RouteSectionProps) {
                       <div class="flex items-center justify-between">
                         <h3 class="font-semibold opacity-70">Overview</h3>
                         <button
+                          class="flex items-center gap-1 text-sm opacity-60 transition-opacity hover:opacity-100"
                           onClick={() =>
                             setIsOverviewExpanded(!isOverviewExpanded())
                           }
-                          class="flex text-sm items-center gap-1 opacity-60 hover:opacity-100 transition-opacity"
                         >
                           <Show
-                            when={isOverviewExpanded()}
                             fallback={
                               <>
                                 <span>More</span>
-                                <ChevronDown class="w-3 h-3" />
+                                <ChevronDown class="h-3 w-3" />
                               </>
                             }
+                            when={isOverviewExpanded()}
                           >
                             <span>Less</span>
-                            <ChevronUp class="w-3 h-3" />
+                            <ChevronUp class="h-3 w-3" />
                           </Show>
                         </button>
                       </div>
@@ -325,31 +333,31 @@ export default function Page(props: RouteSectionProps) {
 
                   {/* Additional Info - Compact Cards */}
                   <Show when={item?.Studios?.length || item?.People?.length}>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+                    <div class="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
                       <Show when={item?.Studios?.length}>
-                        <div class="p-3 rounded-lg bg-white/5 border border-white/10">
-                          <h4 class="text-xs font-semibold opacity-50 mb-2 uppercase tracking-wider">
+                        <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                          <h4 class="mb-2 font-semibold text-xs uppercase tracking-wider opacity-50">
                             Studio
                           </h4>
-                          <p class="text-sm font-medium">
+                          <p class="font-medium text-sm">
                             {item?.Studios?.map((s) => s.Name).join(', ')}
                           </p>
                         </div>
                       </Show>
 
                       <Show when={item?.People?.slice(0, 4).length}>
-                        <div class="p-3 rounded-lg bg-white/5 border border-white/10">
-                          <h4 class="text-xs font-semibold opacity-50 mb-2 uppercase tracking-wider">
+                        <div class="rounded-lg border border-white/10 bg-white/5 p-3">
+                          <h4 class="mb-2 font-semibold text-xs uppercase tracking-wider opacity-50">
                             Cast
                           </h4>
                           <div class="space-y-1.5">
                             {item?.People?.slice(0, 4).map((person) => (
                               <div class="flex items-baseline gap-2 text-sm">
-                                <span class="font-medium truncate">
+                                <span class="truncate font-medium">
                                   {person.Name}
                                 </span>
                                 <Show when={person.Role}>
-                                  <span class="text-xs opacity-50 truncate">
+                                  <span class="truncate text-xs opacity-50">
                                     {person.Role}
                                   </span>
                                 </Show>
@@ -363,36 +371,36 @@ export default function Page(props: RouteSectionProps) {
                 </div>
 
                 {/* Content Section */}
-                <div class="mt-12 pt-8 border-t border-white/10 flex-1">
+                <div class="mt-12 flex-1 border-white/10 border-t pt-8">
                   <QueryBoundary
-                    query={childrens}
-                    loadingFallback={
-                     <InlineLoading class='grid place-items-center text-white/80 h-full' />
-                    }
                     errorFallback={(err) => (
-                      <div class="p-4 rounded-lg bg-red-500/10 border border-red-500/20">
+                      <div class="rounded-lg border border-red-500/20 bg-red-500/10 p-4">
                         <div class="text-red-400 text-sm">
                           Error: {err?.message}
                         </div>
                       </div>
                     )}
+                    loadingFallback={
+                      <InlineLoading class="grid h-full place-items-center text-white/80" />
+                    }
                     notStartedFallback={
                       <ItemsRender
-                        parentItem={item}
-                        items={[]}
-                        parentId={params.item_id}
                         activeFilter={activeFilter()}
+                        items={[]}
                         onFilterChange={setActiveFilter}
+                        parentId={params.item_id}
+                        parentItem={item}
                       />
                     }
+                    query={childrens}
                   >
                     {(items) => (
                       <ItemsRender
-                        parentItem={item}
-                        items={items}
-                        parentId={params.item_id}
                         activeFilter={activeFilter()}
+                        items={items}
                         onFilterChange={setActiveFilter}
+                        parentId={params.item_id}
+                        parentItem={item}
                       />
                     )}
                   </QueryBoundary>
@@ -406,12 +414,12 @@ export default function Page(props: RouteSectionProps) {
       {/* Scroll to Top Button */}
       <Show when={showScrollTop()}>
         <GlassButton
-          variant="glass"
-          size="icon-lg"
+          class="fade-in slide-in-from-bottom-4 fixed right-8 bottom-8 z-50 animate-in text-white"
           onClick={scrollToTop}
-          class="fixed bottom-8 right-8 z-50 text-white animate-in fade-in slide-in-from-bottom-4"
+          size="icon-lg"
+          variant="glass"
         >
-          <ArrowUp class="w-6 h-6" />
+          <ArrowUp class="h-6 w-6" />
         </GlassButton>
       </Show>
     </section>
@@ -438,12 +446,12 @@ function ItemsRender({
     label: string;
   }) => (
     <button
-      onClick={() => onFilterChange(props.filter)}
-      class={`px-3 py-1 rounded-full text-xs font-medium transition-all ${
+      class={`rounded-full px-3 py-1 font-medium text-xs transition-all ${
         activeFilter === props.filter
-          ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50'
-          : 'bg-white/5 border border-white/10 hover:bg-white/10'
+          ? 'border border-blue-500/50 bg-blue-500/30 text-blue-300'
+          : 'border border-white/10 bg-white/5 hover:bg-white/10'
       }`}
+      onClick={() => onFilterChange(props.filter)}
     >
       {props.label}
     </button>
@@ -451,28 +459,26 @@ function ItemsRender({
 
   return (
     <Switch>
-      <Match when={!parentItem?.Type}>
-        <></>
-      </Match>
+      <Match when={!parentItem?.Type} />
       <Match when={parentItem?.Type === 'Series'}>
         <div class="space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div class="flex items-baseline gap-2">
-              <h2 class="text-lg font-semibold">Seasons</h2>
-              <span class="text-xs opacity-50 font-medium">
+              <h2 class="font-semibold text-lg">Seasons</h2>
+              <span class="font-medium text-xs opacity-50">
                 {items?.length} {items?.length === 1 ? 'Season' : 'Seasons'}
               </span>
             </div>
 
             <div class="flex items-center gap-2">
-              <Filter class="w-4 h-4 opacity-50" />
+              <Filter class="h-4 w-4 opacity-50" />
               <FilterButton filter="all" label="All" />
               <FilterButton filter="unplayed" label="Unwatched" />
               <FilterButton filter="played" label="Watched" />
               <FilterButton filter="resumable" label="In Progress" />
             </div>
           </div>
-          <div class="grid 2xl:grid-cols-6 xl:grid-cols-5 lg:grid-cols-4 grid-cols-3 gap-6">
+          <div class="grid grid-cols-3 gap-6 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <For each={items}>
               {(item) => <SeriesCard item={item} parentId={parentId} />}
             </For>
@@ -482,7 +488,7 @@ function ItemsRender({
 
       <Match when={parentItem?.Type === 'Movie'}>
         <div class="space-y-4">
-          <h2 class="text-lg font-semibold">Watch Movie</h2>
+          <h2 class="font-semibold text-lg">Watch Movie</h2>
           <EpisodeCard item={parentItem} />
         </div>
       </Match>
@@ -491,14 +497,14 @@ function ItemsRender({
         <div class="space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div class="flex items-baseline gap-2">
-              <h2 class="text-lg font-semibold">Episodes</h2>
-              <span class="text-xs opacity-50 font-medium">
+              <h2 class="font-semibold text-lg">Episodes</h2>
+              <span class="font-medium text-xs opacity-50">
                 {items?.length} {items?.length === 1 ? 'Episode' : 'Episodes'}
               </span>
             </div>
 
             <div class="flex items-center gap-2">
-              <Filter class="w-4 h-4 opacity-50" />
+              <Filter class="h-4 w-4 opacity-50" />
               <FilterButton filter="all" label="All" />
               <FilterButton filter="unplayed" label="Unwatched" />
               <FilterButton filter="played" label="Watched" />

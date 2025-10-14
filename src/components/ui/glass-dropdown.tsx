@@ -1,6 +1,6 @@
-import { type ComponentProps, type JSX, splitProps, Show } from 'solid-js';
-import { cn } from '~/lib/utils';
+import { type ComponentProps, type JSX, Show, splitProps } from 'solid-js';
 import { getGlassClasses, glassAnimations } from '~/lib/glass-utils';
+import { cn } from '~/lib/utils';
 
 export interface GlassDropdownProps extends ComponentProps<'div'> {
   open?: boolean;
@@ -35,7 +35,7 @@ export function GlassDropdown(props: GlassDropdownProps) {
     <Show when={local.open}>
       <div
         class={cn(
-          'absolute left-0 right-0 z-50 p-2',
+          'absolute right-0 left-0 z-50 p-2',
           getGlassClasses('dropdown'),
           glassAnimations.fadeIn,
           positionClasses(),
@@ -55,26 +55,21 @@ export interface GlassDropdownItemProps extends ComponentProps<'button'> {
 }
 
 export function GlassDropdownItem(props: GlassDropdownItemProps) {
-  const [local, others] = splitProps(props, [
-    'class',
-    'selected',
-    'children',
-  ]);
+  const [local, others] = splitProps(props, ['class', 'selected', 'children']);
 
   return (
     <button
-      type="button"
-      role="menuitem"
       aria-selected={local.selected}
       class={cn(
-        'w-full text-left px-3 py-2 rounded-md cursor-pointer text-white/90 hover:bg-[#111111d1] hover:text-white focus:outline-none focus:bg-[#111111d1] transition-all duration-[var(--glass-transition-fast)]',
+        'w-full cursor-pointer rounded-md px-3 py-2 text-left text-white/90 transition-all duration-[var(--glass-transition-fast)] hover:bg-[#111111d1] hover:text-white focus:bg-[#111111d1] focus:outline-none',
         local.selected && 'bg-[#111111d1] text-white',
         local.class
       )}
+      role="menuitem"
+      type="button"
       {...others}
     >
       {local.children}
     </button>
   );
 }
-

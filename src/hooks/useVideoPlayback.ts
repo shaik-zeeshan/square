@@ -1,21 +1,21 @@
-import { createEffect, createSignal, onCleanup, onMount } from 'solid-js';
-import { createStore } from 'solid-js/store';
-import { listen, UnlistenFn } from '@tauri-apps/api/event';
-import { commands } from '~/lib/tauri';
-import { useJellyfin } from '~/components/jellyfin-provider';
-import { getPlaystateApi } from '@jellyfin/sdk/lib/utils/api/playstate-api';
 import { PlayMethod } from '@jellyfin/sdk/lib/generated-client';
-import type { Track, OpenPanel, Chapter } from '~/components/video/types';
+import { getPlaystateApi } from '@jellyfin/sdk/lib/utils/api/playstate-api';
+import { listen, type UnlistenFn } from '@tauri-apps/api/event';
+import { getCurrentWindow } from '@tauri-apps/api/window';
+import { createEffect, createSignal, onCleanup } from 'solid-js';
+import { createStore } from 'solid-js/store';
+import { useJellyfin } from '~/components/jellyfin-provider';
+import type { Chapter, OpenPanel, Track } from '~/components/video/types';
 import {
   DEFAULT_AUDIO_LANG,
   DEFAULT_SUBTITLE_LANG,
 } from '~/components/video/types';
-import { getCurrentWindow } from '@tauri-apps/api/window';
+import { commands } from '~/lib/tauri';
 
 export function useVideoPlayback(itemId: () => string, itemDetails: any) {
   const jf = useJellyfin();
 
-  let [state, setState] = createStore({
+  const [state, setState] = createStore({
     audioIndex: -1,
     subtitleIndex: -1,
     currentTime: '',
@@ -45,12 +45,16 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
   let lastProgressReportTime = 0;
 
   const showControls = async () => {
-    if (state.controlsLocked) return;
+    if (state.controlsLocked) {
+      return;
+    }
     setState('showControls', true);
     commands.toggleTitlebarHide(false);
 
     const existing = hideControlsTimeout();
-    if (existing) clearTimeout(existing);
+    if (existing) {
+      clearTimeout(existing);
+    }
 
     // Only set timeout to hide if not hovering over controls
     if (!state.isHoveringControls) {
@@ -65,19 +69,23 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
 
   const toggleControlsLock = () => {
     setState('controlsLocked', !state.controlsLocked);
-    if (!state.controlsLocked) {
+    if (state.controlsLocked) {
+      // When locking, hide controls immediately
+      setState('showControls', false);
+      commands.toggleTitlebarHide(true);
+      const existing = hideControlsTimeout();
+      if (existing) {
+        clearTimeout(existing);
+      }
+    } else {
       // When unlocking, show controls immediately
       setState('showControls', true);
       commands.toggleTitlebarHide(false);
       // Clear any existing timeout
       const existing = hideControlsTimeout();
-      if (existing) clearTimeout(existing);
-    } else {
-      // When locking, hide controls immediately
-      setState('showControls', false);
-      commands.toggleTitlebarHide(true);
-      const existing = hideControlsTimeout();
-      if (existing) clearTimeout(existing);
+      if (existing) {
+        clearTimeout(existing);
+      }
     }
   };
 
@@ -115,28 +123,23 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
 
   const navigateToChapter = (chapter: Chapter) => {
     // Convert ticks to seconds (1 tick = 100 nanoseconds = 0.0000001 seconds)
-    const startTimeSeconds = chapter.startPositionTicks / 10000000;
-    console.log('Navigating to chapter:', chapter.name, 'at time:', startTimeSeconds);
-    
+    const startTimeSeconds = chapter.startPositionTicks / 10_000_000;
+
     // Use relative time approach like handleProgressClick
     const currentTime = Number(state.currentTime);
     const relativeTime = startTimeSeconds - currentTime;
-    
-    console.log('Current time:', currentTime, 'Target time:', startTimeSeconds, 'Relative time:', relativeTime);
-    
-    // Only call the seek command - let the 'playback-time' event update the state
-    console.log('Calling playbackSeek with relative time:', relativeTime);
     commands.playbackSeek(relativeTime);
-    
+
     // Don't immediately update state - let Tauri's playback-time event handle it
     // This prevents the state from being overwritten by stale time events
   };
 
   const handleProgressClick = (value: number) => {
-    if (state.duration === 0) return;
+    if (state.duration === 0) {
+      return;
+    }
     const newTime = (value / 100) * state.duration;
-    let relativeTime = newTime - Number(state.currentTime);
-    console.log('Progress click - Current time:', state.currentTime, 'New time:', newTime, 'Relative time:', relativeTime);
+    const relativeTime = newTime - Number(state.currentTime);
     commands.playbackSeek(relativeTime);
     setState('currentTime', newTime.toString());
   };
@@ -154,7 +157,9 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
     setState('isHoveringControls', true);
     // Clear any existing timeout when entering control area
     const existing = hideControlsTimeout();
-    if (existing) clearTimeout(existing);
+    if (existing) {
+      clearTimeout(existing);
+    }
   };
 
   const handleControlMouseLeave = () => {
@@ -171,29 +176,23 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
 
   createEffect(async () => {
     const currentItemId = itemId();
-    let token = jf.api?.accessToken;
-    let basePath = jf.api?.basePath;
+    const token = jf.api?.accessToken;
+    const basePath = jf.api?.basePath;
 
-    if (!token || !jf.api || !currentItemId) {
+    if (!(token && jf.api && currentItemId)) {
       return;
     }
 
-    let url = `${basePath}/Videos/${currentItemId}/Stream?api_key=${token}&container=mp4&static=true`;
-    console.log('Loading video:', url);
+    const url = `${basePath}/Videos/${currentItemId}/Stream?api_key=${token}&container=mp4&static=true`;
     setState('url', url);
     setState('currentItemId', currentItemId);
     setState('currentTime', '0');
     setState('duration', 0);
-    
-    // Process chapters from item details
-    console.log('Item details:', itemDetails.data);
-    console.log('All item details keys:', Object.keys(itemDetails.data || {}));
-    
+
     let chapters: Chapter[] = [];
-    
+
     // Check for chapters in different possible fields
     if (itemDetails.data?.Chapters) {
-      console.log('Found chapters in Chapters field:', itemDetails.data.Chapters);
       if (Array.isArray(itemDetails.data.Chapters)) {
         chapters = itemDetails.data.Chapters.map((chapter: any) => ({
           startPositionTicks: chapter.StartPositionTicks || 0,
@@ -206,7 +205,6 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
         // Handle case where chapters are stored as JSON string
         try {
           const chaptersData = JSON.parse(itemDetails.data.Chapters);
-          console.log('Found chapters as JSON string:', chaptersData);
           chapters = chaptersData.map((chapter: any) => ({
             startPositionTicks: chapter.StartPositionTicks || 0,
             name: chapter.Name || null,
@@ -214,52 +212,50 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
             imageDateModified: chapter.ImageDateModified || null,
             imageTag: chapter.ImageTag || null,
           }));
-        } catch (e) {
-          console.error('Failed to parse chapters JSON:', e);
-        }
+        } catch (_e) {}
       }
     } else if (itemDetails.data?.MediaSources?.[0]?.Chapters) {
-      console.log('Found chapters in MediaSources field:', itemDetails.data.MediaSources[0].Chapters);
-      chapters = itemDetails.data.MediaSources[0].Chapters.map((chapter: any) => ({
-        startPositionTicks: chapter.StartPositionTicks || 0,
-        name: chapter.Name || null,
-        imagePath: chapter.ImagePath || null,
-        imageDateModified: chapter.ImageDateModified || null,
-        imageTag: chapter.ImageTag || null,
-      }));
+      chapters = itemDetails.data.MediaSources[0].Chapters.map(
+        (chapter: any) => ({
+          startPositionTicks: chapter.StartPositionTicks || 0,
+          name: chapter.Name || null,
+          imagePath: chapter.ImagePath || null,
+          imageDateModified: chapter.ImageDateModified || null,
+          imageTag: chapter.ImageTag || null,
+        })
+      );
     } else {
       // Check all possible fields that might contain chapter data
-      const possibleFields = ['Chapters', 'ChapterInfo', 'ChapterList', 'MediaChapters'];
+      const possibleFields = [
+        'Chapters',
+        'ChapterInfo',
+        'ChapterList',
+        'MediaChapters',
+      ];
       for (const field of possibleFields) {
-        if (itemDetails.data?.[field]) {
-          console.log(`Found potential chapters in ${field}:`, itemDetails.data[field]);
-          if (typeof itemDetails.data[field] === 'string') {
-            try {
-              const chaptersData = JSON.parse(itemDetails.data[field]);
-              chapters = chaptersData.map((chapter: any) => ({
-                startPositionTicks: chapter.StartPositionTicks || 0,
-                name: chapter.Name || null,
-                imagePath: chapter.ImagePath || null,
-                imageDateModified: chapter.ImageDateModified || null,
-                imageTag: chapter.ImageTag || null,
-              }));
-              break;
-            } catch (e) {
-              console.error(`Failed to parse ${field} JSON:`, e);
-            }
-          }
+        if (
+          itemDetails.data?.[field] &&
+          typeof itemDetails.data[field] === 'string'
+        ) {
+          try {
+            const chaptersData = JSON.parse(itemDetails.data[field]);
+            chapters = chaptersData.map((chapter: any) => ({
+              startPositionTicks: chapter.StartPositionTicks || 0,
+              name: chapter.Name || null,
+              imagePath: chapter.ImagePath || null,
+              imageDateModified: chapter.ImageDateModified || null,
+              imageTag: chapter.ImageTag || null,
+            }));
+            break;
+          } catch (_e) {}
         }
       }
     }
-    
-    console.log('Processed chapters:', chapters);
     setState('chapters', chapters);
-    
+
     commands.playbackLoad(url);
     commands.playbackPlay();
   });
-
-  
 
   createEffect(async () => {
     const currentItemId = itemId();
@@ -269,8 +265,7 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
     });
     unlistenFuncs = [];
 
-    const fileLoaded = await listen('file-loaded', (event) => {
-      console.log('File loaded');
+    const fileLoaded = await listen('file-loaded', (_event) => {
       commands.playbackPlay();
     });
 
@@ -278,7 +273,6 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
 
     const playbackTime = await listen('playback-time', async (event) => {
       const newTime = event.payload as string;
-      console.log('Playback time event received:', newTime);
       setState('currentTime', newTime);
 
       // Report progress to Jellyfin every 3 seconds
@@ -291,7 +285,7 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
             playbackProgressInfo: {
               ItemId: currentItemId,
               PlaySessionId: playSessionId,
-              PositionTicks: Math.floor(Number(state.currentTime) * 10000000),
+              PositionTicks: Math.floor(Number(state.currentTime) * 10_000_000),
               IsPaused: !state.playing,
               IsMuted: state.isMuted,
               VolumeLevel: Math.min(state.volume, 100),
@@ -303,9 +297,7 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
                 state.subtitleIndex > 0 ? state.subtitleIndex : undefined,
             },
           });
-        } catch (error) {
-          console.error('Failed to report playback progress:', error);
-        }
+        } catch (_error) {}
       }
     });
 
@@ -319,8 +311,10 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
 
     const audioList = await listen('audio-list', (event) => {
       setState('audioList', event.payload as Track[]);
-      if (state.audioIndex >= -1) return;
-      let defaultAudio = (event.payload as Track[]).find((track) =>
+      if (state.audioIndex >= -1) {
+        return;
+      }
+      const defaultAudio = (event.payload as Track[]).find((track) =>
         DEFAULT_AUDIO_LANG.includes(track.lang ?? '')
       );
       if (defaultAudio) {
@@ -336,8 +330,10 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
 
     const subtitleList = await listen('subtitle-list', (event) => {
       setState('subtitleList', event.payload as Track[]);
-      if (state.subtitleIndex >= -1) return;
-      let defaultSubtitle = (event.payload as Track[]).find((track) =>
+      if (state.subtitleIndex >= -1) {
+        return;
+      }
+      const defaultSubtitle = (event.payload as Track[]).find((track) =>
         DEFAULT_SUBTITLE_LANG.includes(track.lang ?? '')
       );
       if (defaultSubtitle) {
@@ -355,7 +351,7 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
       const savedPosition = itemDetails.data?.UserData?.PlaybackPositionTicks;
       if (savedPosition && savedPosition > 0) {
         // Convert ticks to seconds (1 tick = 0.0000001 seconds)
-        const savedSeconds = savedPosition / 10000000;
+        const savedSeconds = savedPosition / 10_000_000;
         // Only resume if not near the end (more than 5% remaining)
         const duration = Number(event.payload as string);
         if (savedSeconds < duration * 0.95) {
@@ -365,7 +361,9 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
       }
 
       try {
-        if (!jf.api) return;
+        if (!jf.api) {
+          return;
+        }
         const playstateApi = getPlaystateApi(jf.api);
         await playstateApi.reportPlaybackStart({
           playbackStartInfo: {
@@ -385,9 +383,7 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
 
         // Initialize last progress report time
         lastProgressReportTime = Date.now();
-      } catch (error) {
-        console.error('Failed to report playback start:', error);
-      }
+      } catch (_error) {}
     });
 
     unlistenFuncs.push(duration);
@@ -433,12 +429,10 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
           playbackStopInfo: {
             ItemId: itemId(),
             PlaySessionId: playSessionId,
-            PositionTicks: Math.floor(Number(state.currentTime) * 10000000),
+            PositionTicks: Math.floor(Number(state.currentTime) * 10_000_000),
           },
         });
-      } catch (error) {
-        console.error('Failed to report playback stopped:', error);
-      }
+      } catch (_error) {}
     }
 
     commands.toggleTitlebarHide(false);

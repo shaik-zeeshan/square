@@ -1,10 +1,10 @@
-import { FormValidator, ValidationRule } from '~/types';
+import type { FormValidator, ValidationRule } from '~/types';
 
 export class ValidationError extends Error {
   constructor(
     message: string,
     public field: string,
-    public code: string = 'VALIDATION_ERROR'
+    public code = 'VALIDATION_ERROR'
   ) {
     super(message);
     this.name = 'ValidationError';
@@ -17,12 +17,15 @@ export function validateField<T = string>(
   fieldName: string
 ): string | null {
   // Required validation
-  if (rules.required && (!value || (typeof value === 'string' && !value.trim()))) {
+  if (
+    rules.required &&
+    (!value || (typeof value === 'string' && !value.trim()))
+  ) {
     return `${fieldName} is required`;
   }
 
   // Skip further validation if value is empty and not required
-  if (!value && !rules.required) {
+  if (!(value || rules.required)) {
     return null;
   }
 
@@ -62,7 +65,7 @@ export function validateForm<T extends Record<string, unknown>>(
   const errors = {} as Record<keyof T, string | null>;
 
   for (const field in validator) {
-    if (Object.prototype.hasOwnProperty.call(validator, field)) {
+    if (Object.hasOwn(validator, field)) {
       const value = data[field];
       const rules = validator[field];
       errors[field] = validateField(value, rules, String(field));
@@ -75,14 +78,16 @@ export function validateForm<T extends Record<string, unknown>>(
 export function hasErrors<T extends Record<string, unknown>>(
   errors: Record<keyof T, string | null>
 ): boolean {
-  return Object.values(errors).some(error => error !== null);
+  return Object.values(errors).some((error) => error !== null);
 }
 
 export function getFirstError<T extends Record<string, unknown>>(
   errors: Record<keyof T, string | null>
 ): string | null {
   for (const error of Object.values(errors)) {
-    if (error) return error;
+    if (error) {
+      return error;
+    }
   }
   return null;
 }
@@ -104,27 +109,29 @@ export const commonRules = {
         return 'Username can only contain letters, numbers, dots, hyphens, and underscores';
       }
       return null;
-    }
+    },
   } as ValidationRule<string>,
 
   password: {
     // Password can be empty (some Jellyfin setups don't require it)
     custom: (value: string) => {
       // Allow empty password
-      if (!value) return null;
+      if (!value) {
+        return null;
+      }
 
       // If provided, basic validation
       if (value.length < 1) {
         return 'Password must be at least 1 character if provided';
       }
       return null;
-    }
+    },
   } as ValidationRule<string>,
 
   serverUrl: {
     required: true,
     custom: (value: string) => {
-      if (!value || !value.trim()) {
+      if (!value?.trim()) {
         return 'Server address is required';
       }
 
@@ -137,20 +144,20 @@ export const commonRules = {
       } catch {
         return 'Please enter a valid URL (e.g., https://jellyfin.example.com)';
       }
-    }
-  } as ValidationRule<string>
+    },
+  } as ValidationRule<string>,
 };
 
 // Form field utilities
 export function createFormField<T = string>(
   initialValue: T,
-  validator?: ValidationRule<T>
+  _validator?: ValidationRule<T>
 ): { value: T; error: string | null; touched: boolean; dirty: boolean } {
   return {
     value: initialValue,
     error: null,
     touched: false,
-    dirty: false
+    dirty: false,
   };
 }
 
@@ -160,13 +167,16 @@ export function updateFormField<T>(
   validator?: ValidationRule<T>,
   fieldName?: string
 ): { value: T; error: string | null; touched: boolean; dirty: boolean } {
-  const error = validator && fieldName ? validateField(newValue, validator, fieldName) : null;
+  const error =
+    validator && fieldName
+      ? validateField(newValue, validator, fieldName)
+      : null;
 
   return {
     value: newValue,
     error,
     touched: field.touched,
-    dirty: field.dirty || newValue !== field.value
+    dirty: field.dirty || newValue !== field.value,
   };
 }
 
@@ -175,11 +185,14 @@ export function touchFormField<T>(
   validator?: ValidationRule<T>,
   fieldName?: string
 ): { value: T; error: string | null; touched: boolean; dirty: boolean } {
-  const error = validator && fieldName ? validateField(field.value, validator, fieldName) : null;
+  const error =
+    validator && fieldName
+      ? validateField(field.value, validator, fieldName)
+      : null;
 
   return {
     ...field,
     touched: true,
-    error
+    error,
   };
 }
