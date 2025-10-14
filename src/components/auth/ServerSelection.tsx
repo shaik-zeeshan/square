@@ -125,9 +125,15 @@ function ServerCard(props: ServerCardProps) {
               v{props.server.info.systemInfo?.Version}
             </div>
           </Show>
-          <Show when={props.server.auth.username}>
+          <Show when={props.server.users && props.server.users.length > 0}>
             <div class="mt-1 text-muted-foreground/60 text-xs">
-              User: {props.server.auth.username}
+              {props.server.users.length} saved user
+              {props.server.users.length !== 1 ? 's' : ''}
+            </div>
+          </Show>
+          <Show when={props.server.currentUser}>
+            <div class="mt-1 text-muted-foreground/60 text-xs">
+              Current: {props.server.currentUser}
             </div>
           </Show>
         </div>

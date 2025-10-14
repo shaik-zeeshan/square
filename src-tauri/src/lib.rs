@@ -1,15 +1,41 @@
 use specta::specta;
-use tauri::{Manager, WebviewBuilder, WindowBuilder, Wry, Emitter};
+use tauri::{Manager, WebviewBuilder, WindowBuilder, Wry};
+use keyring::{Entry, Result as KeyringResult};
+use rand::{distributions::Alphanumeric, Rng};
 
 use tauri_plugin_http;
 
 use crate::mpv::{run_render_thread, PlaybackEvent};
+// Credential operations are handled by the frontend JavaScript API
 
 pub mod mpv;
 mod store;
+mod credentials;
 
 struct AppState {
     render_tx: std::sync::mpsc::Sender<PlaybackEvent>,
+}
+
+fn generate_secure_password() -> String {
+    rand::thread_rng()
+        .sample_iter(&Alphanumeric)
+        .take(32)
+        .map(char::from)
+        .collect()
+}
+
+fn get_or_create_vault_password() -> KeyringResult<String> {
+    let entry = Entry::new("com.sreal.vault", "master")?;
+    
+    match entry.get_password() {
+        Ok(password) => Ok(password),
+        Err(_) => {
+            // Generate new password on first run
+            let password = generate_secure_password();
+            entry.set_password(&password)?;
+            Ok(password)
+        }
+    }
 }
 
 #[specta]
@@ -201,6 +227,22 @@ pub async fn run() {
                         .build(),
                 )?;
             };
+
+            // Initialize Stronghold plugin for frontend use
+            let app_data_dir = app
+                .path()
+                .app_local_data_dir()
+                .expect("could not resolve app local data path");
+            
+            // Ensure the directory exists
+            std::fs::create_dir_all(&app_data_dir)
+                .map_err(|e| format!("Failed to create app data directory: {}", e))?;
+            
+            let salt_path = app_data_dir.join("salt.txt");
+
+            app.handle().plugin(
+                tauri_plugin_stronghold::Builder::with_argon2(&salt_path).build()
+            )?;
 
             let handle = app.handle().clone();
 

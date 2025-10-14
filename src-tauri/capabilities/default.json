@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "store:default",
+    "stronghold:default",
+    "stronghold:allow-remove-store-record",
     "core:window:allow-set-decorations",
     "core:window:allow-set-title-bar-style",
     "core:window:allow-start-dragging",

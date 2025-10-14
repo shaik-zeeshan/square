@@ -5,10 +5,12 @@ import {
   createContext,
   createEffect,
   onCleanup,
+  onMount,
   useContext,
 } from 'solid-js';
 import { createStore } from 'solid-js/store';
 import { createJellyfinClient } from '~/lib/jellyfin';
+import { strongholdService } from '~/lib/jellyfin/stronghold';
 import { AUTH_PRESIST_KEY } from '~/lib/persist-store';
 import { useServerStore } from '~/lib/store-hooks';
 
@@ -34,6 +36,11 @@ export const JellyFinProvider = (
   const controller = new AbortController();
   const { store } = useServerStore();
   const queryclient = useQueryClient();
+
+  // Pre-initialize Stronghold on app startup for better performance
+  onMount(() => {
+    strongholdService.preInitialize().catch((_error) => {});
+  });
 
   createEffect(() => {
     if (!store.current?.info) {

@@ -72,7 +72,7 @@ export function createJellyFinQuery<
     ...opts(),
     queryKey: [
       ...opts().queryKey,
-      store.current?.info.systemInfo?.ServerName,
+      store.current?.currentUser,
     ] as unknown as QueryKeyType & {},
     enabled: !!jf.api?.accessToken && opts().enabled,
     queryFn: async (context) => {

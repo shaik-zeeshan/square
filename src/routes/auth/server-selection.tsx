@@ -1,35 +1,21 @@
 import type { RecommendedServerInfo } from '@jellyfin/sdk';
 import { useNavigate } from '@solidjs/router';
+import { createSignal, onMount, Show } from 'solid-js';
+import { AuthFlow } from '~/components/auth/AuthFlow';
 import { RouteProtection } from '~/components/auth/RouteProtection';
 import { ServerSelection } from '~/components/auth/ServerSelection';
 import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
-import { useAuthentication } from '~/hooks/useAuthentication';
+import { strongholdService } from '~/lib/jellyfin/stronghold';
 import { useServerStore } from '~/lib/store-hooks';
 
 export default function ServerSelectionPage() {
   const navigate = useNavigate();
   const { store: serverStore } = useServerStore();
-  const { login } = useAuthentication();
+  const [selectedServer, setSelectedServer] =
+    createSignal<RecommendedServerInfo | null>(null);
 
   const handleServerSelect = (server: RecommendedServerInfo) => {
-    // Check if this server has stored credentials
-    const storedServer = serverStore.servers.find(
-      (s) => s.info.address === server.address
-    );
-
-    if (storedServer?.auth.username && storedServer.auth.password) {
-      // Auto-login with stored credentials
-      const credentials = {
-        username: storedServer.auth.username,
-        password: storedServer.auth.password,
-        server,
-      };
-
-      login(credentials);
-    } else {
-      // Navigate to login page with server address
-      navigate(`/auth/login/${encodeURIComponent(server.address)}`);
-    }
+    setSelectedServer(server);
   };
 
   const handleEditServer = (server: RecommendedServerInfo) => {
@@ -42,23 +28,48 @@ export default function ServerSelectionPage() {
   };
 
   const handleBack = () => {
-    // Only show back button if there are no servers
-    if (serverStore.servers.length === 0) {
-      navigate('/auth/onboarding');
-    }
+    setSelectedServer(null);
   };
+
+  const handleBackToOnboarding = () => {
+    navigate('/auth/onboarding');
+  };
+
+  const handleAuthSuccess = () => {
+    // Navigate to main app after successful authentication
+    navigate('/');
+  };
+
+  onMount(() => {
+    strongholdService.preInitialize().catch((_error) => {});
+  });
 
   return (
     <RouteProtection requireAuth={false}>
       <AuthErrorBoundary>
         <div class="relative grid h-full w-full place-items-center overflow-hidden bg-background">
           <div class="relative z-10 w-full max-w-md px-4">
-            <ServerSelection
-              onBack={serverStore.servers.length > 0 ? undefined : handleBack}
-              onEditServer={handleEditServer}
-              onSearchNewServer={handleSearchNewServer}
-              onSelectServer={handleServerSelect}
-            />
+            <Show
+              fallback={
+                <ServerSelection
+                  onBack={
+                    serverStore.servers.length > 0
+                      ? undefined
+                      : handleBackToOnboarding
+                  }
+                  onEditServer={handleEditServer}
+                  onSearchNewServer={handleSearchNewServer}
+                  onSelectServer={handleServerSelect}
+                />
+              }
+              when={selectedServer()}
+            >
+              <AuthFlow
+                onBack={handleBack}
+                onSuccess={handleAuthSuccess}
+                server={selectedServer()!}
+              />
+            </Show>
           </div>
         </div>
       </AuthErrorBoundary>

@@ -8,7 +8,6 @@ import type { UserLibraryApiGetLatestMediaRequest } from '@jellyfin/sdk/lib/gene
 import type { ItemFields } from '@jellyfin/sdk/lib/generated-client/models';
 import { ImageUrlsApi } from '@jellyfin/sdk/lib/utils/api/image-urls-api';
 import { getItemsApi } from '@jellyfin/sdk/lib/utils/api/items-api';
-import { getLibraryApi } from '@jellyfin/sdk/lib/utils/api/library-api';
 import { getMediaInfoApi } from '@jellyfin/sdk/lib/utils/api/media-info-api';
 import { query } from '.';
 
@@ -25,7 +24,11 @@ const getImageFromTag = (
 
 const queries = {
   getLibraries: query(async (jf: Api, _id: string | undefined) => {
-    const libraryViewReq = await getLibraryApi(jf).getMediaFolders();
+    const { getUserViewsApi } = await import(
+      '@jellyfin/sdk/lib/utils/api/user-views-api'
+    );
+
+    const libraryViewReq = await getUserViewsApi(jf).getUserViews();
 
     const libraryReq = libraryViewReq.data;
 

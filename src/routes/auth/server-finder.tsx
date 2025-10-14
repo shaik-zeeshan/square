@@ -16,16 +16,19 @@ export default function ServerFinderPage() {
     );
 
     if (!existingServer) {
-      // Add the discovered server to the store with empty auth credentials
+      // Add the discovered server to the store with new structure
       const newServer = {
         info: server,
-        auth: { username: '', password: '' },
+        users: [],
+        lastConnected: undefined,
+        isOnline: undefined,
+        currentUser: undefined,
       };
       setServerStore('servers', [...serverStore.servers, newServer]);
     }
 
-    // Navigate to login page with server address
-    navigate(`/auth/login/${encodeURIComponent(server.address)}`);
+    // Navigate to server selection page which will handle the new AuthFlow
+    navigate('/auth/server-selection');
   };
 
   const handleBack = () => {
