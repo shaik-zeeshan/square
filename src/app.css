@@ -187,8 +187,6 @@
     padding: 0;
     margin: 0;
   }
-
-
 }
 
 /* Firefox (uncomment to work in Firefox, although other properties will not work!)  */
@@ -197,7 +195,7 @@
   scrollbar-color: #397524 #DFE9EB;
 }*/
 
-** {
+* {
   scrollbar-width: none;
 }
 
@@ -249,17 +247,13 @@
 .os-theme-custom.os-scrollbar .os-scrollbar-track {
   background: transparent;
   /* border-radius: 4px; */
- 
 }
 
 .os-theme-custom.os-scrollbar .os-scrollbar-handle {
-  background: var(--item-color,var(--primary));
+  background: var(--item-color, var(--primary));
   opacity: 0.3;
   border-radius: 20px;
   transition: background-color 0.2s ease;
   margin-right: 4px;
   cursor: grab;
 }
-
-
-
