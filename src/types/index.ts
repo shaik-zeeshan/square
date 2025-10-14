@@ -24,17 +24,32 @@ export interface AuthState {
 }
 
 // Server Management Types
+export interface SavedUser {
+  username: string;
+  savedAt: number;
+}
+
 export interface ServerConnection {
   info: RecommendedServerInfo;
-  auth: AuthCredentials;
+  users: SavedUser[]; // List of saved usernames for this server
   lastConnected?: Date;
   isOnline?: boolean;
+  currentUser?: string;
+  // Currently active username
 }
 
 export interface ServerStore {
   servers: ServerConnection[];
   current: ServerConnection | null;
   recentlyUsed: string[]; // server addresses
+}
+
+// Legacy types for backward compatibility during migration
+export interface LegacyServerConnection {
+  info: RecommendedServerInfo;
+  auth: AuthCredentials;
+  lastConnected?: Date;
+  isOnline?: boolean;
 }
 
 // Media Library Types

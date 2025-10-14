@@ -34,30 +34,21 @@ export default function OnboardingPage() {
     );
 
     if (!storedServer) {
-      // Add the server to the store if it doesn't exist
+      // Add the server to the store if it doesn't exist with new structure
       const newServer = {
         info: server,
-        auth: { username: '', password: '' },
+        users: [],
+        lastConnected: undefined,
+        isOnline: undefined,
+        currentUser: undefined,
       };
 
       setServerStore('servers', [...serverStore.servers, newServer]);
       storedServer = newServer;
     }
 
-    // Now check if this server has stored credentials
-    if (storedServer?.auth.username) {
-      // Auto-login with stored credentials (password can be empty for some Jellyfin setups)
-      const credentials = {
-        username: storedServer.auth.username,
-        password: storedServer.auth.password || '',
-        server: storedServer.info, // Use the stored server info
-      };
-
-      login(credentials);
-    } else {
-      // Navigate to login page with server address
-      navigate(`/auth/login/${encodeURIComponent(server.address)}`);
-    }
+    // Navigate to server selection page which will handle the new AuthFlow
+    navigate('/auth/server-selection');
   };
 
   const handleEditServer = (server: RecommendedServerInfo) => {

@@ -8,7 +8,8 @@
         "noNoninteractiveElementInteractions": "warn",
         "noShadow": "warn",
         "useIterableCallbackReturn": "warn",
-        "noNestedComponentDefinitions": "warn"
+        "noNestedComponentDefinitions": "warn",
+        "noAwaitInLoop": "warn"
       },
       "correctness": {
         "noInvalidPositionAtImportRule": "off",
@@ -39,13 +40,15 @@
         "useAwait": "warn",
         "noEvolvingTypes": "warn",
         "noImplicitAnyLet": "warn",
-        "noEmptyBlockStatements": "warn"
+        "noEmptyBlockStatements": "warn",
+        "noConsole": "warn"
       },
       "complexity": {
         "noExcessiveCognitiveComplexity": "warn",
         "noForEach": "warn",
         "noUselessFragments": "warn",
-        "noBannedTypes": "warn"
+        "noBannedTypes": "warn",
+        "useOptionalChain": "warn"
       },
       "performance": {
         "noImgElement": "warn",

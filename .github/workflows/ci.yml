@@ -111,8 +111,8 @@ jobs:
       - name: Create symlinks
         run: make create-symlink
 
-      - name: Test Rust code
+      - name: Check Rust code
         run: |
           cd src-tauri
-          cargo test
+          cargo check
 

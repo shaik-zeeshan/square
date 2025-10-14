@@ -1,9 +1,10 @@
-import { createMutation } from '@tanstack/solid-query';
-import { createMemo } from 'solid-js';
+import { useMutation } from '@tanstack/solid-query';
+import { batch, createMemo } from 'solid-js';
+import { strongholdService } from '~/lib/jellyfin/stronghold';
 import { user } from '~/lib/jellyfin/user';
 import { useServerStore } from '~/lib/store-hooks';
 import { showErrorToast, showSuccessToast } from '~/lib/toast';
-import type { AuthCredentials, AuthState } from '~/types';
+import type { AuthCredentials, AuthState, ServerConnection } from '~/types';
 
 export interface UseAuthenticationOptions {
   onSuccess?: (credentials: AuthCredentials) => void;
@@ -14,7 +15,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
   const { store: serverStore, setStore: setServerStore } = useServerStore();
 
   // Login mutation
-  const loginMutation = createMutation(() => ({
+  const loginMutation = useMutation(() => ({
     mutationKey: ['login'],
     mutationFn: async (credentials: AuthCredentials) => {
       try {
@@ -34,40 +35,78 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
         );
       }
     },
-    onSuccess: ({ token, credentials }) => {
-      // Store server credentials
-      const existingServerIndex = serverStore.servers.findIndex(
-        (s) => s.info.address === credentials.server.address
-      );
+    onSuccess: async ({ token, credentials }) => {
+      // Optimistic update: Update server store immediately for better UX
+      batch(() => {
+        const existingServerIndex = serverStore.servers.findIndex(
+          (s) => s.info.address === credentials.server.address
+        );
 
-      const serverConnection = {
-        info: credentials.server,
-        auth: {
+        const now = Date.now();
+        const newUser = {
           username: credentials.username,
-          password: credentials.password,
-        },
-        lastConnected: new Date(),
-        isOnline: true,
-      };
+          savedAt: now,
+        };
 
-      let updatedServers;
-      if (existingServerIndex >= 0) {
-        // Update existing server
-        updatedServers = [...serverStore.servers];
-        updatedServers[existingServerIndex] = serverConnection;
-      } else {
-        // Add new server
-        updatedServers = [...serverStore.servers, serverConnection];
-      }
+        let updatedServers;
+        if (existingServerIndex >= 0) {
+          // Update existing server
+          updatedServers = [...serverStore.servers];
+          const existingServer = updatedServers[existingServerIndex];
 
-      setServerStore({
-        servers: updatedServers,
-        current: serverConnection,
+          // Add user if not already present
+          const userExists = existingServer.users.some(
+            (u) => u.username === credentials.username
+          );
+          const updatedUsers = userExists
+            ? existingServer.users.map((u) =>
+                u.username === credentials.username ? { ...u, savedAt: now } : u
+              )
+            : [...existingServer.users, newUser];
+
+          updatedServers[existingServerIndex] = {
+            ...existingServer,
+            users: updatedUsers,
+            lastConnected: new Date(),
+            isOnline: true,
+            currentUser: credentials.username,
+          };
+        } else {
+          // Add new server
+          const serverConnection: ServerConnection = {
+            info: credentials.server,
+            users: [newUser],
+            lastConnected: new Date(),
+            isOnline: true,
+            currentUser: credentials.username,
+          };
+          updatedServers = [...serverStore.servers, serverConnection];
+        }
+
+        setServerStore({
+          servers: updatedServers,
+          current:
+            updatedServers[
+              existingServerIndex >= 0
+                ? existingServerIndex
+                : updatedServers.length - 1
+            ],
+        });
       });
 
       showSuccessToast('Successfully signed in');
-
       options.onSuccess?.(credentials);
+
+      // Save password to Stronghold in background (non-blocking)
+      try {
+        await strongholdService.saveCredentials(
+          credentials.server,
+          credentials.username,
+          credentials.password
+        );
+      } catch (_error) {
+        // Don't show error to user since login was successful
+      }
     },
     onError: (error: Error) => {
       const errorMessage =
@@ -81,7 +120,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
   }));
 
   // Logout mutation
-  const logoutMutation = createMutation(() => ({
+  const logoutMutation = useMutation(() => ({
     mutationFn: async () => {
       await user.mutation.logout();
     },
@@ -126,18 +165,44 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
     logoutMutation.mutate();
   };
 
-  const retryLogin = () => {
-    if (serverStore.current) {
-      const credentials: AuthCredentials = {
-        username: serverStore.current.auth.username,
-        password: serverStore.current.auth.password,
-        server: serverStore.current.info,
-      };
-      login(credentials);
+  const retryLogin = async () => {
+    if (serverStore.current?.currentUser) {
+      try {
+        // Get password from Stronghold only
+        const credential = await strongholdService.getCredentials(
+          serverStore.current.info,
+          serverStore.current.currentUser
+        );
+
+        const credentials: AuthCredentials = {
+          username: serverStore.current.currentUser,
+          password: credential.password,
+          server: serverStore.current.info,
+        };
+        login(credentials);
+      } catch (_error) {
+        showErrorToast('Failed to retrieve saved credentials');
+      }
     }
   };
 
-  const removeServer = (serverAddress: string) => {
+  const removeServer = async (serverAddress: string) => {
+    const serverToRemove = serverStore.servers.find(
+      (server) => server.info.address === serverAddress
+    );
+
+    if (serverToRemove) {
+      // Remove all user credentials from Stronghold
+      for (const user of serverToRemove.users) {
+        try {
+          await strongholdService.deleteUser(
+            serverToRemove.info,
+            user.username
+          );
+        } catch (_error) {}
+      }
+    }
+
     const updatedServers = serverStore.servers.filter(
       (server) => server.info.address !== serverAddress
     );
@@ -156,7 +221,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
     }
   };
 
-  const updateServerCredentials = (
+  const updateServerCredentials = async (
     serverAddress: string,
     newCredentials: Partial<AuthCredentials>
   ) => {
@@ -164,32 +229,64 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
       (server) => server.info.address === serverAddress
     );
 
-    if (serverIndex >= 0) {
-      const updatedServers = [...serverStore.servers];
-      updatedServers[serverIndex] = {
-        ...updatedServers[serverIndex],
-        auth: {
-          ...updatedServers[serverIndex].auth,
-          ...newCredentials,
-        },
-      };
+    if (
+      serverIndex >= 0 &&
+      newCredentials.username &&
+      newCredentials.password
+    ) {
+      try {
+        // Update password in Stronghold only
+        await strongholdService.saveCredentials(
+          serverStore.servers[serverIndex].info,
+          newCredentials.username,
+          newCredentials.password
+        );
 
-      setServerStore({ servers: updatedServers });
+        // Update server store with user info (no passwords)
+        const updatedServers = [...serverStore.servers];
+        const existingServer = updatedServers[serverIndex];
 
-      // If updating current server, also update current
-      if (serverStore.current?.info.address === serverAddress) {
-        setServerStore({
-          current: {
-            ...serverStore.current,
-            auth: {
-              ...serverStore.current.auth,
-              ...newCredentials,
+        const now = Date.now();
+        const updatedUser = {
+          username: newCredentials.username,
+          savedAt: now,
+        };
+
+        // Add or update user in the list
+        const userExists = existingServer.users.some(
+          (u) => u.username === newCredentials.username
+        );
+        const updatedUsers = userExists
+          ? existingServer.users.map((u) =>
+              u.username === newCredentials.username
+                ? { ...u, savedAt: now }
+                : u
+            )
+          : [...existingServer.users, updatedUser];
+
+        updatedServers[serverIndex] = {
+          ...existingServer,
+          users: updatedUsers,
+          currentUser: newCredentials.username,
+        };
+
+        setServerStore({ servers: updatedServers });
+
+        // If updating current server, also update current
+        if (serverStore.current?.info.address === serverAddress) {
+          setServerStore({
+            current: {
+              ...serverStore.current,
+              users: updatedUsers,
+              currentUser: newCredentials.username,
             },
-          },
-        });
-      }
+          });
+        }
 
-      showSuccessToast('Server credentials updated');
+        showSuccessToast('Server credentials updated');
+      } catch (_error) {
+        showErrorToast('Failed to update server credentials');
+      }
     }
   };
 
