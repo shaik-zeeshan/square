@@ -6,6 +6,10 @@ on:
   pull_request:
     branches: [ main ]
 
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   # Check if commit message contains "release" keyword
   check-release:
@@ -66,9 +70,6 @@ jobs:
         run: |
           # Install Homebrew dependencies
           brew install git pkg-config cmake nasm yasm autoconf automake libtool meson ninja curl
-          
-          # Install Rust dependencies
-          cargo install tauri-cli
 
       - name: Install Bun dependencies
         run: bun install
@@ -167,7 +168,7 @@ jobs:
           body_path: CHANGELOG.md
           files: |
             artifacts/sreal-macos-dmg/*.dmg
-            artifacts/sreal-macos-app/sreal.app
+            artifacts/sreal-macos-app/*
           draft: false
           prerelease: false
         env:
