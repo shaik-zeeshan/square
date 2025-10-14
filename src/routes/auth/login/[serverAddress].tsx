@@ -1,10 +1,10 @@
-import { useNavigate, useParams, useSearchParams } from '@solidjs/router';
-import { Show } from 'solid-js';
-import { LoginForm } from '~/components/auth/LoginForm';
-import { RouteProtection } from '~/components/auth/RouteProtection';
-import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
-import { useAuthentication } from '~/hooks/useAuthentication';
-import { useServerStore } from '~/lib/store-hooks';
+import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
+import { Show } from "solid-js";
+import { LoginForm } from "~/components/auth/LoginForm";
+import { RouteProtection } from "~/components/auth/RouteProtection";
+import { AuthErrorBoundary } from "~/components/error/ErrorBoundary";
+import { useAuthentication } from "~/hooks/useAuthentication";
+import { useServerStore } from "~/lib/store-hooks";
 
 export default function LoginPage() {
   const params = useParams();
@@ -28,11 +28,11 @@ export default function LoginPage() {
 
   const _handleLoginComplete = () => {
     // Redirect to home after successful login
-    navigate('/');
+    navigate("/");
   };
 
   const handleBack = () => {
-    navigate('/auth/onboarding');
+    navigate("/auth/onboarding");
   };
 
   return (

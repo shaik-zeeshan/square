@@ -4,37 +4,37 @@
 
 export const commands = {
   async playbackPlay(): Promise<void> {
-    await TAURI_INVOKE('playback_play');
+    await TAURI_INVOKE("playback_play");
   },
   async playbackPause(): Promise<void> {
-    await TAURI_INVOKE('playback_pause');
+    await TAURI_INVOKE("playback_pause");
   },
   async playbackSeek(time: number): Promise<void> {
-    await TAURI_INVOKE('playback_seek', { time });
+    await TAURI_INVOKE("playback_seek", { time });
   },
   async playbackVolume(volume: number): Promise<void> {
-    await TAURI_INVOKE('playback_volume', { volume });
+    await TAURI_INVOKE("playback_volume", { volume });
   },
   async playbackSpeed(speed: number): Promise<void> {
-    await TAURI_INVOKE('playback_speed', { speed });
+    await TAURI_INVOKE("playback_speed", { speed });
   },
   async playbackLoad(url: string): Promise<void> {
-    await TAURI_INVOKE('playback_load', { url });
+    await TAURI_INVOKE("playback_load", { url });
   },
   async playbackChangeSubtitle(subtitle: string): Promise<void> {
-    await TAURI_INVOKE('playback_change_subtitle', { subtitle });
+    await TAURI_INVOKE("playback_change_subtitle", { subtitle });
   },
   async playbackChangeAudio(audio: string): Promise<void> {
-    await TAURI_INVOKE('playback_change_audio', { audio });
+    await TAURI_INVOKE("playback_change_audio", { audio });
   },
   async playbackClear(): Promise<void> {
-    await TAURI_INVOKE('playback_clear');
+    await TAURI_INVOKE("playback_clear");
   },
   async toggleTitlebarHide(hide: boolean): Promise<null> {
-    return await TAURI_INVOKE('toggle_titlebar_hide', { hide });
+    return await TAURI_INVOKE("toggle_titlebar_hide", { hide });
   },
   async toggleFullscreen(): Promise<null> {
-    return await TAURI_INVOKE('toggle_fullscreen');
+    return await TAURI_INVOKE("toggle_fullscreen");
   },
 };
 
@@ -55,9 +55,9 @@ export type GeneralSettings = {
 
 /** tauri-specta globals */
 
-import { invoke as TAURI_INVOKE } from '@tauri-apps/api/core';
-import * as TAURI_API_EVENT from '@tauri-apps/api/event';
-import type { WebviewWindow as __WebviewWindow__ } from '@tauri-apps/api/webviewWindow';
+import { invoke as TAURI_INVOKE } from "@tauri-apps/api/core";
+import * as TAURI_API_EVENT from "@tauri-apps/api/event";
+import type { WebviewWindow as __WebviewWindow__ } from "@tauri-apps/api/webviewWindow";
 
 type __EventObj__<T> = {
   listen: (
@@ -72,8 +72,8 @@ type __EventObj__<T> = {
 };
 
 export type Result<T, E> =
-  | { status: 'ok'; data: T }
-  | { status: 'error'; error: E };
+  | { status: "ok"; data: T }
+  | { status: "error"; error: E };
 
 function __makeEvents__<T extends Record<string, any>>(
   mappings: Record<keyof T, string>
@@ -95,11 +95,11 @@ function __makeEvents__<T extends Record<string, any>>(
           }),
           get: (_, command: keyof __EventObj__<any>) => {
             switch (command) {
-              case 'listen':
+              case "listen":
                 return (arg: any) => TAURI_API_EVENT.listen(name, arg);
-              case 'once':
+              case "once":
                 return (arg: any) => TAURI_API_EVENT.once(name, arg);
-              case 'emit':
+              case "emit":
                 return (arg: any) => TAURI_API_EVENT.emit(name, arg);
             }
           },

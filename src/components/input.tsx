@@ -1,4 +1,4 @@
-import { GlassInput, type GlassInputProps } from './ui/glass-input';
+import { GlassInput, type GlassInputProps } from "./ui/glass-input";
 
 export interface InputProps extends GlassInputProps {}
 

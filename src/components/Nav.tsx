@@ -1,7 +1,7 @@
-import { useNavigate } from '@solidjs/router';
-import { ChevronRight, Home, Search, X } from 'lucide-solid';
-import { createEffect, createSignal, type JSX, Show } from 'solid-js';
-import { UserDropdown } from './user-dropdown';
+import { useNavigate } from "@solidjs/router";
+import { ChevronRight, Home, Search, X } from "lucide-solid";
+import { createEffect, createSignal, type JSX, Show } from "solid-js";
+import { UserDropdown } from "./user-dropdown";
 
 interface NavProps {
   /** Breadcrumb items to display */
@@ -23,7 +23,7 @@ interface NavProps {
   /** Custom class for the nav container */
   class?: string;
   /** Color variant for the nav */
-  variant?: 'light' | 'dark';
+  variant?: "light" | "dark";
 }
 
 export function Nav(props: NavProps) {
@@ -41,27 +41,27 @@ export function Nav(props: NavProps) {
 
   const handleSearchClose = () => {
     setIsSearchOpen(false);
-    props.onSearchChange?.('');
+    props.onSearchChange?.("");
   };
 
   // Determine text color based on variant
-  const variant = props.variant ?? 'dark';
-  const textColorClass = variant === 'light' ? 'text-black' : 'text-white';
+  const variant = props.variant ?? "dark";
+  const textColorClass = variant === "light" ? "text-black" : "text-white";
   const hoverBgClass =
-    variant === 'light' ? 'hover:bg-black/5' : 'hover:bg-white/10';
+    variant === "light" ? "hover:bg-black/5" : "hover:bg-white/10";
   const searchBgClass =
-    variant === 'light'
-      ? 'bg-black/10 border-black/20'
-      : 'bg-white/10 border-white/20';
+    variant === "light"
+      ? "bg-black/10 border-black/20"
+      : "bg-white/10 border-white/20";
   const searchTextClass =
-    variant === 'light'
-      ? 'placeholder:text-black/40'
-      : 'placeholder:text-white/40';
-  const dividerClass = variant === 'light' ? 'bg-black/20' : 'bg-white/20';
+    variant === "light"
+      ? "placeholder:text-black/40"
+      : "placeholder:text-white/40";
+  const dividerClass = variant === "light" ? "bg-black/20" : "bg-white/20";
 
   return (
     <nav
-      class={`relative z-50 flex-shrink-0 px-6 py-4 ${textColorClass} ${props.class ?? ''}`}
+      class={`relative z-50 flex-shrink-0 px-6 py-4 ${textColorClass} ${props.class ?? ""}`}
     >
       <div class="flex items-center justify-between gap-4">
         {/* Left Side - Breadcrumb Navigation */}
@@ -69,7 +69,7 @@ export function Nav(props: NavProps) {
           <button
             aria-label="Go home"
             class={`rounded-md p-2 ${hoverBgClass} flex-shrink-0 transition-colors`}
-            onClick={() => navigate('/')}
+            onClick={() => navigate("/")}
             title="Home"
             type="button"
           >
@@ -145,7 +145,7 @@ export function Nav(props: NavProps) {
                   placeholder="Search..."
                   ref={searchInputRef}
                   type="text"
-                  value={props.searchValue ?? ''}
+                  value={props.searchValue ?? ""}
                 />
                 <button
                   aria-label="Close search"

@@ -1,15 +1,15 @@
-import type { RecommendedServerInfo } from '@jellyfin/sdk';
-import { createMutation, useQuery } from '@tanstack/solid-query';
-import { createMemo, createSignal } from 'solid-js';
-import { createStore } from 'solid-js/store';
-import { getServers } from '~/lib/jellyfin';
-import { showErrorToast, showSuccessToast } from '~/lib/toast';
+import type { RecommendedServerInfo } from "@jellyfin/sdk";
+import { createMutation, useQuery } from "@tanstack/solid-query";
+import { createMemo, createSignal } from "solid-js";
+import { createStore } from "solid-js/store";
+import { getServers } from "~/lib/jellyfin";
+import { showErrorToast, showSuccessToast } from "~/lib/toast";
 import {
   commonRules,
   createFormField,
   touchFormField,
   updateFormField,
-} from '~/lib/validation';
+} from "~/lib/validation";
 
 export interface UseServerDiscoveryOptions {
   onServerSelected?: (server: RecommendedServerInfo) => void;
@@ -27,7 +27,7 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
       dirty: boolean;
     };
   }>({
-    url: createFormField('', commonRules.serverUrl),
+    url: createFormField("", commonRules.serverUrl),
   });
 
   // Search state
@@ -47,15 +47,15 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
 
   // Server discovery query
   const serversQuery = useQuery(() => ({
-    queryKey: ['discover-servers', formData.url.value],
+    queryKey: ["discover-servers", formData.url.value],
     queryFn: async () => {
       const url = formData.url.value.trim();
       if (!url) {
-        throw new Error('Server URL is required');
+        throw new Error("Server URL is required");
       }
 
       if (!isUrlValid()) {
-        throw new Error(formData.url.error || 'Invalid server URL');
+        throw new Error(formData.url.error || "Invalid server URL");
       }
 
       setSearchAttempted(true);
@@ -65,7 +65,7 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
 
         if (foundServers.length === 0) {
           throw new Error(
-            'No Jellyfin servers found at this address. Please check the URL and try again.'
+            "No Jellyfin servers found at this address. Please check the URL and try again."
           );
         }
 
@@ -74,7 +74,7 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
         if (error instanceof Error) {
           throw error;
         }
-        throw new Error('Failed to discover servers. Please try again.');
+        throw new Error("Failed to discover servers. Please try again.");
       }
     },
     enabled: false, // Manually triggered
@@ -89,9 +89,9 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
       const field = touchFormField(
         formData.url,
         commonRules.serverUrl,
-        'server-url'
+        "server-url"
       );
-      setFormData('url', field);
+      setFormData("url", field);
 
       if (field.error) {
         throw new Error(field.error);
@@ -100,11 +100,11 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
       return serversQuery.refetch();
     },
     onError: (error: Error) => {
-      showErrorToast(error.message || 'Failed to discover servers');
+      showErrorToast(error.message || "Failed to discover servers");
       options.onError?.(error);
     },
     onSuccess: () => {
-      showSuccessToast('Servers discovered successfully');
+      showSuccessToast("Servers discovered successfully");
     },
   }));
 
@@ -114,18 +114,18 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
       formData.url,
       value,
       commonRules.serverUrl,
-      'server-url'
+      "server-url"
     );
-    setFormData('url', field);
+    setFormData("url", field);
   };
 
   const handleUrlBlur = () => {
     const field = touchFormField(
       formData.url,
       commonRules.serverUrl,
-      'server-url'
+      "server-url"
     );
-    setFormData('url', field);
+    setFormData("url", field);
   };
 
   const handleSearch = () => {
@@ -133,7 +133,7 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
   };
 
   const handleKeyPress = (e: KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleSearch();
     }
   };
@@ -166,7 +166,7 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
 
   // Reset function
   const reset = () => {
-    setFormData('url', createFormField('', commonRules.serverUrl));
+    setFormData("url", createFormField("", commonRules.serverUrl));
     setSearchAttempted(false);
     setSelectedServer(undefined);
     searchMutation.reset();

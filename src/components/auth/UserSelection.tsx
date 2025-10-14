@@ -1,9 +1,9 @@
-import type { RecommendedServerInfo } from '@jellyfin/sdk';
-import { ArrowLeft, Loader2, Plus, Trash2, User } from 'lucide-solid';
-import { createSignal, For, Show } from 'solid-js';
-import { strongholdService } from '~/lib/jellyfin/stronghold';
-import { useServerStore } from '~/lib/store-hooks';
-import { showErrorToast, showSuccessToast } from '~/lib/toast';
+import type { RecommendedServerInfo } from "@jellyfin/sdk";
+import { ArrowLeft, Loader2, Plus, Trash2, User } from "lucide-solid";
+import { createSignal, For, Show } from "solid-js";
+import { strongholdService } from "~/lib/jellyfin/stronghold";
+import { useServerStore } from "~/lib/store-hooks";
+import { showErrorToast, showSuccessToast } from "~/lib/toast";
 
 interface UserSelectionProps {
   server: RecommendedServerInfo;
@@ -29,7 +29,7 @@ export function UserSelection(props: UserSelectionProps) {
       // Call the parent's onSelectUser with the retrieved credentials
       props.onSelectUser(username, credential.password);
     } catch (_error) {
-      showErrorToast('Failed to retrieve saved credentials');
+      showErrorToast("Failed to retrieve saved credentials");
     }
   };
 
@@ -98,7 +98,7 @@ export function UserSelection(props: UserSelectionProps) {
           <div class="flex items-center gap-2">
             <div class="h-2 w-2 rounded-full bg-green-500" />
             <p class="font-medium text-foreground text-sm">
-              {props.server.systemInfo?.ServerName || 'Jellyfin Server'}
+              {props.server.systemInfo?.ServerName || "Jellyfin Server"}
             </p>
           </div>
           <p class="mt-1 text-muted-foreground text-xs">
@@ -168,7 +168,7 @@ function UserCard(props: UserCardProps) {
       class="group relative cursor-pointer rounded-lg border bg-card p-4 transition-colors hover:bg-muted"
       onClick={props.onSelect}
       onKeyPress={(e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           props.onSelect();
         }

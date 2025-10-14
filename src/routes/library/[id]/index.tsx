@@ -1,19 +1,19 @@
-import type { RouteSectionProps } from '@solidjs/router';
-import { Library as LibraryIcon } from 'lucide-solid';
-import { createSignal, For, splitProps } from 'solid-js';
-import { useGeneralInfo } from '~/components/current-user-provider';
-import { SeriesCard } from '~/components/media-card';
-import { Nav } from '~/components/Nav';
-import { QueryBoundary } from '~/components/query-boundary';
-import library from '~/lib/jellyfin/library';
-import { itemQueryOptions } from '~/lib/tanstack/query-options';
-import { createJellyFinQuery } from '~/lib/utils';
+import type { RouteSectionProps } from "@solidjs/router";
+import { Library as LibraryIcon } from "lucide-solid";
+import { createSignal, For, splitProps } from "solid-js";
+import { useGeneralInfo } from "~/components/current-user-provider";
+import { SeriesCard } from "~/components/media-card";
+import { Nav } from "~/components/Nav";
+import { QueryBoundary } from "~/components/query-boundary";
+import library from "~/lib/jellyfin/library";
+import { itemQueryOptions } from "~/lib/tanstack/query-options";
+import { createJellyFinQuery } from "~/lib/utils";
 
 export default function Page(props: RouteSectionProps) {
-  const [{ params }] = splitProps(props, ['params']);
+  const [{ params }] = splitProps(props, ["params"]);
 
   const { store } = useGeneralInfo();
-  const [searchTerm, setSearchTerm] = createSignal('');
+  const [searchTerm, setSearchTerm] = createSignal("");
 
   const libraryDetails = createJellyFinQuery(() =>
     itemQueryOptions(params.id, store?.user?.Id)
@@ -31,7 +31,7 @@ export default function Page(props: RouteSectionProps) {
         userId: store?.user?.Id,
         fields: [],
         enableImage: true,
-        includeItemTypes: ['Series', 'Movie'],
+        includeItemTypes: ["Series", "Movie"],
         searchTerm: searchTerm(),
         recursive: true,
       }),
@@ -47,7 +47,7 @@ export default function Page(props: RouteSectionProps) {
           <Nav
             breadcrumbs={[
               {
-                label: 'Libraries',
+                label: "Libraries",
                 icon: <LibraryIcon class="h-4 w-4 flex-shrink-0 opacity-70" />,
               },
             ]}
@@ -65,12 +65,12 @@ export default function Page(props: RouteSectionProps) {
           <Nav
             breadcrumbs={[
               {
-                label: 'Libraries',
+                label: "Libraries",
                 icon: <LibraryIcon class="h-4 w-4 flex-shrink-0 opacity-70" />,
               },
             ]}
             class="relative z-50"
-            currentPage={library?.Name || 'Library'}
+            currentPage={library?.Name || "Library"}
             onSearchChange={setSearchTerm}
             searchValue={searchTerm()}
             showSearch={true}

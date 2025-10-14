@@ -3,58 +3,13 @@
   "extends": ["ultracite"],
   "linter": {
     "rules": {
-      "nursery": {
-        "noUnknownAtRule": "off",
-        "noNoninteractiveElementInteractions": "warn",
-        "noShadow": "warn",
-        "useIterableCallbackReturn": "warn",
-        "noNestedComponentDefinitions": "warn",
-        "noAwaitInLoop": "warn"
-      },
-      "correctness": {
-        "noInvalidPositionAtImportRule": "off",
-        "noUnusedVariables": "warn",
-        "useJsxKeyInIterable": "warn",
-        "noUnusedFunctionParameters": "warn"
-      },
-      "style": {
-        "useFilenamingConvention": "warn",
-        "noNonNullAssertion": "warn",
-        "noHeadElement": "warn",
-        "useDefaultSwitchClause": "warn",
-        "noParameterProperties": "warn",
-        "useConsistentMemberAccessibility": "warn"
-      },
-      "a11y": {
-        "useButtonType": "warn",
-        "noSvgWithoutTitle": "warn",
-        "useFocusableInteractive": "warn",
-        "useSemanticElements": "warn",
-        "useKeyWithClickEvents": "warn",
-        "noStaticElementInteractions": "warn",
-        "useAriaPropsSupportedByRole": "warn",
-        "useAltText": "warn"
-      },
-      "suspicious": {
-        "noExplicitAny": "warn",
-        "useAwait": "warn",
-        "noEvolvingTypes": "warn",
-        "noImplicitAnyLet": "warn",
-        "noEmptyBlockStatements": "warn",
-        "noConsole": "warn"
-      },
-      "complexity": {
-        "noExcessiveCognitiveComplexity": "warn",
-        "noForEach": "warn",
-        "noUselessFragments": "warn",
-        "noBannedTypes": "warn",
-        "useOptionalChain": "warn"
-      },
-      "performance": {
-        "noImgElement": "warn",
-        "noNamespaceImport": "warn",
-        "useTopLevelRegex": "warn"
-      }
+      "nursery": "warn",
+      "correctness": "warn",
+      "style": "warn",
+      "a11y": "warn",
+      "suspicious": "warn",
+      "complexity": "warn",
+      "performance": "warn"
     }
   },
   "formatter": {

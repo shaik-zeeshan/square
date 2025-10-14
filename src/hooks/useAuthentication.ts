@@ -1,10 +1,10 @@
-import { useMutation } from '@tanstack/solid-query';
-import { batch, createMemo } from 'solid-js';
-import { strongholdService } from '~/lib/jellyfin/stronghold';
-import { user } from '~/lib/jellyfin/user';
-import { useServerStore } from '~/lib/store-hooks';
-import { showErrorToast, showSuccessToast } from '~/lib/toast';
-import type { AuthCredentials, AuthState, ServerConnection } from '~/types';
+import { useMutation } from "@tanstack/solid-query";
+import { batch, createMemo } from "solid-js";
+import { strongholdService } from "~/lib/jellyfin/stronghold";
+import { user } from "~/lib/jellyfin/user";
+import { useServerStore } from "~/lib/store-hooks";
+import { showErrorToast, showSuccessToast } from "~/lib/toast";
+import type { AuthCredentials, AuthState, ServerConnection } from "~/types";
 
 export interface UseAuthenticationOptions {
   onSuccess?: (credentials: AuthCredentials) => void;
@@ -16,7 +16,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
 
   // Login mutation
   const loginMutation = useMutation(() => ({
-    mutationKey: ['login'],
+    mutationKey: ["login"],
     mutationFn: async (credentials: AuthCredentials) => {
       try {
         const token = await user.mutation.login(
@@ -31,7 +31,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
           throw error;
         }
         throw new Error(
-          'Login failed. Please check your credentials and try again.'
+          "Login failed. Please check your credentials and try again."
         );
       }
     },
@@ -94,7 +94,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
         });
       });
 
-      showSuccessToast('Successfully signed in');
+      showSuccessToast("Successfully signed in");
       options.onSuccess?.(credentials);
 
       // Save password to Stronghold in background (non-blocking)
@@ -111,7 +111,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
     onError: (error: Error) => {
       const errorMessage =
         error.message ||
-        'Login failed. Please check your credentials and try again.';
+        "Login failed. Please check your credentials and try again.";
 
       showErrorToast(errorMessage);
 
@@ -125,10 +125,10 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
       await user.mutation.logout();
     },
     onSuccess: () => {
-      showSuccessToast('Successfully signed out');
+      showSuccessToast("Successfully signed out");
     },
     onError: (_error: Error) => {
-      showErrorToast('Failed to sign out');
+      showErrorToast("Failed to sign out");
     },
   }));
 
@@ -181,7 +181,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
         };
         login(credentials);
       } catch (_error) {
-        showErrorToast('Failed to retrieve saved credentials');
+        showErrorToast("Failed to retrieve saved credentials");
       }
     }
   };
@@ -215,9 +215,9 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
     });
 
     if (isCurrentServer) {
-      showSuccessToast('Server removed and signed out');
+      showSuccessToast("Server removed and signed out");
     } else {
-      showSuccessToast('Server removed successfully');
+      showSuccessToast("Server removed successfully");
     }
   };
 
@@ -283,9 +283,9 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
           });
         }
 
-        showSuccessToast('Server credentials updated');
+        showSuccessToast("Server credentials updated");
       } catch (_error) {
-        showErrorToast('Failed to update server credentials');
+        showErrorToast("Failed to update server credentials");
       }
     }
   };

@@ -1,5 +1,5 @@
-import library from '../jellyfin/library';
-import { queryJellfinOptions } from '../utils';
+import library from "../jellyfin/library";
+import { queryJellfinOptions } from "../utils";
 
 export function itemQueryOptions(itemId: string, userId?: string | undefined) {
   return queryJellfinOptions({

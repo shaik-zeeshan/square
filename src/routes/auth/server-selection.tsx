@@ -1,12 +1,12 @@
-import type { RecommendedServerInfo } from '@jellyfin/sdk';
-import { useNavigate } from '@solidjs/router';
-import { createSignal, onMount, Show } from 'solid-js';
-import { AuthFlow } from '~/components/auth/AuthFlow';
-import { RouteProtection } from '~/components/auth/RouteProtection';
-import { ServerSelection } from '~/components/auth/ServerSelection';
-import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
-import { strongholdService } from '~/lib/jellyfin/stronghold';
-import { useServerStore } from '~/lib/store-hooks';
+import type { RecommendedServerInfo } from "@jellyfin/sdk";
+import { useNavigate } from "@solidjs/router";
+import { createSignal, onMount, Show } from "solid-js";
+import { AuthFlow } from "~/components/auth/AuthFlow";
+import { RouteProtection } from "~/components/auth/RouteProtection";
+import { ServerSelection } from "~/components/auth/ServerSelection";
+import { AuthErrorBoundary } from "~/components/error/ErrorBoundary";
+import { strongholdService } from "~/lib/jellyfin/stronghold";
+import { useServerStore } from "~/lib/store-hooks";
 
 export default function ServerSelectionPage() {
   const navigate = useNavigate();
@@ -24,7 +24,7 @@ export default function ServerSelectionPage() {
   };
 
   const handleSearchNewServer = () => {
-    navigate('/auth/server-finder');
+    navigate("/auth/server-finder");
   };
 
   const handleBack = () => {
@@ -32,12 +32,12 @@ export default function ServerSelectionPage() {
   };
 
   const handleBackToOnboarding = () => {
-    navigate('/auth/onboarding');
+    navigate("/auth/onboarding");
   };
 
   const handleAuthSuccess = () => {
     // Navigate to main app after successful authentication
-    navigate('/');
+    navigate("/");
   };
 
   onMount(() => {

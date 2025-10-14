@@ -1,12 +1,12 @@
-import { LoaderCircleIcon } from 'lucide-solid';
-import { splitProps } from 'solid-js';
-import { cn } from '~/lib/utils';
+import { LoaderCircleIcon } from "lucide-solid";
+import { splitProps } from "solid-js";
+import { cn } from "~/lib/utils";
 
 export interface LoadingProps {
   /** Custom loading message */
   message?: string;
   /** Loading size variant */
-  size?: 'sm' | 'md' | 'lg';
+  size?: "sm" | "md" | "lg";
   /** Whether to show backdrop */
   backdrop?: boolean;
   /** Additional CSS classes */
@@ -14,21 +14,21 @@ export interface LoadingProps {
 }
 
 export function Loading(props: LoadingProps) {
-  const size = props.size || 'md';
+  const size = props.size || "md";
   const backdrop = props.backdrop ?? true;
 
   const sizeClasses = {
-    sm: 'w-4 h-4',
-    md: 'w-6 h-6',
-    lg: 'w-8 h-8',
+    sm: "w-4 h-4",
+    md: "w-6 h-6",
+    lg: "w-8 h-8",
   };
 
   const content = (
-    <div class={cn('flex', props.class)}>
+    <div class={cn("flex", props.class)}>
       <div class="relative">
         <div>
           <LoaderCircleIcon
-            class={cn(sizeClasses[size], 'animate-spin text-inherit')}
+            class={cn(sizeClasses[size], "animate-spin text-inherit")}
           />
         </div>
       </div>
@@ -54,13 +54,13 @@ export function PageLoading() {
   );
 }
 
-export function InlineLoading(props: Omit<LoadingProps, 'backdrop'>) {
-  const [{ class: classes }, others] = splitProps(props, ['class']);
+export function InlineLoading(props: Omit<LoadingProps, "backdrop">) {
+  const [{ class: classes }, others] = splitProps(props, ["class"]);
 
   return (
     <Loading
       backdrop={false}
-      class={cn('text-foreground/80', classes)}
+      class={cn("text-foreground/80", classes)}
       {...others}
     />
   );

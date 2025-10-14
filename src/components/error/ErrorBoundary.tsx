@@ -1,11 +1,11 @@
-import { AlertTriangle, Home, RefreshCw } from 'lucide-solid';
+import { AlertTriangle, Home, RefreshCw } from "lucide-solid";
 import {
   createSignal,
   type ParentComponent,
   ErrorBoundary as SolidErrorBoundary,
-} from 'solid-js';
-import { GlassCard } from '~/components/ui';
-import { GlassButton } from '~/components/ui/glass-button';
+} from "solid-js";
+import { GlassCard } from "~/components/ui";
+import { GlassButton } from "~/components/ui/glass-button";
 
 interface ErrorBoundaryProps {
   fallback?: (error: Error, reset: () => void) => JSX.Element;
@@ -17,7 +17,7 @@ export const ErrorBoundary: ParentComponent<ErrorBoundaryProps> = (props) => {
   return (
     <SolidErrorBoundary
       fallback={(error, reset) => {
-        props.onError?.(error, { componentStack: 'No stack available' });
+        props.onError?.(error, { componentStack: "No stack available" });
 
         if (props.fallback) {
           return props.fallback(error, reset);
@@ -49,7 +49,7 @@ function DefaultErrorFallback(props: DefaultErrorFallbackProps) {
   };
 
   const handleGoHome = () => {
-    window.location.href = '/';
+    window.location.href = "/";
   };
 
   const getErrorDetails = () => {
@@ -62,8 +62,8 @@ function DefaultErrorFallback(props: DefaultErrorFallbackProps) {
       };
     } catch {
       return {
-        name: 'Unknown Error',
-        message: 'An unexpected error occurred',
+        name: "Unknown Error",
+        message: "An unexpected error occurred",
         stack: null,
         timestamp: new Date().toISOString(),
       };
@@ -94,10 +94,10 @@ function DefaultErrorFallback(props: DefaultErrorFallbackProps) {
               <AlertTriangle class="mt-0.5 h-5 w-5 flex-shrink-0 text-red-400" />
               <div class="flex-1">
                 <p class="font-medium text-red-300 text-sm">
-                  {props.error.name || 'Application Error'}
+                  {props.error.name || "Application Error"}
                 </p>
                 <p class="mt-1 break-words text-red-400 text-xs">
-                  {props.error.message || 'An unexpected error occurred'}
+                  {props.error.message || "An unexpected error occurred"}
                 </p>
               </div>
             </div>
@@ -113,9 +113,9 @@ function DefaultErrorFallback(props: DefaultErrorFallbackProps) {
             variant="glass"
           >
             <RefreshCw
-              class={`mr-2 h-4 w-4 ${isRetrying() ? 'animate-spin' : ''}`}
+              class={`mr-2 h-4 w-4 ${isRetrying() ? "animate-spin" : ""}`}
             />
-            {isRetrying() ? 'Retrying...' : 'Try Again'}
+            {isRetrying() ? "Retrying..." : "Try Again"}
           </GlassButton>
           <GlassButton
             class="flex-1"
@@ -171,7 +171,7 @@ function AuthErrorFallback(props: { error: Error; reset: () => void }) {
           Authentication Error
         </h3>
         <p class="mb-4 text-sm opacity-60">
-          {props.error.message || 'Failed to authenticate. Please try again.'}
+          {props.error.message || "Failed to authenticate. Please try again."}
         </p>
         <GlassButton class="w-full" onClick={props.reset} variant="glass">
           Try Again
@@ -204,7 +204,7 @@ function MediaErrorFallback(props: { error: Error; reset: () => void }) {
       </div>
       <h3 class="mb-2 font-semibold text-lg text-white">Media Loading Error</h3>
       <p class="mb-4 text-sm opacity-60">
-        {props.error.message || 'Failed to load media. Please try again.'}
+        {props.error.message || "Failed to load media. Please try again."}
       </p>
       <GlassButton onClick={props.reset} variant="glass">
         Retry

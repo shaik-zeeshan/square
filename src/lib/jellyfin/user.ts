@@ -1,14 +1,14 @@
-import type { RecommendedServerInfo } from '@jellyfin/sdk';
-import type { Api } from '@jellyfin/sdk/lib/api';
-import { getUserApi } from '@jellyfin/sdk/lib/utils/api/user-api';
+import type { RecommendedServerInfo } from "@jellyfin/sdk";
+import type { Api } from "@jellyfin/sdk/lib/api";
+import { getUserApi } from "@jellyfin/sdk/lib/utils/api/user-api";
 import {
   AUTH_PRESIST_KEY,
   type AuthStore,
   SERVERS_KEY,
   type ServerStore,
-} from '../persist-store';
-import { safeJsonParse } from '../utils';
-import { createJellyfinClient, query } from '.';
+} from "../persist-store";
+import { safeJsonParse } from "../utils";
+import { createJellyfinClient, query } from ".";
 
 const _getAuthStore = () => {
   const auth_store = localStorage.getItem(AUTH_PRESIST_KEY);
@@ -35,7 +35,7 @@ export const setAuthStore = (value: AuthStore | {}, replace = false) => {
 
   localStorage.setItem(AUTH_PRESIST_KEY, new_value);
 
-  const storageEvent = new StorageEvent('storage', {
+  const storageEvent = new StorageEvent("storage", {
     key: AUTH_PRESIST_KEY,
     oldValue: auth_store,
     newValue: new_value,
@@ -55,7 +55,7 @@ export const setServerStore = (value: ServerStore | {}, replace = false) => {
 
   localStorage.setItem(SERVERS_KEY, newValue);
 
-  const storageEvent = new StorageEvent('storage', {
+  const storageEvent = new StorageEvent("storage", {
     key: SERVERS_KEY,
     oldValue: serverStore,
     newValue,
@@ -72,7 +72,7 @@ const mutation = {
   ) => {
     const jf = createJellyfinClient(server);
     if (!jf) {
-      throw new Error('JellyFin not Found');
+      throw new Error("JellyFin not Found");
     }
 
     const loginReq = await jf.authenticateUserByName(username, password);
@@ -84,7 +84,7 @@ const mutation = {
     const token = loginReq.data.AccessToken;
 
     if (!token) {
-      throw new Error('token not found');
+      throw new Error("token not found");
     }
 
     setAuthStore({ accessToken: token, isUserLoggedIn: true });
@@ -109,7 +109,7 @@ const queries = {
     }
 
     return userReq.data;
-  }, 'user'),
+  }, "user"),
 };
 
 export const user = {

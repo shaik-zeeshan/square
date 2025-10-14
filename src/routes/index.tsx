@@ -1,15 +1,15 @@
-import { useNavigate } from '@solidjs/router';
-import { HouseIcon } from 'lucide-solid';
-import { createEffect, createSignal, For, Match, Show, Switch } from 'solid-js';
-import { useGeneralInfo } from '~/components/current-user-provider';
-import { MainPageEpisodeCard, SeriesCard } from '~/components/media-card';
-import { Nav } from '~/components/Nav';
-import { QueryBoundary } from '~/components/query-boundary';
-import { GlassCard } from '~/components/ui';
-import { InlineLoading } from '~/components/ui/loading';
-import library from '~/lib/jellyfin/library';
-import { authStore } from '~/lib/persist-store';
-import { createJellyFinQuery } from '~/lib/utils';
+import { useNavigate } from "@solidjs/router";
+import { HouseIcon } from "lucide-solid";
+import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
+import { useGeneralInfo } from "~/components/current-user-provider";
+import { MainPageEpisodeCard, SeriesCard } from "~/components/media-card";
+import { Nav } from "~/components/Nav";
+import { QueryBoundary } from "~/components/query-boundary";
+import { GlassCard } from "~/components/ui";
+import { InlineLoading } from "~/components/ui/loading";
+import library from "~/lib/jellyfin/library";
+import { authStore } from "~/lib/persist-store";
+import { createJellyFinQuery } from "~/lib/utils";
 
 const LoadingSection = (props: { name: string }) => {
   return (
@@ -26,8 +26,8 @@ export default function Home() {
   const navigate = useNavigate();
   const { store } = useGeneralInfo();
   const { store: auth } = authStore();
-  const [searchTerm, setSearchTerm] = createSignal('');
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = createSignal('');
+  const [searchTerm, setSearchTerm] = createSignal("");
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = createSignal("");
 
   // Debounce search term to prevent excessive re-renders
   createEffect(() => {
@@ -42,7 +42,7 @@ export default function Home() {
   // Redirect to auth if not logged in
   createEffect(() => {
     if (!auth.isUserLoggedIn) {
-      navigate('/auth/onboarding');
+      navigate("/auth/onboarding");
     }
   });
 
@@ -75,7 +75,7 @@ export default function Home() {
   const latestMovies = createJellyFinQuery(() => ({
     queryKey: [
       library.query.getLatestItems.key,
-      'latestMovies',
+      "latestMovies",
       auth.isUserLoggedIn,
       debouncedSearchTerm(),
       libraries.data?.length,
@@ -83,7 +83,7 @@ export default function Home() {
     queryFn: async (jf) => {
       if (debouncedSearchTerm()) {
         const parentIds = libraries.data
-          ?.filter((library) => library.CollectionType === 'movies')
+          ?.filter((library) => library.CollectionType === "movies")
           ?.map((library) => library.Id)
           .filter((id) => id !== undefined);
 
@@ -91,7 +91,7 @@ export default function Home() {
           parentId: parentIds?.[0],
           userId: store?.user?.Id,
           enableImage: true,
-          includeItemTypes: ['Movie'],
+          includeItemTypes: ["Movie"],
           limit: 7,
           recursive: true,
           searchTerm: debouncedSearchTerm(),
@@ -101,18 +101,18 @@ export default function Home() {
 
       return library.query.getLatestItems(jf, store?.user?.Id, {
         limit: 7,
-        includeItemTypes: ['Movie'],
+        includeItemTypes: ["Movie"],
       });
     },
     enabled:
       auth.isUserLoggedIn &&
-      libraries.data?.some((library) => library.CollectionType === 'movies'),
+      libraries.data?.some((library) => library.CollectionType === "movies"),
   }));
 
   const latestTVShows = createJellyFinQuery(() => ({
     queryKey: [
       library.query.getLatestItems.key,
-      'latestTVShows',
+      "latestTVShows",
       auth.isUserLoggedIn,
       debouncedSearchTerm(),
       libraries.data?.length,
@@ -120,14 +120,14 @@ export default function Home() {
     queryFn: async (jf) => {
       if (debouncedSearchTerm()) {
         const parentIds = libraries.data
-          ?.filter((library) => library.CollectionType === 'tvshows')
+          ?.filter((library) => library.CollectionType === "tvshows")
           ?.map((library) => library.Id)
           .filter((id) => id !== undefined);
         const items = await library.query.getItems(jf, {
           parentId: parentIds?.[0],
           userId: store?.user?.Id,
           enableImage: true,
-          includeItemTypes: ['Series'],
+          includeItemTypes: ["Series"],
           limit: 7,
           recursive: true,
           searchTerm: debouncedSearchTerm(),
@@ -137,12 +137,12 @@ export default function Home() {
 
       return library.query.getLatestItems(jf, store?.user?.Id, {
         limit: 7,
-        includeItemTypes: ['Series'],
+        includeItemTypes: ["Series"],
       });
     },
     enabled:
       auth.isUserLoggedIn &&
-      libraries.data?.some((library) => library.CollectionType === 'tvshows'),
+      libraries.data?.some((library) => library.CollectionType === "tvshows"),
   }));
 
   return (
@@ -153,7 +153,7 @@ export default function Home() {
           <Nav
             breadcrumbs={[
               {
-                label: 'Home',
+                label: "Home",
                 icon: <HouseIcon class="h-4 w-4 flex-shrink-0 opacity-70" />,
               },
             ]}
@@ -222,7 +222,7 @@ export default function Home() {
                                       when={item.Image}
                                     >
                                       <img
-                                        alt={item.Name ?? 'Library'}
+                                        alt={item.Name ?? "Library"}
                                         class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
                                         src={item.Image}
                                       />
@@ -289,8 +289,8 @@ export default function Home() {
                             {(item) => {
                               const progressPercentage =
                                 item.UserData?.PlayedPercentage || 0;
-                              const isMovie = item.Type === 'Movie';
-                              const isEpisode = item.Type === 'Episode';
+                              const isMovie = item.Type === "Movie";
+                              const isEpisode = item.Type === "Episode";
 
                               return (
                                 <a
@@ -317,7 +317,7 @@ export default function Home() {
                                         }
                                       >
                                         <img
-                                          alt={item.Name ?? 'Item'}
+                                          alt={item.Name ?? "Item"}
                                           class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
                                           src={
                                             item.Images?.Primary ||
@@ -418,14 +418,14 @@ export default function Home() {
               loadingFallback={
                 <div>
                   <h2 class="mb-8 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text font-bold text-2xl text-transparent">
-                    {searchTerm() ? 'Movies' : 'Latest Movies'}
+                    {searchTerm() ? "Movies" : "Latest Movies"}
                   </h2>
                   <LoadingSection name="latest movies" />
                 </div>
               }
               notFoundFallback={
                 <div class="col-span-full py-20 text-center opacity-60">
-                  No {searchTerm() ? 'Movies' : 'Latest Movies'} found
+                  No {searchTerm() ? "Movies" : "Latest Movies"} found
                 </div>
               }
               query={latestMovies}
@@ -434,7 +434,7 @@ export default function Home() {
                 <Show when={data.length > 0}>
                   <div>
                     <h2 class="mb-8 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text font-bold text-2xl text-transparent">
-                      {searchTerm() ? 'Movies' : 'Latest Movies'}
+                      {searchTerm() ? "Movies" : "Latest Movies"}
                     </h2>
                     <div class="grid grid-cols-3 gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
                       <For each={data}>
@@ -451,14 +451,14 @@ export default function Home() {
               loadingFallback={
                 <div>
                   <h2 class="mb-8 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text font-bold text-2xl text-transparent">
-                    {searchTerm() ? 'TV Shows' : 'Latest TV Shows'}
+                    {searchTerm() ? "TV Shows" : "Latest TV Shows"}
                   </h2>
                   <LoadingSection name="latest tv shows" />
                 </div>
               }
               notFoundFallback={
                 <div class="col-span-full py-20 text-center opacity-60">
-                  No {searchTerm() ? 'TV Shows' : 'Latest TV Shows'} found
+                  No {searchTerm() ? "TV Shows" : "Latest TV Shows"} found
                 </div>
               }
               query={latestTVShows}
@@ -467,7 +467,7 @@ export default function Home() {
                 <Show when={data.length > 0}>
                   <div>
                     <h2 class="mb-8 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text font-bold text-2xl text-transparent">
-                      {searchTerm() ? 'TV Shows' : 'Latest TV Shows'}
+                      {searchTerm() ? "TV Shows" : "Latest TV Shows"}
                     </h2>
                     <div class="grid grid-cols-3 gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
                       <For each={data}>

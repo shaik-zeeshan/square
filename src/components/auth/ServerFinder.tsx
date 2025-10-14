@@ -1,21 +1,21 @@
-import type { RecommendedServerInfo } from '@jellyfin/sdk';
+import type { RecommendedServerInfo } from "@jellyfin/sdk";
 import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
   Loader2,
   Search,
-} from 'lucide-solid';
-import { Show } from 'solid-js';
-import { createStore } from 'solid-js/store';
-import { Input } from '~/components/input';
-import { useServerDiscovery } from '~/hooks/useServerDiscovery';
+} from "lucide-solid";
+import { Show } from "solid-js";
+import { createStore } from "solid-js/store";
+import { Input } from "~/components/input";
+import { useServerDiscovery } from "~/hooks/useServerDiscovery";
 import {
   commonRules,
   createFormField,
   touchFormField,
   updateFormField,
-} from '~/lib/validation';
+} from "~/lib/validation";
 
 interface ServerFinderProps {
   onServerSelected: (server: RecommendedServerInfo) => void;
@@ -32,7 +32,7 @@ export function ServerFinder(props: ServerFinderProps) {
       dirty: boolean;
     };
   }>({
-    url: createFormField('', commonRules.serverUrl),
+    url: createFormField("", commonRules.serverUrl),
   });
 
   const {
@@ -60,9 +60,9 @@ export function ServerFinder(props: ServerFinderProps) {
       formData.url,
       value,
       commonRules.serverUrl,
-      'server-url'
+      "server-url"
     );
-    setFormData('url', field);
+    setFormData("url", field);
     // Don't update hook on every keystroke to prevent focus loss
   };
 
@@ -70,9 +70,9 @@ export function ServerFinder(props: ServerFinderProps) {
     const field = touchFormField(
       formData.url,
       commonRules.serverUrl,
-      'server-url'
+      "server-url"
     );
-    setFormData('url', field);
+    setFormData("url", field);
     // Sync with hook on blur
     hookHandleUrlChange(field.value);
     hookHandleUrlBlur();
@@ -82,16 +82,16 @@ export function ServerFinder(props: ServerFinderProps) {
     const field = touchFormField(
       formData.url,
       commonRules.serverUrl,
-      'server-url'
+      "server-url"
     );
-    setFormData('url', field);
+    setFormData("url", field);
     // Sync with hook and search
     hookHandleUrlChange(field.value);
     hookHandleSearch();
   };
 
   const handleKeyPress = (e: KeyboardEvent) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleSearch();
     }
   };
@@ -118,7 +118,7 @@ export function ServerFinder(props: ServerFinderProps) {
               <Input
                 aria-describedby={
                   formData.url.error && formData.url.touched
-                    ? 'url-error'
+                    ? "url-error"
                     : undefined
                 }
                 aria-invalid={!!formData.url.error && formData.url.touched}
@@ -165,7 +165,7 @@ export function ServerFinder(props: ServerFinderProps) {
                 </p>
                 <p class="mt-1 text-destructive/80 text-xs">
                   {searchError()?.message ||
-                    'Could not connect to server. Please check the address and try again.'}
+                    "Could not connect to server. Please check the address and try again."}
                 </p>
               </div>
             </div>
@@ -178,7 +178,7 @@ export function ServerFinder(props: ServerFinderProps) {
               <CheckCircle2 class="h-4 w-4 text-green-600 dark:text-green-400" />
               <p class="font-medium text-green-600 text-sm dark:text-green-400">
                 Found {discoveredServers().length} server
-                {discoveredServers().length !== 1 ? 's' : ''}
+                {discoveredServers().length !== 1 ? "s" : ""}
               </p>
             </div>
             <div class="space-y-2">
@@ -251,7 +251,7 @@ function DiscoveredServerCard(props: DiscoveredServerCardProps) {
       class="cursor-pointer rounded-lg border bg-card p-4 transition-colors hover:bg-muted"
       onClick={props.onSelect}
       onKeyPress={(e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           props.onSelect();
         }
@@ -265,7 +265,7 @@ function DiscoveredServerCard(props: DiscoveredServerCardProps) {
         </div>
         <div class="min-w-0 flex-1">
           <div class="truncate font-semibold text-base text-foreground">
-            {props.server.systemInfo?.ServerName || 'Discovered Server'}
+            {props.server.systemInfo?.ServerName || "Discovered Server"}
           </div>
           <div class="mt-0.5 truncate text-muted-foreground text-xs">
             {props.server.address}

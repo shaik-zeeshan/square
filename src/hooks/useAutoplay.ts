@@ -1,11 +1,11 @@
-import { useNavigate } from '@solidjs/router';
-import { listen, type UnlistenFn } from '@tauri-apps/api/event';
-import { createEffect, createMemo, createSignal, onCleanup } from 'solid-js';
-import { useGeneralInfo } from '~/components/current-user-provider';
-import { useJellyfin } from '~/components/jellyfin-provider';
-import library from '~/lib/jellyfin/library';
-import { commands } from '~/lib/tauri';
-import { createJellyFinQuery } from '~/lib/utils';
+import { useNavigate } from "@solidjs/router";
+import { listen, type UnlistenFn } from "@tauri-apps/api/event";
+import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
+import { useGeneralInfo } from "~/components/current-user-provider";
+import { useJellyfin } from "~/components/jellyfin-provider";
+import library from "~/lib/jellyfin/library";
+import { commands } from "~/lib/tauri";
+import { createJellyFinQuery } from "~/lib/utils";
 
 interface UseAutoplayProps {
   currentItemId: () => string;
@@ -47,7 +47,7 @@ export function useAutoplay(props: UseAutoplayProps) {
     enabled:
       !!props.currentItemId() &&
       !!userStore?.user?.Id &&
-      props.currentItemDetails?.data?.Type === 'Episode',
+      props.currentItemDetails?.data?.Type === "Episode",
   }));
 
   // Check if we should show autoplay when query completes
@@ -67,7 +67,7 @@ export function useAutoplay(props: UseAutoplayProps) {
 
         if (
           progress >= 80 &&
-          props.currentItemDetails?.data?.Type === 'Episode'
+          props.currentItemDetails?.data?.Type === "Episode"
         ) {
           setShowAutoplay(true);
         }
@@ -111,7 +111,7 @@ export function useAutoplay(props: UseAutoplayProps) {
     if (
       reason === 0 &&
       nextEpisode.data &&
-      props.currentItemDetails?.data?.Type === 'Episode' &&
+      props.currentItemDetails?.data?.Type === "Episode" &&
       !isCancelled()
     ) {
       const duration = props.playbackState.duration();
@@ -152,7 +152,7 @@ export function useAutoplay(props: UseAutoplayProps) {
         !showAutoplay() &&
         !nextEpisode.isLoading &&
         nextEpisode.data &&
-        props.currentItemDetails?.data?.Type === 'Episode' &&
+        props.currentItemDetails?.data?.Type === "Episode" &&
         !isCancelled()
       ) {
         setShowAutoplay(true);
@@ -161,7 +161,7 @@ export function useAutoplay(props: UseAutoplayProps) {
   };
 
   // Reset autoplay state when current item changes
-  let lastItemId = '';
+  let lastItemId = "";
   createEffect(() => {
     const currentId = props.currentItemId();
     if (currentId && currentId !== lastItemId) {
@@ -183,10 +183,10 @@ export function useAutoplay(props: UseAutoplayProps) {
       }
 
       // Listen for playback time updates to detect 80% completion
-      playbackTimeUnlisten = await listen('playback-time', (event) => {
+      playbackTimeUnlisten = await listen("playback-time", (event) => {
         handlePlaybackTime(event.payload as string);
       });
-      endOfFileUnlisten = await listen('end-of-file', (event) => {
+      endOfFileUnlisten = await listen("end-of-file", (event) => {
         handleEndOfFile(event.payload as number);
       });
     }

@@ -1,9 +1,9 @@
-import { createContextProvider } from '@solid-primitives/context';
-import type { ComponentProps } from 'solid-js';
-import type { SetStoreFunction } from 'solid-js/store';
-import { user } from '~/lib/jellyfin/user';
-import { type AuthStore, authStore } from '~/lib/persist-store';
-import { createJellyFinQuery } from '~/lib/utils';
+import { createContextProvider } from "@solid-primitives/context";
+import type { ComponentProps } from "solid-js";
+import type { SetStoreFunction } from "solid-js/store";
+import { user } from "~/lib/jellyfin/user";
+import { type AuthStore, authStore } from "~/lib/persist-store";
+import { createJellyFinQuery } from "~/lib/utils";
 
 const [GeneralInfoProvider, useGeneralInfoContext] = createContextProvider(
   (props: {
@@ -19,17 +19,17 @@ export function useGeneralInfo() {
     useGeneralInfoContext() ??
     (() => {
       throw new Error(
-        'useGeneralInfo must be used within an GeneralInfoProvider'
+        "useGeneralInfo must be used within an GeneralInfoProvider"
       );
     })()
   );
 }
 
-const GeneralProvider = (props: Pick<ComponentProps<'div'>, 'children'>) => {
+const GeneralProvider = (props: Pick<ComponentProps<"div">, "children">) => {
   const { store: auth, setStore: setAuth } = authStore();
 
   createJellyFinQuery(() => ({
-    queryKey: ['userDetails', auth.isUserLoggedIn],
+    queryKey: ["userDetails", auth.isUserLoggedIn],
     queryFn: async (jf) => {
       const data = await user.query.details(jf);
       setAuth((prev) => ({

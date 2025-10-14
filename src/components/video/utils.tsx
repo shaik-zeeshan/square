@@ -1,4 +1,4 @@
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 export const formatTime = (seconds: number) => {
   const hours = Math.floor(seconds / 3600);
@@ -6,9 +6,9 @@ export const formatTime = (seconds: number) => {
   const remainingSeconds = Math.floor(seconds % 60);
 
   if (hours > 0) {
-    return `${hours}:${minutes.toString().padStart(2, '0')}:${remainingSeconds.toString().padStart(2, '0')}`;
+    return `${hours}:${minutes.toString().padStart(2, "0")}:${remainingSeconds.toString().padStart(2, "0")}`;
   }
-  return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 };
 
 export const OpenInIINAButton = (props: {
@@ -16,15 +16,15 @@ export const OpenInIINAButton = (props: {
   beforePlaying?: () => void;
 }) => {
   const params = [
-    `url=${encodeURIComponent(props.url).replace(/'/g, '%27')}`,
-    'mpv_input-ipc-server=/tmp/sreal',
+    `url=${encodeURIComponent(props.url).replace(/'/g, "%27")}`,
+    "mpv_input-ipc-server=/tmp/sreal",
   ];
 
   const openIninna = () => {
     if (props.beforePlaying) {
       props.beforePlaying();
     }
-    const iinaurl = `iina://open?${params.join('&')}`;
+    const iinaurl = `iina://open?${params.join("&")}`;
 
     openUrl(iinaurl);
   };

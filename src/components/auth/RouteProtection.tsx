@@ -1,6 +1,6 @@
-import { useNavigate } from '@solidjs/router';
-import { createEffect, Show } from 'solid-js';
-import { authStore } from '~/lib/persist-store';
+import { useNavigate } from "@solidjs/router";
+import { createEffect, Show } from "solid-js";
+import { authStore } from "~/lib/persist-store";
 
 interface RouteProtectionProps {
   children: any;
@@ -14,9 +14,9 @@ export function RouteProtection(props: RouteProtectionProps) {
 
   createEffect(() => {
     if (props.requireAuth && !auth.isUserLoggedIn) {
-      navigate(props.redirectTo || '/auth/onboarding');
+      navigate(props.redirectTo || "/auth/onboarding");
     } else if (!props.requireAuth && auth.isUserLoggedIn) {
-      navigate(props.redirectTo || '/');
+      navigate(props.redirectTo || "/");
     }
   });
 
