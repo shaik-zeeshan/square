@@ -3,8 +3,6 @@ name: Build and Release
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 permissions:
   contents: write
@@ -174,79 +172,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # Regular CI (non-release builds)
-  ci:
-    needs: check-release
-    if: needs.check-release.outputs.is-release == 'false'
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Cache system dependencies
-        uses: actions/cache@v4
-        with:
-          path: /Users/runner/Library/Caches/Homebrew
-          key: ${{ runner.os }}-brew-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-brew-
-
-      - name: Install system dependencies
-        run: |
-          brew update
-          brew install pkg-config
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install Bun dependencies
-        run: bun install
-
-      # - name: Run linting
-      #   run: |
-      #     bun run biome check src/
-      #     cd src-tauri && cargo fmt --all -- --check
-      #     cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Build frontend
-        run: bun run build
-
-      - name: Download dynamic libraries
-        run: make download-dylibs
-
-      - name: Create symlinks
-        run: make create-symlink
-
-      - name: Test Rust code
-        run: |
-          cd src-tauri
-          cargo test
-
-      - name: Build Tauri app (dev)
-        run: bun run tauri build

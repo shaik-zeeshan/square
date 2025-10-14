@@ -1,28 +1,12 @@
 name: Continuous Integration
 
 on:
-  push:
-    branches: [ main, develop ]
   pull_request:
     branches: [ main, develop ]
+  push:
+    branches: [ develop ]
 
 jobs:
-  # Check if commit message contains "release" keyword
-  check-release:
-    runs-on: ubuntu-latest
-    outputs:
-      is-release: ${{ steps.check.outputs.is-release }}
-    steps:
-      - name: Check for release commit
-        id: check
-        run: |
-          if echo "${{ github.event.head_commit.message }}" | grep -qi "release"; then
-            echo "is-release=true" >> $GITHUB_OUTPUT
-            echo "🚀 Release commit detected!"
-          else
-            echo "is-release=false" >> $GITHUB_OUTPUT
-            echo "📝 Regular commit detected"
-          fi
 
   # Lint and format check
   # lint:
@@ -132,53 +116,3 @@ jobs:
           cd src-tauri
           cargo test
 
-  # Build test (without release)
-  build-test:
-    needs: [check-release]
-    if: needs.check-release.outputs.is-release == 'false'
-    runs-on: macos-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Bun
-        uses: oven-sh/setup-bun@v2
-        with:
-          bun-version: latest
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-
-
-      - name: Cache Bun dependencies
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-bun-
-
-      - name: Install Bun dependencies
-        run: bun install
-
-      - name: Build frontend
-        run: bun run build
-
-      - name: Download dynamic libraries
-        run: make download-dylibs
-
-      - name: Create symlinks
-        run: make create-symlink
-
-      - name: Build Tauri app (test)
-        run: bun run tauri build
