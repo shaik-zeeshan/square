@@ -268,6 +268,7 @@ const queries = {
 
       const episode = currentEpisode.data.Items[0];
       const seasonId = episode.ParentId;
+      const _seriesId = episode.SeriesId || '';
       const currentIndex = episode.IndexNumber || 0;
 
       if (!seasonId) {
@@ -278,11 +279,14 @@ const queries = {
       const seasonEpisodes = await getItemsApi(jf).getItems({
         userId,
         parentId: seasonId,
-        fields: ['MediaStreams'],
+        fields: ['MediaStreams', 'ParentId'],
         enableUserData: true,
+        startIndex: currentIndex + 1,
+        limit: 1,
         includeItemTypes: ['Episode'],
         sortBy: ['IndexNumber'],
         sortOrder: ['Ascending'],
+        enableImages: true,
       });
 
       if (!seasonEpisodes.data.Items) {
@@ -290,36 +294,25 @@ const queries = {
       }
 
       // Find the next episode by index number
-      const nextEpisode = seasonEpisodes.data.Items.find(
-        (ep) => (ep.IndexNumber || 0) === currentIndex + 1
-      );
+      const nextEpisode = seasonEpisodes.data.Items[0];
 
       if (nextEpisode) {
-        // Get full details with images for the next episode
-        const fullNextEpisode = await getItemsApi(jf).getItems({
-          userId,
-          ids: [nextEpisode.Id!],
-          fields: ['Overview', 'ParentId', 'MediaStreams'],
-          enableImages: true,
-          enableUserData: true,
+        const imageEntries: Record<string, string> = {};
+        Object.entries(nextEpisode.ImageTags ?? {}).forEach(([key, value]) => {
+          imageEntries[key] = getImageFromTag(
+            jf.basePath,
+            nextEpisode.Id || '',
+            key,
+            value
+          );
         });
+        const image = getImageUrlsApi(jf).getItemBackdropImageUrls(nextEpisode);
 
-        if (fullNextEpisode.data.Items?.[0]) {
-          const item = fullNextEpisode.data.Items[0];
-          const image = getImageUrlsApi(jf).getItemBackdropImageUrls(item);
-          const url = jf.basePath;
-
-          const imageEntries: Record<string, string> = {};
-          Object.entries(item.ImageTags ?? {}).forEach(([key, value]) => {
-            imageEntries[key] = getImageFromTag(url, item.Id || '', key, value);
-          });
-
-          return {
-            ...item,
-            Images: imageEntries,
-            Backdrop: image,
-          };
-        }
+        return {
+          ...nextEpisode,
+          Images: imageEntries,
+          Backdrop: image,
+        };
       }
 
       return null;
