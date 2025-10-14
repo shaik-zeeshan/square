@@ -121,7 +121,6 @@ jobs:
             libxrender-dev \
             libxrandr-dev \
             libxss-dev \
-            libgconf-2-4 \
             libnss3-dev \
             libxcomposite-dev \
             libxcursor-dev \
@@ -176,7 +175,6 @@ jobs:
             libxrender-dev \
             libxrandr-dev \
             libxss-dev \
-            libgconf-2-4 \
             libnss3-dev \
             libxcomposite-dev \
             libxcursor-dev \
