@@ -179,6 +179,21 @@ build-dmg: sign-dylibs
 	@echo "✅ DMG build completed successfully!"
 	@echo "DMG file location: src-tauri/target/release/bundle/dmg/"
 
+# CI/CD build target - combines all steps from GitHub workflow
+.PHONY: ci-build
+ci-build:
+	@echo "Starting CI/CD build process..."
+	@echo "Step 1: Downloading and setting up dynamic libraries..."
+	@$(MAKE) download-dylibs
+	@echo "Step 2: Code signing dynamic libraries..."
+	@$(MAKE) sign-dylibs
+	@echo "Step 3: Building frontend..."
+	@bun run build
+	@echo "Step 4: Building Tauri app with DMG..."
+	@APPLE_SIGNING_IDENTITY="-" bun run tauri build --bundles dmg
+	@echo "✅ CI/CD build completed successfully!"
+	@echo "DMG file location: src-tauri/target/release/bundle/dmg/"
+
 # Start Tauri development server
 .PHONY: dev
 dev: sign-dylibs
@@ -238,6 +253,7 @@ help:
 	@echo ""
 	@echo "Main Targets:"
 	@echo "  all                   - Download dylibs and build app (default)"
+	@echo "  ci-build              - Complete CI/CD build (download, sign, build frontend & DMG)"
 	@echo "  download-dylibs       - Download dynamic libraries from IINA repository"
 	@echo "  create-symlink        - Create libmpv symlink for linking"
 	@echo "  sign-dylibs           - Sign dynamic libraries (macOS only)"
