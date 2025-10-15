@@ -51,9 +51,11 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/index
             src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
             ${{ runner.os }}-cargo-
 
       - name: Cache Bun dependencies
@@ -142,6 +144,13 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v5
 
+      - name: Extract version from Cargo.toml
+        id: version
+        run: |
+          VERSION=$(grep '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extracted version: $VERSION"
+
       - name: Download all artifacts
         uses: actions/download-artifact@v5
         with:
@@ -161,8 +170,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ github.run_number }}
-          name: Release v${{ github.run_number }}
+          tag_name: v${{ steps.version.outputs.version }}
+          name: Release v${{ steps.version.outputs.version }}
           body_path: CHANGELOG.md
           files: |
             artifacts/sreal-macos-dmg/*.dmg

@@ -31,9 +31,11 @@ jobs:
   #         path: |
   #           ~/.cargo/registry
   #           ~/.cargo/git
+  #           ~/.cargo/index
   #           src-tauri/target
-  #         key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+  #         key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
   #         restore-keys: |
+  #           ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
   #           ${{ runner.os }}-cargo-
 
   #     - name: Cache Bun dependencies
@@ -100,9 +102,11 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
+            ~/.cargo/index
             src-tauri/target
-          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: |
+            ${{ runner.os }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
             ${{ runner.os }}-cargo-
 
       - name: Download dynamic libraries
