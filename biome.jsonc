@@ -1,59 +1,62 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": ["ultracite"],
+  "files": {
+    "includes": ["!src/lib/tauri.ts"]
+  },
   "linter": {
+    "domains": {
+      "solid": "all",
+      "qwik": "none"
+    },
     "rules": {
+      "recommended": false,
       "nursery": {
-        "noUnknownAtRule": "off",
-        "noNoninteractiveElementInteractions": "warn",
-        "noShadow": "warn",
-        "useIterableCallbackReturn": "warn",
-        "noNestedComponentDefinitions": "warn",
-        "noAwaitInLoop": "warn"
+        "recommended": false,
+        "useExplicitType": "off",
+        "useQwikValidLexicalScope": "off",
+        "useImageSize": "off",
+        "useMaxParams": "off",
+        "noShadow": "off",
+        "useConsistentTypeDefinitions": "off"
       },
       "correctness": {
-        "noInvalidPositionAtImportRule": "off",
-        "noUnusedVariables": "warn",
-        "useJsxKeyInIterable": "warn",
-        "noUnusedFunctionParameters": "warn"
+        "useImportExtensions": "off",
+        "noUnusedVariables": "off",
+        "noInvalidPositionAtImportRule": "off"
       },
       "style": {
-        "useFilenamingConvention": "warn",
-        "noNonNullAssertion": "warn",
-        "noHeadElement": "warn",
-        "useDefaultSwitchClause": "warn",
-        "noParameterProperties": "warn",
-        "useConsistentMemberAccessibility": "warn"
+        "recommended": false,
+        "useExportsLast": "off",
+        "noMagicNumbers": "off",
+        "useFilenamingConvention": "off",
+        "useConsistentMemberAccessibility": "off",
+        "noParameterProperties": "off"
       },
       "a11y": {
-        "useButtonType": "warn",
-        "noSvgWithoutTitle": "warn",
-        "useFocusableInteractive": "warn",
-        "useSemanticElements": "warn",
-        "useKeyWithClickEvents": "warn",
-        "noStaticElementInteractions": "warn",
-        "useAriaPropsSupportedByRole": "warn",
-        "useAltText": "warn"
+        "recommended": false,
+        "useSemanticElements": "off",
+        "useButtonType": "off",
+        "useFocusableInteractive": "off",
+        "noNoninteractiveElementInteractions": "off",
+        "useKeyWithClickEvents": "off"
       },
       "suspicious": {
-        "noExplicitAny": "warn",
-        "useAwait": "warn",
-        "noEvolvingTypes": "warn",
-        "noImplicitAnyLet": "warn",
-        "noEmptyBlockStatements": "warn",
-        "noConsole": "warn"
+        "recommended": false,
+        "noDebugger": "off",
+        "useIterableCallbackReturn": "off",
+        "noUnknownAtRules": "off"
       },
       "complexity": {
-        "noExcessiveCognitiveComplexity": "warn",
-        "noForEach": "warn",
-        "noUselessFragments": "warn",
-        "noBannedTypes": "warn",
-        "useOptionalChain": "warn"
+        "recommended": false,
+        "noExcessiveLinesPerFunction": "off",
+        "noExcessiveCognitiveComplexity": "off",
+        "noForEach": "off"
       },
       "performance": {
-        "noImgElement": "warn",
-        "noNamespaceImport": "warn",
-        "useTopLevelRegex": "warn"
+        "recommended": false,
+        "noImgElement": "off",
+        "noBarrelFile": "off"
       }
     }
   },

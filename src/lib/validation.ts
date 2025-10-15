@@ -1,13 +1,13 @@
-import type { FormValidator, ValidationRule } from '~/types';
+import type { FormValidator, ValidationRule } from "~/types";
 
 export class ValidationError extends Error {
   constructor(
     message: string,
     public field: string,
-    public code = 'VALIDATION_ERROR'
+    public code = "VALIDATION_ERROR"
   ) {
     super(message);
-    this.name = 'ValidationError';
+    this.name = "ValidationError";
   }
 }
 
@@ -19,7 +19,7 @@ export function validateField<T = string>(
   // Required validation
   if (
     rules.required &&
-    (!value || (typeof value === 'string' && !value.trim()))
+    (!value || (typeof value === "string" && !value.trim()))
   ) {
     return `${fieldName} is required`;
   }
@@ -30,7 +30,7 @@ export function validateField<T = string>(
   }
 
   // String-specific validations
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     // Min length validation
     if (rules.minLength && value.length < rules.minLength) {
       return `${fieldName} must be at least ${rules.minLength} characters`;
@@ -103,10 +103,11 @@ export const commonRules = {
     pattern: /^[a-zA-Z0-9_.-]+$/,
     custom: (value: string) => {
       if (!value || value.trim().length < 2) {
-        return 'Username must be at least 2 characters';
+        return "Username must be at least 2 characters";
       }
+      // biome-ignore lint/performance/useTopLevelRegex: this is a common regex
       if (!/^[a-zA-Z0-9_.-]+$/.test(value)) {
-        return 'Username can only contain letters, numbers, dots, hyphens, and underscores';
+        return "Username can only contain letters, numbers, dots, hyphens, and underscores";
       }
       return null;
     },
@@ -122,7 +123,7 @@ export const commonRules = {
 
       // If provided, basic validation
       if (value.length < 1) {
-        return 'Password must be at least 1 character if provided';
+        return "Password must be at least 1 character if provided";
       }
       return null;
     },
@@ -132,17 +133,17 @@ export const commonRules = {
     required: true,
     custom: (value: string) => {
       if (!value?.trim()) {
-        return 'Server address is required';
+        return "Server address is required";
       }
 
       try {
         const url = new URL(value.trim());
-        if (!['http:', 'https:'].includes(url.protocol)) {
-          return 'URL must start with http:// or https://';
+        if (!["http:", "https:"].includes(url.protocol)) {
+          return "URL must start with http:// or https://";
         }
         return null;
       } catch {
-        return 'Please enter a valid URL (e.g., https://jellyfin.example.com)';
+        return "Please enter a valid URL (e.g., https://jellyfin.example.com)";
       }
     },
   } as ValidationRule<string>,

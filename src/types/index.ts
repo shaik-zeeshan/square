@@ -1,11 +1,11 @@
-import type { Api } from '@jellyfin/sdk/lib/api';
+import type { Api } from "@jellyfin/sdk/lib/api";
 import type {
   BaseItemDto,
   UserDto,
-} from '@jellyfin/sdk/lib/generated-client/models';
-import type { RecommendedServerInfo } from '@jellyfin/sdk/lib/models/recommended-server-info';
+} from "@jellyfin/sdk/lib/generated-client/models";
+import type { RecommendedServerInfo } from "@jellyfin/sdk/lib/models/recommended-server-info";
 
-type ImageBlurHashes = BaseItemDto['ImageBlurHashes'];
+type ImageBlurHashes = BaseItemDto["ImageBlurHashes"];
 
 // Enhanced Auth Types
 export interface AuthCredentials {
@@ -83,7 +83,7 @@ export interface ResumeItem extends MediaItem {
 
 // UI State Types
 export interface OnboardingState {
-  step: 'search-server' | 'select-server' | 'login';
+  step: "search-server" | "select-server" | "login";
   isProcessing: boolean;
   error: string | null;
   discoveredServers: RecommendedServerInfo[];
@@ -138,7 +138,7 @@ export interface ErrorBoundaryState {
 
 // Performance Types
 export interface ImageLoadState {
-  status: 'loading' | 'loaded' | 'error';
+  status: "loading" | "loaded" | "error";
   blurhash?: string;
   src?: string;
 }
@@ -153,7 +153,7 @@ export interface VirtualScrollItem {
 // Settings Types
 export interface AppSettings {
   general: {
-    theme: 'light' | 'dark' | 'auto';
+    theme: "light" | "dark" | "auto";
     language: string;
     autoConnect: boolean;
   };
@@ -170,7 +170,7 @@ export interface AppSettings {
     };
   };
   ui: {
-    libraryView: 'grid' | 'list';
+    libraryView: "grid" | "list";
     itemsPerRow: number;
     showProgress: boolean;
     autoRefresh: boolean;
@@ -193,16 +193,16 @@ export type FormValidator<T extends Record<string, unknown>> = {
 // Event Types
 export interface PlaybackEvent {
   type:
-    | 'play'
-    | 'pause'
-    | 'seek'
-    | 'volume'
-    | 'speed'
-    | 'load'
-    | 'subtitle'
-    | 'audio'
-    | 'resize'
-    | 'clear';
+    | "play"
+    | "pause"
+    | "seek"
+    | "volume"
+    | "speed"
+    | "load"
+    | "subtitle"
+    | "audio"
+    | "resize"
+    | "clear";
   data?: unknown;
 }
 
@@ -229,5 +229,5 @@ export interface PaginatedResponse<T = unknown> {
 }
 
 // Re-export commonly used Jellyfin types for convenience
-export type { BaseItemPerson } from '@jellyfin/sdk/lib/generated-client/models';
+export type { BaseItemPerson } from "@jellyfin/sdk/lib/generated-client/models";
 export type { ImageBlurHashes };

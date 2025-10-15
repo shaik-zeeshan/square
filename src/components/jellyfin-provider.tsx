@@ -1,5 +1,5 @@
-import type { Api } from '@jellyfin/sdk/lib/api';
-import { useQueryClient } from '@tanstack/solid-query';
+import type { Api } from "@jellyfin/sdk/lib/api";
+import { useQueryClient } from "@tanstack/solid-query";
 import {
   type ComponentProps,
   createContext,
@@ -7,12 +7,12 @@ import {
   onCleanup,
   onMount,
   useContext,
-} from 'solid-js';
-import { createStore } from 'solid-js/store';
-import { createJellyfinClient } from '~/lib/jellyfin';
-import { strongholdService } from '~/lib/jellyfin/stronghold';
-import { AUTH_PRESIST_KEY } from '~/lib/persist-store';
-import { useServerStore } from '~/lib/store-hooks';
+} from "solid-js";
+import { createStore } from "solid-js/store";
+import { createJellyfinClient } from "~/lib/jellyfin";
+import { strongholdService } from "~/lib/jellyfin/stronghold";
+import { AUTH_PRESIST_KEY } from "~/lib/persist-store";
+import { useServerStore } from "~/lib/store-hooks";
 
 type JellyFinContext = {
   api?: Api;
@@ -24,13 +24,13 @@ export function useJellyfin() {
   return (
     useContext(JellyfinContext) ??
     (() => {
-      throw new Error('useJellyFin must be used within an JellyFinProvider');
+      throw new Error("useJellyFin must be used within an JellyFinProvider");
     })()
   );
 }
 
 export const JellyFinProvider = (
-  props: Pick<ComponentProps<'div'>, 'children'>
+  props: Pick<ComponentProps<"div">, "children">
 ) => {
   const [jf, setJf] = createStore<JellyFinContext>({});
   const controller = new AbortController();
@@ -39,7 +39,9 @@ export const JellyFinProvider = (
 
   // Pre-initialize Stronghold on app startup for better performance
   onMount(() => {
-    strongholdService.preInitialize().catch((_error) => {});
+    strongholdService.preInitialize().catch((_error) => {
+      // Do nothing
+    });
   });
 
   createEffect(() => {
@@ -47,12 +49,12 @@ export const JellyFinProvider = (
       return;
     }
 
-    const jf = createJellyfinClient(store.current?.info);
-    if (!jf) {
+    const inner_jf = createJellyfinClient(store.current?.info);
+    if (!inner_jf) {
       return;
     }
 
-    setJf({ api: jf });
+    setJf({ api: inner_jf });
     queryclient.invalidateQueries();
   });
 
@@ -72,8 +74,8 @@ export const JellyFinProvider = (
 
   createEffect(() => {
     window.addEventListener(
-      'storage',
-      async (e) => {
+      "storage",
+      (e) => {
         if (e.key === AUTH_PRESIST_KEY) {
           if (!store.current?.info) {
             return;

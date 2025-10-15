@@ -1,4 +1,4 @@
-import { openUrl } from '@tauri-apps/plugin-opener';
+import { openUrl } from "@tauri-apps/plugin-opener";
 
 interface OpenInIINAButtonProps {
   url: string;
@@ -7,15 +7,15 @@ interface OpenInIINAButtonProps {
 
 export const OpenInIINAButton = (props: OpenInIINAButtonProps) => {
   const params = [
-    `url=${encodeURIComponent(props.url).replace(/'/g, '%27')}`,
-    'mpv_input-ipc-server=/tmp/sreal',
+    `url=${encodeURIComponent(props.url).replace(/'/g, "%27")}`,
+    "mpv_input-ipc-server=/tmp/sreal",
   ];
 
   const openIninna = () => {
     if (props.beforePlaying) {
       props.beforePlaying();
     }
-    const iinaurl = `iina://open?${params.join('&')}`;
+    const iinaurl = `iina://open?${params.join("&")}`;
 
     openUrl(iinaurl);
   };
@@ -29,7 +29,11 @@ export const OpenInIINAButton = (props: OpenInIINAButtonProps) => {
       }}
     >
       <span>
-        <img src="https://raw.githubusercontent.com/iina/iina/master/iina/Assets.xcassets/AppIcon.appiconset/iina-icon-32.png" />
+        <img
+          alt="IINA"
+          aria-label="Open in IINA"
+          src="https://raw.githubusercontent.com/iina/iina/master/iina/Assets.xcassets/AppIcon.appiconset/iina-icon-32.png"
+        />
       </span>
     </button>
   );

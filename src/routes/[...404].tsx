@@ -1,5 +1,5 @@
-import { A } from '@solidjs/router';
-import { GlassButton, GlassCard } from '~/components/ui';
+import { A } from "@solidjs/router";
+import { GlassButton, GlassCard } from "~/components/ui";
 
 export default function NotFound() {
   return (

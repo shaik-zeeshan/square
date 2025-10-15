@@ -1,5 +1,5 @@
-import { defineConfig } from '@solidjs/start/config';
-import tailwindcss from '@tailwindcss/vite';
+import { defineConfig } from "@solidjs/start/config";
+import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
   ssr: false,
@@ -8,7 +8,7 @@ export default defineConfig({
   },
   server: {
     watchOptions: {
-      ignored: ['**/src-tauri/**'],
+      ignored: ["**/src-tauri/**"],
     },
   },
 });

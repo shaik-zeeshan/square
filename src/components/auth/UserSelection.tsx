@@ -1,18 +1,19 @@
-import type { RecommendedServerInfo } from '@jellyfin/sdk';
-import { ArrowLeft, Loader2, Plus, Trash2, User } from 'lucide-solid';
-import { createSignal, For, Show } from 'solid-js';
-import { strongholdService } from '~/lib/jellyfin/stronghold';
-import { useServerStore } from '~/lib/store-hooks';
-import { showErrorToast, showSuccessToast } from '~/lib/toast';
+import type { RecommendedServerInfo } from "@jellyfin/sdk";
+import { ArrowLeft, Loader2, Plus, Trash2, User } from "lucide-solid";
+import { createSignal, For, Show } from "solid-js";
+import { strongholdService } from "~/lib/jellyfin/stronghold";
+import type { Server } from "~/lib/persist-store";
+import { useServerStore } from "~/lib/store-hooks";
+import { showErrorToast, showSuccessToast } from "~/lib/toast";
 
-interface UserSelectionProps {
+type UserSelectionProps = {
   server: RecommendedServerInfo;
   users: string[];
   onSelectUser: (username: string, password: string) => void;
   onAddNewUser: () => void;
   onBack?: () => void;
   onUserDeleted?: (username: string) => void;
-}
+};
 
 export function UserSelection(props: UserSelectionProps) {
   const [isDeleting, setIsDeleting] = createSignal<string | null>(null);
@@ -29,7 +30,7 @@ export function UserSelection(props: UserSelectionProps) {
       // Call the parent's onSelectUser with the retrieved credentials
       props.onSelectUser(username, credential.password);
     } catch (_error) {
-      showErrorToast('Failed to retrieve saved credentials');
+      showErrorToast("Failed to retrieve saved credentials");
     }
   };
 
@@ -42,7 +43,7 @@ export function UserSelection(props: UserSelectionProps) {
     const serverIndex = serverStore.servers.findIndex(
       (s) => s.info.address === props.server.address
     );
-    let originalServer: any = null;
+    let originalServer: Server | null = null;
 
     if (serverIndex >= 0) {
       // Store original state for rollback
@@ -98,7 +99,7 @@ export function UserSelection(props: UserSelectionProps) {
           <div class="flex items-center gap-2">
             <div class="h-2 w-2 rounded-full bg-green-500" />
             <p class="font-medium text-foreground text-sm">
-              {props.server.systemInfo?.ServerName || 'Jellyfin Server'}
+              {props.server.systemInfo?.ServerName || "Jellyfin Server"}
             </p>
           </div>
           <p class="mt-1 text-muted-foreground text-xs">
@@ -154,12 +155,12 @@ export function UserSelection(props: UserSelectionProps) {
   );
 }
 
-interface UserCardProps {
+type UserCardProps = {
   username: string;
   isDeleting: boolean;
   onSelect: () => void;
   onDelete: (event: Event) => void;
-}
+};
 
 function UserCard(props: UserCardProps) {
   return (
@@ -168,7 +169,7 @@ function UserCard(props: UserCardProps) {
       class="group relative cursor-pointer rounded-lg border bg-card p-4 transition-colors hover:bg-muted"
       onClick={props.onSelect}
       onKeyPress={(e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           props.onSelect();
         }
@@ -191,6 +192,7 @@ function UserCard(props: UserCardProps) {
         <div
           class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(e) => e.stopPropagation()}
+          role="button"
         >
           <button
             aria-label="Delete user"

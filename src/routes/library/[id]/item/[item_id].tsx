@@ -1,5 +1,5 @@
-import { ItemFilter } from '@jellyfin/sdk/lib/generated-client';
-import { type RouteSectionProps, useNavigate } from '@solidjs/router';
+import { ItemFilter } from "@jellyfin/sdk/lib/generated-client";
+import { type RouteSectionProps, useNavigate } from "@solidjs/router";
 import {
   ArrowUp,
   Calendar,
@@ -9,7 +9,7 @@ import {
   Filter,
   Library as LibraryIcon,
   Star,
-} from 'lucide-solid';
+} from "lucide-solid";
 import {
   createSignal,
   For,
@@ -19,27 +19,27 @@ import {
   Show,
   Switch,
   splitProps,
-} from 'solid-js';
-import { useGeneralInfo } from '~/components/current-user-provider';
-import { EpisodeCard, SeriesCard } from '~/components/media-card';
-import { Nav } from '~/components/Nav';
-import { QueryBoundary } from '~/components/query-boundary';
-import { GlassButton } from '~/components/ui';
-import { InlineLoading } from '~/components/ui/loading';
-import library from '~/lib/jellyfin/library';
-import { createJellyFinQuery } from '~/lib/utils';
+} from "solid-js";
+import { useGeneralInfo } from "~/components/current-user-provider";
+import { EpisodeCard, SeriesCard } from "~/components/media-card";
+import { Nav } from "~/components/Nav";
+import { QueryBoundary } from "~/components/query-boundary";
+import { GlassButton } from "~/components/ui";
+import { InlineLoading } from "~/components/ui/loading";
+import library from "~/lib/jellyfin/library";
+import { createJellyFinQuery } from "~/lib/utils";
 
 export default function Page(props: RouteSectionProps) {
-  const [{ params }] = splitProps(props, ['params']);
+  const [{ params }] = splitProps(props, ["params"]);
   const navigate = useNavigate();
 
   const { store } = useGeneralInfo();
   const [isOverviewExpanded, setIsOverviewExpanded] = createSignal(false);
   const [showScrollTop, setShowScrollTop] = createSignal(false);
-  const [searchTerm, setSearchTerm] = createSignal('');
+  const [searchTerm, setSearchTerm] = createSignal("");
   const [activeFilter, setActiveFilter] = createSignal<
-    'all' | 'unplayed' | 'played' | 'resumable'
-  >('all');
+    "all" | "unplayed" | "played" | "resumable"
+  >("all");
 
   const itemDetails = createJellyFinQuery(() => ({
     queryKey: [
@@ -48,9 +48,9 @@ export default function Page(props: RouteSectionProps) {
     ],
     queryFn: async (jf) =>
       library.query.getItem(jf, params.item_id, store?.user?.Id, [
-        'Overview',
-        'Studios',
-        'People',
+        "Overview",
+        "Studios",
+        "People",
       ]),
   }));
 
@@ -60,7 +60,7 @@ export default function Page(props: RouteSectionProps) {
       library.query.getItem.keyFor(params.id, store?.user?.Id),
     ],
     queryFn: async (jf) =>
-      library.query.getItem(jf, params.id, store?.user?.Id, ['ParentId']),
+      library.query.getItem(jf, params.id, store?.user?.Id, ["ParentId"]),
   }));
 
   const childrens = createJellyFinQuery(() => ({
@@ -79,23 +79,23 @@ export default function Page(props: RouteSectionProps) {
       // Map filter state to Jellyfin filters
       const filters: (typeof ItemFilter)[keyof typeof ItemFilter][] = [];
       const filter = activeFilter();
-      if (filter === 'unplayed') {
+      if (filter === "unplayed") {
         filters.push(ItemFilter.IsUnplayed);
-      } else if (filter === 'played') {
+      } else if (filter === "played") {
         filters.push(ItemFilter.IsPlayed);
-      } else if (filter === 'resumable') {
+      } else if (filter === "resumable") {
         filters.push(ItemFilter.IsResumable);
       }
 
       const seasons = await library.query.getItems(jf, {
         parentId,
         userId: store?.user?.Id,
-        fields: ['Overview', 'MediaStreams'],
+        fields: ["Overview", "MediaStreams"],
         enableImage: true,
         ...(searchTerm() && {
           searchTerm: searchTerm(),
           recursive: true,
-          includeItemTypes: ['Season', 'Episode'],
+          includeItemTypes: ["Season", "Episode"],
         }),
         filters: filters.length > 0 ? filters : undefined,
       });
@@ -111,11 +111,12 @@ export default function Page(props: RouteSectionProps) {
   }));
 
   // Scroll to top handler
-  let contentAreaRef: HTMLDivElement | undefined;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign this variable later
+  let contentAreaRef!: HTMLDivElement;
 
   const scrollToTop = () => {
     if (contentAreaRef) {
-      contentAreaRef.scrollTo({ top: 0, behavior: 'smooth' });
+      contentAreaRef.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -128,18 +129,18 @@ export default function Page(props: RouteSectionProps) {
     };
 
     if (contentAreaRef) {
-      contentAreaRef.addEventListener('scroll', handleScroll);
+      contentAreaRef.addEventListener("scroll", handleScroll);
       onCleanup(() =>
-        contentAreaRef?.removeEventListener('scroll', handleScroll)
+        contentAreaRef?.removeEventListener("scroll", handleScroll)
       );
     }
   });
 
   onMount(() => {
-    document.body.style.setProperty('--item-color', 'white');
+    document.body.style.setProperty("--item-color", "white");
   });
   onCleanup(() => {
-    document.body.style.removeProperty('--item-color');
+    document.body.style.removeProperty("--item-color");
   });
 
   return (
@@ -172,7 +173,7 @@ export default function Page(props: RouteSectionProps) {
             {/* Background with enhanced overlay */}
             <div class="fixed top-0 left-0 h-screen w-full">
               <img
-                alt={item?.Name ?? ''}
+                alt={item?.Name ?? ""}
                 class="h-full w-full object-cover"
                 src={item?.Backdrop?.[0]}
               />
@@ -187,12 +188,12 @@ export default function Page(props: RouteSectionProps) {
                   label: (() => {
                     const itemType = item?.Type;
                     // For Season, show Series name; for Episode, show Season name; otherwise show Library name
-                    if (itemType === 'Season' || itemType === 'Episode') {
+                    if (itemType === "Season" || itemType === "Episode") {
                       return (
-                        item?.SeriesName || parentLibrary.data?.Name || 'Parent'
+                        item?.SeriesName || parentLibrary.data?.Name || "Parent"
                       );
                     }
-                    return parentLibrary.data?.Name || 'Library';
+                    return parentLibrary.data?.Name || "Library";
                   })(),
                   icon: (
                     <LibraryIcon class="h-4 w-4 flex-shrink-0 opacity-70" />
@@ -207,7 +208,7 @@ export default function Page(props: RouteSectionProps) {
 
                     // If current item is Season or Episode, navigate to parent item page
                     // If current item is Series or Movie, navigate to library page
-                    if (itemType === 'Season' || itemType === 'Episode') {
+                    if (itemType === "Season" || itemType === "Episode") {
                       const seriesID = item?.SeriesId;
                       navigate(`/library/${parentId}/item/${seriesID}`);
                     } else {
@@ -217,7 +218,7 @@ export default function Page(props: RouteSectionProps) {
                 },
               ]}
               class="relative z-50"
-              currentPage={item?.Name || 'Loading...'}
+              currentPage={item?.Name || "Loading..."}
               onSearchChange={setSearchTerm}
               searchValue={searchTerm()}
               showSearch={true}
@@ -230,10 +231,10 @@ export default function Page(props: RouteSectionProps) {
               <div class="mx-auto flex h-full max-w-7xl flex-col">
                 {/* Hero Section */}
                 <div class="space-y-4">
-                  <Show when={['Series', 'Movie'].includes(item?.Type || '')}>
+                  <Show when={["Series", "Movie"].includes(item?.Type || "")}>
                     <div class="max-w-xs">
                       <img
-                        alt={item?.Name ?? ''}
+                        alt={item?.Name ?? ""}
                         class="h-auto w-full object-contain drop-shadow-xl"
                         src={item?.Images?.Logo}
                       />
@@ -261,7 +262,7 @@ export default function Page(props: RouteSectionProps) {
                       <div class="flex items-center gap-1 opacity-70">
                         <Calendar class="h-3.5 w-3.5" />
                         <span class="font-medium">
-                          {new Date(item?.PremiereDate!).getFullYear()}
+                          {new Date(item?.PremiereDate || "").getFullYear()}
                         </span>
                       </div>
                     </Show>
@@ -270,7 +271,7 @@ export default function Page(props: RouteSectionProps) {
                       <div class="flex items-center gap-1 opacity-70">
                         <Clock class="h-3.5 w-3.5" />
                         <span class="font-medium">
-                          {Math.round((item?.RunTimeTicks || 0) / 600_000_000)}{' '}
+                          {Math.round((item?.RunTimeTicks || 0) / 600_000_000)}{" "}
                           min
                         </span>
                       </div>
@@ -323,7 +324,7 @@ export default function Page(props: RouteSectionProps) {
                       </div>
                       <p
                         class={`text-sm leading-relaxed opacity-70 transition-all duration-300 ${
-                          isOverviewExpanded() ? '' : 'line-clamp-3'
+                          isOverviewExpanded() ? "" : "line-clamp-3"
                         }`}
                       >
                         {item?.Overview}
@@ -340,7 +341,7 @@ export default function Page(props: RouteSectionProps) {
                             Studio
                           </h4>
                           <p class="font-medium text-sm">
-                            {item?.Studios?.map((s) => s.Name).join(', ')}
+                            {item?.Studios?.map((s) => s.Name).join(", ")}
                           </p>
                         </div>
                       </Show>
@@ -430,9 +431,27 @@ interface ItemsRenderProsp {
   parentItem: Awaited<ReturnType<typeof library.query.getItem>> | undefined;
   items: Awaited<ReturnType<typeof library.query.getItems>> | undefined;
   parentId: string;
-  activeFilter: 'all' | 'unplayed' | 'played' | 'resumable';
-  onFilterChange: (filter: 'all' | 'unplayed' | 'played' | 'resumable') => void;
+  activeFilter: "all" | "unplayed" | "played" | "resumable";
+  onFilterChange: (filter: "all" | "unplayed" | "played" | "resumable") => void;
 }
+
+const FilterButton = (props: {
+  filter: ItemsRenderProsp["activeFilter"];
+  label: string;
+  activeFilter: ItemsRenderProsp["activeFilter"];
+  onFilterChange: ItemsRenderProsp["onFilterChange"];
+}) => (
+  <button
+    class={`rounded-full px-3 py-1 font-medium text-xs transition-all ${
+      props.activeFilter === props.filter
+        ? "border border-blue-500/50 bg-blue-500/30 text-blue-300"
+        : "border border-white/10 bg-white/5 hover:bg-white/10"
+    }`}
+    onClick={() => props.onFilterChange(props.filter)}
+  >
+    {props.label}
+  </button>
+);
 
 function ItemsRender({
   parentItem,
@@ -441,41 +460,49 @@ function ItemsRender({
   activeFilter,
   onFilterChange,
 }: ItemsRenderProsp) {
-  const FilterButton = (props: {
-    filter: typeof activeFilter;
-    label: string;
-  }) => (
-    <button
-      class={`rounded-full px-3 py-1 font-medium text-xs transition-all ${
-        activeFilter === props.filter
-          ? 'border border-blue-500/50 bg-blue-500/30 text-blue-300'
-          : 'border border-white/10 bg-white/5 hover:bg-white/10'
-      }`}
-      onClick={() => onFilterChange(props.filter)}
-    >
-      {props.label}
-    </button>
-  );
-
   return (
     <Switch>
-      <Match when={!parentItem?.Type} />
-      <Match when={parentItem?.Type === 'Series'}>
+      <Match when={!parentItem?.Type}>
+        <div class="space-y-4">
+          <h2 class="font-semibold text-lg">No seasons</h2>
+        </div>
+      </Match>
+      <Match when={parentItem?.Type === "Series"}>
         <div class="space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div class="flex items-baseline gap-2">
               <h2 class="font-semibold text-lg">Seasons</h2>
               <span class="font-medium text-xs opacity-50">
-                {items?.length} {items?.length === 1 ? 'Season' : 'Seasons'}
+                {items?.length} {items?.length === 1 ? "Season" : "Seasons"}
               </span>
             </div>
 
             <div class="flex items-center gap-2">
               <Filter class="h-4 w-4 opacity-50" />
-              <FilterButton filter="all" label="All" />
-              <FilterButton filter="unplayed" label="Unwatched" />
-              <FilterButton filter="played" label="Watched" />
-              <FilterButton filter="resumable" label="In Progress" />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="all"
+                label="All"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="unplayed"
+                label="Unwatched"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="played"
+                label="Watched"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="resumable"
+                label="In Progress"
+                onFilterChange={onFilterChange}
+              />
             </div>
           </div>
           <div class="grid grid-cols-3 gap-6 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
@@ -486,29 +513,49 @@ function ItemsRender({
         </div>
       </Match>
 
-      <Match when={parentItem?.Type === 'Movie'}>
+      <Match when={parentItem?.Type === "Movie"}>
         <div class="space-y-4">
           <h2 class="font-semibold text-lg">Watch Movie</h2>
           <EpisodeCard item={parentItem} />
         </div>
       </Match>
 
-      <Match when={parentItem?.Type === 'Season'}>
+      <Match when={parentItem?.Type === "Season"}>
         <div class="space-y-4">
           <div class="flex items-center justify-between gap-4">
             <div class="flex items-baseline gap-2">
               <h2 class="font-semibold text-lg">Episodes</h2>
               <span class="font-medium text-xs opacity-50">
-                {items?.length} {items?.length === 1 ? 'Episode' : 'Episodes'}
+                {items?.length} {items?.length === 1 ? "Episode" : "Episodes"}
               </span>
             </div>
 
             <div class="flex items-center gap-2">
               <Filter class="h-4 w-4 opacity-50" />
-              <FilterButton filter="all" label="All" />
-              <FilterButton filter="unplayed" label="Unwatched" />
-              <FilterButton filter="played" label="Watched" />
-              <FilterButton filter="resumable" label="In Progress" />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="all"
+                label="All"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="unplayed"
+                label="Unwatched"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="played"
+                label="Watched"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="resumable"
+                label="In Progress"
+                onFilterChange={onFilterChange}
+              />
             </div>
           </div>
           <div class="space-y-4">

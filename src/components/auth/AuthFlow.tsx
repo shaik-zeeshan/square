@@ -1,26 +1,26 @@
-import type { RecommendedServerInfo } from '@jellyfin/sdk';
-import { createSignal, onMount, Show } from 'solid-js';
-import { useAuthentication } from '~/hooks/useAuthentication';
-import { strongholdService } from '~/lib/jellyfin/stronghold';
-import { useServerStore } from '~/lib/store-hooks';
-import type { AuthCredentials } from '~/types';
-import { LoginForm } from './LoginForm';
-import { UserSelection } from './UserSelection';
+import type { RecommendedServerInfo } from "@jellyfin/sdk";
+import { createSignal, onMount, Show } from "solid-js";
+import { useAuthentication } from "~/hooks/useAuthentication";
+import { strongholdService } from "~/lib/jellyfin/stronghold";
+import { useServerStore } from "~/lib/store-hooks";
+import type { AuthCredentials } from "~/types";
+import { LoginForm } from "./LoginForm";
+import { UserSelection } from "./UserSelection";
 
-interface AuthFlowProps {
+type AuthFlowProps = {
   server: RecommendedServerInfo;
   onBack?: () => void;
   onSuccess?: () => void;
-}
+};
 
-type AuthStep = 'user-selection' | 'login';
+type AuthStep = "user-selection" | "login";
 
 export function AuthFlow(props: AuthFlowProps) {
   const { store: serverStore } = useServerStore();
   const [currentStep, setCurrentStep] =
-    createSignal<AuthStep>('user-selection');
+    createSignal<AuthStep>("user-selection");
   const [savedUsers, setSavedUsers] = createSignal<string[]>([]);
-  const [selectedUsername, setSelectedUsername] = createSignal<string>('');
+  const [selectedUsername, setSelectedUsername] = createSignal<string>("");
   const [isLoading, setIsLoading] = createSignal(true);
   const [isAutoLoggingIn, setIsAutoLoggingIn] = createSignal(false);
   // Use the authentication hook to login directly
@@ -33,17 +33,19 @@ export function AuthFlow(props: AuthFlowProps) {
       setIsAutoLoggingIn(false);
       // Fall back to manual login if auto-login fails
       setSelectedUsername(selectedUsername());
-      setCurrentStep('login');
+      setCurrentStep("login");
     },
   });
 
   // Load saved users on mount
-  const loadSavedUsers = async () => {
+  const loadSavedUsers = () => {
     try {
       setIsLoading(true);
 
       // Pre-initialize Stronghold in background for faster auto-login
-      strongholdService.preInitialize().catch((_error) => {});
+      strongholdService.preInitialize().catch((_error) => {
+        // Do nothing
+      });
 
       // Get users from the server store only
       const storedServer = serverStore.servers.find(
@@ -55,10 +57,10 @@ export function AuthFlow(props: AuthFlowProps) {
         const usernames = storedServer.users.map((user) => user.username);
         setSavedUsers(usernames);
       } else {
-        setCurrentStep('login');
+        setCurrentStep("login");
       }
     } catch (_error) {
-      setCurrentStep('login');
+      setCurrentStep("login");
     } finally {
       setIsLoading(false);
     }
@@ -68,7 +70,7 @@ export function AuthFlow(props: AuthFlowProps) {
     loadSavedUsers();
   });
 
-  const handleSelectUser = async (username: string, password: string) => {
+  const handleSelectUser = (username: string, password: string) => {
     setIsAutoLoggingIn(true);
 
     try {
@@ -84,18 +86,18 @@ export function AuthFlow(props: AuthFlowProps) {
       setIsAutoLoggingIn(false);
       // Fall back to manual login
       setSelectedUsername(username);
-      setCurrentStep('login');
+      setCurrentStep("login");
     }
   };
 
   const handleAddNewUser = () => {
-    setSelectedUsername('');
-    setCurrentStep('login');
+    setSelectedUsername("");
+    setCurrentStep("login");
   };
 
   const handleBackToUserSelection = () => {
-    setCurrentStep('user-selection');
-    setSelectedUsername('');
+    setCurrentStep("user-selection");
+    setSelectedUsername("");
   };
 
   const handleBackToServerSelection = () => {
@@ -105,7 +107,7 @@ export function AuthFlow(props: AuthFlowProps) {
   const _handleLoginSuccess = () => {
     // Refresh the user list and go back to user selection
     loadSavedUsers();
-    setCurrentStep('user-selection');
+    setCurrentStep("user-selection");
     props.onSuccess?.();
   };
 
@@ -116,7 +118,7 @@ export function AuthFlow(props: AuthFlowProps) {
 
     // If no users left, go to login
     if (updatedUsers.length === 0) {
-      setCurrentStep('login');
+      setCurrentStep("login");
     }
   };
 
@@ -125,13 +127,13 @@ export function AuthFlow(props: AuthFlowProps) {
       fallback={
         <div class="flex h-64 items-center justify-center">
           <div class="text-muted-foreground text-sm">
-            {isAutoLoggingIn() ? 'Signing in...' : 'Loading saved users...'}
+            {isAutoLoggingIn() ? "Signing in..." : "Loading saved users..."}
           </div>
         </div>
       }
       when={!(isLoading() || isAutoLoggingIn())}
     >
-      <Show when={currentStep() === 'user-selection'}>
+      <Show when={currentStep() === "user-selection"}>
         <UserSelection
           onAddNewUser={handleAddNewUser}
           onBack={handleBackToServerSelection}
@@ -142,7 +144,7 @@ export function AuthFlow(props: AuthFlowProps) {
         />
       </Show>
 
-      <Show when={currentStep() === 'login'}>
+      <Show when={currentStep() === "login"}>
         <LoginForm
           initialUsername={selectedUsername()}
           onBack={

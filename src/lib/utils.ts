@@ -1,16 +1,16 @@
-import type { Api } from '@jellyfin/sdk/lib/api';
+import type { Api } from "@jellyfin/sdk/lib/api";
 import {
   type QueryFunctionContext,
   type QueryKey,
   type SolidQueryOptions,
   type UseQueryResult,
   useQuery,
-} from '@tanstack/solid-query';
-import { type ClassValue, clsx } from 'clsx';
-import type { Accessor } from 'solid-js';
-import { twMerge } from 'tailwind-merge';
-import { useJellyfin } from '~/components/jellyfin-provider';
-import { useServerStore } from './store-hooks';
+} from "@tanstack/solid-query";
+import { type ClassValue, clsx } from "clsx";
+import type { Accessor } from "solid-js";
+import { twMerge } from "tailwind-merge";
+import { useJellyfin } from "~/components/jellyfin-provider";
+import { useServerStore } from "./store-hooks";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -56,7 +56,7 @@ export function createJellyFinQuery<
         initialData?: undefined;
         onError?: (error: Error) => void;
       },
-      'queryFn'
+      "queryFn"
     > & {
       queryFn: (
         jellyfin: Api,
@@ -77,7 +77,7 @@ export function createJellyFinQuery<
     enabled: !!jf.api?.accessToken && opts().enabled,
     queryFn: async (context) => {
       if (!jf.api) {
-        throw new Error('Jellyfin API not found');
+        throw new Error("Jellyfin API not found");
       }
       const data = await opts().queryFn(jf.api, context);
       return data;
@@ -97,7 +97,7 @@ export function queryJellfinOptions<
           initialData?: undefined;
           onError?: (error: Error) => void;
         },
-        'queryFn'
+        "queryFn"
       > & {
         queryFn: (
           jellyfin: Api,

@@ -1,29 +1,28 @@
-import { useNavigate } from '@solidjs/router';
-import { useMutation } from '@tanstack/solid-query';
-import { LogOut, Settings, User } from 'lucide-solid';
-import { createEffect, createSignal, onCleanup, Show } from 'solid-js';
-import { user } from '~/lib/jellyfin/user';
-import { useGeneralInfo } from './current-user-provider';
+import { useNavigate } from "@solidjs/router";
+import { useMutation } from "@tanstack/solid-query";
+import { LogOut, Settings, User } from "lucide-solid";
+import { createEffect, createSignal, onCleanup, Show } from "solid-js";
+import { user } from "~/lib/jellyfin/user";
+import { useGeneralInfo } from "./current-user-provider";
 
-interface UserDropdownProps {
+type UserDropdownProps = {
   /** Color variant for the button */
-  variant?: 'light' | 'dark';
+  variant?: "light" | "dark";
   /** Additional class for the container */
   class?: string;
-}
+};
 
 export function UserDropdown(props: UserDropdownProps) {
   const navigate = useNavigate();
   const generalInfo = useGeneralInfo();
   const [isUserDropdownOpen, setIsUserDropdownOpen] = createSignal(false);
-  let userDropdownRef: HTMLDivElement | undefined;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign this variable later
+  let userDropdownRef!: HTMLDivElement;
 
   const logout = useMutation(() => ({
-    mutationFn: async () => {
-      return await user.mutation.logout();
-    },
+    mutationFn: async () => await user.mutation.logout(),
     onSuccess: () => {
-      navigate('/');
+      navigate("/");
     },
   }));
 
@@ -39,8 +38,8 @@ export function UserDropdown(props: UserDropdownProps) {
       }
     };
 
-    document.addEventListener('click', handleClickOutside);
-    onCleanup(() => document.removeEventListener('click', handleClickOutside));
+    document.addEventListener("click", handleClickOutside);
+    onCleanup(() => document.removeEventListener("click", handleClickOutside));
   });
 
   const handleLogout = () => {
@@ -49,17 +48,17 @@ export function UserDropdown(props: UserDropdownProps) {
   };
 
   // Determine styles based on variant
-  const variant = props.variant ?? 'dark';
+  const variant = props.variant ?? "dark";
   const hoverBgClass =
-    variant === 'light' ? 'hover:bg-black/5' : 'hover:bg-white/10';
-  const activeBgClass = variant === 'light' ? 'bg-black/5' : 'bg-white/10';
+    variant === "light" ? "hover:bg-black/5" : "hover:bg-white/10";
+  const activeBgClass = variant === "light" ? "bg-black/5" : "bg-white/10";
 
   return (
-    <div class={` ${props.class ?? ''}`} ref={userDropdownRef}>
+    <div class={` ${props.class ?? ""}`} ref={userDropdownRef}>
       <div class="relative">
         <button
           aria-label="User profile"
-          class={`rounded-md p-2 ${hoverBgClass} transition-colors ${isUserDropdownOpen() ? activeBgClass : ''}`}
+          class={`rounded-md p-2 ${hoverBgClass} transition-colors ${isUserDropdownOpen() ? activeBgClass : ""}`}
           onClick={() => setIsUserDropdownOpen(!isUserDropdownOpen())}
           title="Profile"
         >
@@ -95,7 +94,7 @@ export function UserDropdown(props: UserDropdownProps) {
                 class="flex w-full items-center gap-3 px-4 py-2.5 text-foreground text-sm transition-colors hover:bg-accent"
                 onClick={() => {
                   setIsUserDropdownOpen(false);
-                  navigate('/settings');
+                  navigate("/settings");
                 }}
               >
                 <Settings class="h-4 w-4" />

@@ -1,10 +1,8 @@
-import { createContextProvider } from '@solid-primitives/context';
-import { serversStore } from './persist-store';
+import { createContextProvider } from "@solid-primitives/context";
+import { serversStore } from "./persist-store";
 
-const [ServerStoreProvider, useServerStoreContext] = createContextProvider(
-  () => {
-    return serversStore();
-  }
+const [ServerStoreProvider, useServerStoreContext] = createContextProvider(() =>
+  serversStore()
 );
 
 export function useServerStore() {
@@ -12,7 +10,7 @@ export function useServerStore() {
     useServerStoreContext() ??
     (() => {
       throw new Error(
-        'useGeneralInfo must be used within an GeneralInfoProvider'
+        "useGeneralInfo must be used within an GeneralInfoProvider"
       );
     })()
   );

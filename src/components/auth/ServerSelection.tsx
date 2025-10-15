@@ -1,16 +1,16 @@
-import type { RecommendedServerInfo } from '@jellyfin/sdk';
-import { ArrowLeft, Edit, Server as ServerIcon, Trash2 } from 'lucide-solid';
-import { For, Show } from 'solid-js';
-import { useAuthentication } from '~/hooks/useAuthentication';
-import type { Server } from '~/lib/persist-store';
-import { useServerStore } from '~/lib/store-hooks';
+import type { RecommendedServerInfo } from "@jellyfin/sdk";
+import { ArrowLeft, Edit, Server as ServerIcon, Trash2 } from "lucide-solid";
+import { For, Show } from "solid-js";
+import { useAuthentication } from "~/hooks/useAuthentication";
+import type { Server } from "~/lib/persist-store";
+import { useServerStore } from "~/lib/store-hooks";
 
-interface ServerSelectionProps {
+type ServerSelectionProps = {
   onBack?: () => void;
   onSelectServer: (server: RecommendedServerInfo) => void;
   onEditServer: (server: RecommendedServerInfo) => void;
   onSearchNewServer: () => void;
-}
+};
 
 export function ServerSelection(props: ServerSelectionProps) {
   const { store: serverStore } = useServerStore();
@@ -87,12 +87,12 @@ export function ServerSelection(props: ServerSelectionProps) {
   );
 }
 
-interface ServerCardProps {
+type ServerCardProps = {
   server: Server;
   onSelect: () => void;
   onEdit: () => void;
   onDelete: () => void;
-}
+};
 
 function ServerCard(props: ServerCardProps) {
   return (
@@ -101,7 +101,7 @@ function ServerCard(props: ServerCardProps) {
       class="group relative cursor-pointer rounded-lg border bg-card p-4 transition-colors hover:bg-muted"
       onClick={props.onSelect}
       onKeyPress={(e: KeyboardEvent) => {
-        if (e.key === 'Enter' || e.key === ' ') {
+        if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           props.onSelect();
         }
@@ -115,7 +115,7 @@ function ServerCard(props: ServerCardProps) {
         </div>
         <div class="min-w-0 flex-1">
           <div class="truncate font-semibold text-base text-foreground">
-            {props.server.info.systemInfo?.ServerName || 'Unknown Server'}
+            {props.server.info.systemInfo?.ServerName || "Unknown Server"}
           </div>
           <div class="mt-0.5 truncate text-muted-foreground text-xs">
             {props.server.info.address}
@@ -128,7 +128,7 @@ function ServerCard(props: ServerCardProps) {
           <Show when={props.server.users && props.server.users.length > 0}>
             <div class="mt-1 text-muted-foreground/60 text-xs">
               {props.server.users.length} saved user
-              {props.server.users.length !== 1 ? 's' : ''}
+              {props.server.users.length !== 1 ? "s" : ""}
             </div>
           </Show>
           <Show when={props.server.currentUser}>
@@ -142,6 +142,7 @@ function ServerCard(props: ServerCardProps) {
         <div
           class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(e) => e.stopPropagation()}
+          role="button"
         >
           <button
             aria-label="Edit server"

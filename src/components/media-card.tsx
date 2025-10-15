@@ -1,12 +1,12 @@
-import { Check, Play } from 'lucide-solid';
-import { createMemo, Show } from 'solid-js';
-import type library from '~/lib/jellyfin/library';
-import { GlassCard } from './ui';
+import { Check, Play } from "lucide-solid";
+import { createMemo, Show } from "solid-js";
+import type library from "~/lib/jellyfin/library";
+import { GlassCard } from "./ui";
 
-interface SeriesCardProps {
+type SeriesCardProps = {
   item: Awaited<ReturnType<typeof library.query.getItem>>;
   parentId?: string;
-}
+};
 
 export function SeriesCard({ item, parentId }: SeriesCardProps) {
   return (
@@ -21,12 +21,12 @@ export function SeriesCard({ item, parentId }: SeriesCardProps) {
         <div class="relative aspect-[2/3] overflow-hidden">
           {/* Image fills entire card */}
           <img
-            alt={item.Name ?? 'Media item'}
+            alt={item.Name ?? "Media item"}
             class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
             src={
-              'Primary' in item.Images
+              "Primary" in item.Images
                 ? item.Images.Primary
-                : 'https://placehold.co/300x442?text=No+Image'
+                : "https://placehold.co/300x442?text=No+Image"
             }
           />
 
@@ -77,19 +77,19 @@ export function SeriesCard({ item, parentId }: SeriesCardProps) {
   );
 }
 
-interface EpisodeCardProps {
+type EpisodeCardProps = {
   item: Awaited<ReturnType<typeof library.query.getItem>> | undefined;
-}
+};
 
 export function EpisodeCard({ item }: EpisodeCardProps) {
-  if (item?.LocationType !== 'FileSystem') {
+  if (item?.LocationType !== "FileSystem") {
     return;
   }
 
   const audioLangs = createMemo(() =>
     Array.from(
       new Set(
-        item?.MediaStreams?.filter((stream) => stream.Type === 'Audio').map(
+        item?.MediaStreams?.filter((stream) => stream.Type === "Audio").map(
           (stream) => stream.Language
         )
       )
@@ -99,7 +99,7 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
   const subtitleLangs = createMemo(() =>
     Array.from(
       new Set(
-        item?.MediaStreams?.filter((stream) => stream.Type === 'Subtitle').map(
+        item?.MediaStreams?.filter((stream) => stream.Type === "Subtitle").map(
           (stream) => stream.Language
         )
       )
@@ -134,12 +134,12 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
 
   return (
     <a
-      aria-disabled={item.LocationType !== 'FileSystem'}
-      aria-label={`Play ${item.Name ?? 'Episode'}${runtimeMinutes ? ` (${formatRuntime(runtimeMinutes)})` : ''}`}
+      aria-disabled={item.LocationType !== "FileSystem"}
+      aria-label={`Play ${item.Name ?? "Episode"}${runtimeMinutes ? ` (${formatRuntime(runtimeMinutes)})` : ""}`}
       class="group block"
-      href={item.LocationType === 'FileSystem' ? `/video/${item.Id}` : ''}
-      role={item.LocationType === 'FileSystem' ? 'link' : 'button'}
-      tabIndex={item.LocationType === 'FileSystem' ? 0 : -1}
+      href={item.LocationType === "FileSystem" ? `/video/${item.Id}` : ""}
+      role={item.LocationType === "FileSystem" ? "link" : "button"}
+      tabIndex={item.LocationType === "FileSystem" ? 0 : -1}
     >
       <div class="flex gap-4 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 transition-all duration-300 hover:border-white/20 hover:bg-white/10">
         {/* Episode Number Badge */}
@@ -154,7 +154,7 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
         {/* Thumbnail */}
         <div class="relative aspect-video w-64 flex-shrink-0 overflow-hidden rounded-xl">
           <img
-            alt={item.Name ?? 'Episode'}
+            alt={item.Name ?? "Episode"}
             class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
             src={item.Images.Primary}
           />
@@ -195,7 +195,7 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
         {/* Episode Info */}
         <div class="flex min-w-0 flex-1 flex-col justify-center gap-2 overflow-hidden">
           <div class="min-w-0">
-            <Show when={item.Type === 'Episode'}>
+            <Show when={item.Type === "Episode"}>
               <span class="mb-0.5 block truncate font-semibold text-xs uppercase tracking-wide opacity-60">
                 {item.SeasonName}
               </span>
@@ -221,7 +221,7 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
                     .slice(0, 4)
                     .map((lang: string | null | undefined) => (
                       <span class="whitespace-nowrap rounded-md border border-blue-500/30 bg-blue-500/20 px-2 py-0.5 font-medium text-blue-300 text-xs">
-                        {lang?.toUpperCase() || 'Unknown'}
+                        {lang?.toUpperCase() || "Unknown"}
                       </span>
                     ))}
                   <Show when={audioLangs().length > 4}>
@@ -243,7 +243,7 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
                     .slice(0, 4)
                     .map((lang: string | null | undefined) => (
                       <span class="whitespace-nowrap rounded-md border border-purple-500/30 bg-purple-500/20 px-2 py-0.5 font-medium text-purple-300 text-xs">
-                        {lang?.toUpperCase() || 'Unknown'}
+                        {lang?.toUpperCase() || "Unknown"}
                       </span>
                     ))}
                   <Show when={subtitleLangs().length > 4}>
@@ -263,7 +263,7 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
 
 // New compact episode card for main page
 export function MainPageEpisodeCard({ item }: EpisodeCardProps) {
-  if (!item || item.LocationType !== 'FileSystem') {
+  if (!item || item.LocationType !== "FileSystem") {
     return null;
   }
 
@@ -310,7 +310,7 @@ export function MainPageEpisodeCard({ item }: EpisodeCardProps) {
             when={item.Images?.Primary}
           >
             <img
-              alt={item.Name ?? 'Episode'}
+              alt={item.Name ?? "Episode"}
               class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
               src={item.Images.Primary}
             />

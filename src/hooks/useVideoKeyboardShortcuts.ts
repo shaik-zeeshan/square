@@ -1,26 +1,27 @@
-import { createEventListener } from '@solid-primitives/event-listener';
-import { useNavigate } from '@solidjs/router';
-import { commands } from '~/lib/tauri';
+import { createEventListener } from "@solid-primitives/event-listener";
+import { useNavigate } from "@solidjs/router";
+import type { Chapter } from "~/components/video/types";
+import { commands } from "~/lib/tauri";
 
-interface UseVideoKeyboardShortcutsProps {
+type UseVideoKeyboardShortcutsProps = {
   state: {
     playing: boolean;
     volume: number;
     showControls: boolean;
-    chapters: any[];
+    chapters: Chapter[];
     currentTime: string;
     duration: number;
   };
-  openPanel: () => 'audio' | 'subtitles' | 'speed' | 'chapters' | null;
+  openPanel: () => "audio" | "subtitles" | "speed" | "chapters" | null;
   setOpenPanel: (
-    panel: 'audio' | 'subtitles' | 'speed' | 'chapters' | null
+    panel: "audio" | "subtitles" | "speed" | "chapters" | null
   ) => void;
   togglePlay: () => void;
   toggleMute: () => void;
   handleVolumeChange: (value: number) => void;
   showControls: () => void;
-  navigateToChapter: (chapter: any) => void;
-}
+  navigateToChapter: (chapter: Chapter) => void;
+};
 
 export function useVideoKeyboardShortcuts(
   props: UseVideoKeyboardShortcutsProps
@@ -28,69 +29,69 @@ export function useVideoKeyboardShortcuts(
   const navigate = useNavigate();
 
   // Use SolidJS event listener primitive attached to window
-  createEventListener(window, 'keydown', (e: KeyboardEvent) => {
+  createEventListener(window, "keydown", (e: KeyboardEvent) => {
     if (
-      (e.target as HTMLElement).tagName === 'INPUT' ||
-      (e.target as HTMLElement).tagName === 'TEXTAREA'
+      (e.target as HTMLElement).tagName === "INPUT" ||
+      (e.target as HTMLElement).tagName === "TEXTAREA"
     ) {
       return;
     }
 
     switch (e.code) {
-      case 'Space':
-      case 'KeyK':
+      case "Space":
+      case "KeyK":
         e.preventDefault();
         props.togglePlay();
         break;
 
-      case 'ArrowLeft':
-      case 'KeyJ':
+      case "ArrowLeft":
+      case "KeyJ":
         e.preventDefault();
         commands.playbackSeek(-10);
         break;
 
-      case 'ArrowRight':
-      case 'KeyL':
+      case "ArrowRight":
+      case "KeyL":
         e.preventDefault();
         commands.playbackSeek(10);
         break;
 
-      case 'ArrowUp':
+      case "ArrowUp":
         e.preventDefault();
         commands.playbackSeek(60);
         break;
 
-      case 'ArrowDown':
+      case "ArrowDown":
         e.preventDefault();
         commands.playbackSeek(-60);
         break;
 
-      case 'KeyM':
+      case "KeyM":
         e.preventDefault();
         props.toggleMute();
         props.showControls();
         break;
 
-      case 'Equal':
-      case 'NumpadAdd':
+      case "Equal":
+      case "NumpadAdd":
         e.preventDefault();
         props.handleVolumeChange(Math.min(200, props.state.volume + 5));
         props.showControls();
         break;
 
-      case 'Minus':
-      case 'NumpadSubtract':
+      case "Minus":
+      case "NumpadSubtract":
         e.preventDefault();
         props.handleVolumeChange(Math.max(0, props.state.volume - 5));
         props.showControls();
         break;
 
-      case 'KeyF':
+      case "KeyF":
         e.preventDefault();
         commands.toggleFullscreen();
         break;
 
-      case 'Escape':
+      case "Escape":
         e.preventDefault();
         if (props.openPanel()) {
           props.setOpenPanel(null);
@@ -100,17 +101,17 @@ export function useVideoKeyboardShortcuts(
         }
         break;
 
-      case 'KeyC':
+      case "KeyC":
         e.preventDefault();
         if (props.state.chapters.length > 0) {
           props.setOpenPanel(
-            props.openPanel() === 'chapters' ? null : 'chapters'
+            props.openPanel() === "chapters" ? null : "chapters"
           );
           props.showControls();
         }
         break;
 
-      case 'Comma':
+      case "Comma":
         e.preventDefault();
         if (props.state.chapters.length > 0) {
           // Previous chapter
@@ -130,7 +131,7 @@ export function useVideoKeyboardShortcuts(
         }
         break;
 
-      case 'Period':
+      case "Period":
         e.preventDefault();
         if (props.state.chapters.length > 0) {
           // Next chapter
@@ -145,6 +146,8 @@ export function useVideoKeyboardShortcuts(
             props.showControls();
           }
         }
+        break;
+      default:
         break;
     }
   });

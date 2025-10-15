@@ -1,14 +1,14 @@
-import { Jellyfin, type RecommendedServerInfo } from '@jellyfin/sdk';
-import { AUTH_PRESIST_KEY, type AuthStore } from '../persist-store';
-import { safeJsonParse } from '../utils';
+import { Jellyfin, type RecommendedServerInfo } from "@jellyfin/sdk";
+import { AUTH_PRESIST_KEY, type AuthStore } from "../persist-store";
+import { safeJsonParse } from "../utils";
 
-const clientName = import.meta.env.DEV ? 'sreal-dev' : 'sreal';
+const clientName = import.meta.env.DEV ? "sreal-dev" : "sreal";
 const hostname = import.meta.env.HOSTNAME;
 
 export const jellyfin = new Jellyfin({
   clientInfo: {
     name: clientName,
-    version: '1.0.0',
+    version: "1.0.0",
   },
   deviceInfo: {
     name: hostname,
@@ -18,7 +18,7 @@ export const jellyfin = new Jellyfin({
 
 export async function createAPI(token?: string) {
   const servers =
-    await jellyfin.discovery.getRecommendedServerCandidates('localhost');
+    await jellyfin.discovery.getRecommendedServerCandidates("localhost");
   // A utility function for finding the best result is available.
   // If there is no "best" server, an error message should be displayed.
   const best = jellyfin.discovery.findBestServer(servers);
@@ -32,7 +32,7 @@ export async function createAPI(token?: string) {
   return api;
 }
 
-export async function getServers(url: string) {
+export function getServers(url: string) {
   return jellyfin.discovery.getRecommendedServerCandidates(url);
 }
 
@@ -53,7 +53,7 @@ export function createJellyfinClient(server: RecommendedServerInfo) {
 
 export async function createJellyfinAPI() {
   const servers =
-    await jellyfin.discovery.getRecommendedServerCandidates('192.168.0.3');
+    await jellyfin.discovery.getRecommendedServerCandidates("192.168.0.3");
   // A utility function for finding the best result is available.
   // If there is no "best" server, an error message should be displayed.
   const best = jellyfin.discovery.findBestServer(servers);
@@ -78,6 +78,7 @@ export async function createJellyfinAPI() {
 
 const filterUndefined = (item: unknown) => item !== undefined;
 
+// biome-ignore lint/suspicious/noExplicitAny: it's a generic function
 export function query<F extends (...args: any) => any>(
   func: F,
   key: string | number
@@ -94,7 +95,7 @@ export function query<F extends (...args: any) => any>(
   // Add properties directly to the function object
   enhancedFunc.key = key;
   enhancedFunc.keyFor = (...id: (string | number | undefined)[]) =>
-    `${key}${id.filter(filterUndefined).map(String).join('/')}`;
+    `${key}${id.filter(filterUndefined).map(String).join("/")}`;
 
   return enhancedFunc;
 }

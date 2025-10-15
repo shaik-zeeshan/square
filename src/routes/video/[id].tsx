@@ -2,23 +2,23 @@ import {
   type RouteSectionProps,
   useNavigate,
   useParams,
-} from '@solidjs/router';
-import { ArrowLeft, Eye, EyeOff } from 'lucide-solid';
-import { createEffect, onCleanup, onMount, Show } from 'solid-js';
-import { useGeneralInfo } from '~/components/current-user-provider';
+} from "@solidjs/router";
+import { ArrowLeft, Eye, EyeOff } from "lucide-solid";
+import { createEffect, onCleanup, onMount, Show } from "solid-js";
+import { useGeneralInfo } from "~/components/current-user-provider";
 import {
   AutoplayOverlay,
   OpenInIINAButton,
   VideoControls,
   VideoInfoOverlay,
   VideoSettingsPanels,
-} from '~/components/video';
-import { useAutoplay } from '~/hooks/useAutoplay';
-import { useVideoKeyboardShortcuts } from '~/hooks/useVideoKeyboardShortcuts';
-import { useVideoPlayback } from '~/hooks/useVideoPlayback';
-import library from '~/lib/jellyfin/library';
-import { commands } from '~/lib/tauri';
-import { createJellyFinQuery } from '~/lib/utils';
+} from "~/components/video";
+import { useAutoplay } from "~/hooks/useAutoplay";
+import { useVideoKeyboardShortcuts } from "~/hooks/useVideoKeyboardShortcuts";
+import { useVideoPlayback } from "~/hooks/useVideoPlayback";
+import library from "~/lib/jellyfin/library";
+import { commands } from "~/lib/tauri";
+import { createJellyFinQuery } from "~/lib/utils";
 
 export default function Page(_props: RouteSectionProps) {
   // let [{ params }] = splitProps(props, ['params']);
@@ -34,8 +34,8 @@ export default function Page(_props: RouteSectionProps) {
     ],
     queryFn: async (jf) =>
       library.query.getItem(jf, routeParams.id, userStore?.user?.Id, [
-        'Overview',
-        'ParentId',
+        "Overview",
+        "ParentId",
       ]),
   }));
 
@@ -48,12 +48,12 @@ export default function Page(_props: RouteSectionProps) {
     queryFn: async (jf) =>
       library.query.getItem(
         jf,
-        itemDetails.data?.ParentId || '',
+        itemDetails.data?.ParentId || "",
         userStore?.user?.Id,
-        ['Overview', 'ParentId']
+        ["Overview", "ParentId"]
       ),
 
-    enabled: !!itemDetails.data?.ParentId && itemDetails.data.Type !== 'Movie',
+    enabled: !!itemDetails.data?.ParentId && itemDetails.data.Type !== "Movie",
   }));
 
   // Use the custom hook for playback state management
@@ -86,10 +86,14 @@ export default function Page(_props: RouteSectionProps) {
     },
   });
 
-  let audioBtnRef: HTMLButtonElement | undefined;
-  let subsBtnRef: HTMLButtonElement | undefined;
-  let speedBtnRef: HTMLButtonElement | undefined;
-  let panelRef: HTMLDivElement | undefined;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
+  let audioBtnRef!: HTMLButtonElement;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
+  let subsBtnRef!: HTMLButtonElement;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
+  let speedBtnRef!: HTMLButtonElement;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
+  let panelRef!: HTMLButtonElement;
 
   // Use keyboard shortcuts hook
   useVideoKeyboardShortcuts({
@@ -124,8 +128,8 @@ export default function Page(_props: RouteSectionProps) {
       }
       setOpenPanel(null);
     };
-    document.addEventListener('mousedown', onDown);
-    onCleanup(() => document.removeEventListener('mousedown', onDown));
+    document.addEventListener("mousedown", onDown);
+    onCleanup(() => document.removeEventListener("mousedown", onDown));
   });
 
   // Ctrl+scroll for volume control
@@ -139,8 +143,8 @@ export default function Page(_props: RouteSectionProps) {
         showControls();
       }
     };
-    document.addEventListener('wheel', handleWheel, { passive: false });
-    onCleanup(() => document.removeEventListener('wheel', handleWheel));
+    document.addEventListener("wheel", handleWheel, { passive: false });
+    onCleanup(() => document.removeEventListener("wheel", handleWheel));
   });
 
   // Add mouse enter/leave handlers to all control elements
@@ -149,18 +153,20 @@ export default function Page(_props: RouteSectionProps) {
 
     const addControlListeners = () => {
       // Clean up existing listeners first
-      cleanupFunctions.forEach((cleanup) => cleanup());
+      cleanupFunctions.forEach((cleanup) => {
+        cleanup();
+      });
       cleanupFunctions = [];
 
-      const controlElements = document.querySelectorAll('.control-element');
+      const controlElements = document.querySelectorAll(".control-element");
       controlElements.forEach((element) => {
-        element.addEventListener('mouseenter', handleControlMouseEnter);
-        element.addEventListener('mouseleave', handleControlMouseLeave);
+        element.addEventListener("mouseenter", handleControlMouseEnter);
+        element.addEventListener("mouseleave", handleControlMouseLeave);
 
         // Store cleanup function for this element
         cleanupFunctions.push(() => {
-          element.removeEventListener('mouseenter', handleControlMouseEnter);
-          element.removeEventListener('mouseleave', handleControlMouseLeave);
+          element.removeEventListener("mouseenter", handleControlMouseEnter);
+          element.removeEventListener("mouseleave", handleControlMouseLeave);
         });
       });
     };
@@ -178,7 +184,9 @@ export default function Page(_props: RouteSectionProps) {
 
     onCleanup(() => {
       clearTimeout(timeout);
-      cleanupFunctions.forEach((cleanup) => cleanup());
+      cleanupFunctions.forEach((cleanup) => {
+        cleanup();
+      });
     });
   });
 
@@ -187,8 +195,8 @@ export default function Page(_props: RouteSectionProps) {
       // Check if mouse is over any control element
       const target = e.target as HTMLElement;
       if (
-        target.classList.contains('control-element') ||
-        target.closest('.control-element')
+        target.classList.contains("control-element") ||
+        target.closest(".control-element")
       ) {
         return; // Don't show controls when hovering over control elements
       }
@@ -212,15 +220,15 @@ export default function Page(_props: RouteSectionProps) {
       return;
     }
     if (
-      target.classList.contains('control-element') ||
-      target.closest('.control-element')
+      target.classList.contains("control-element") ||
+      target.closest(".control-element")
     ) {
       return;
     }
 
     if (state.showControls) {
       // Hide controls immediately
-      setState('showControls', false);
+      setState("showControls", false);
       commands.toggleTitlebarHide(true);
     } else {
       // Show controls
@@ -233,11 +241,12 @@ export default function Page(_props: RouteSectionProps) {
       class="dark relative flex h-full w-full flex-col gap-2 overflow-hidden bg-transparent"
       onClick={handleWindowClick}
       onMouseMove={handleMouseMove}
+      role="button"
     >
       {/* Lock Button - Always Visible */}
       <button
         aria-label={
-          state.controlsLocked ? 'Unlock controls' : 'Lock controls hidden'
+          state.controlsLocked ? "Unlock controls" : "Lock controls hidden"
         }
         class="control-element fixed top-6 right-4 z-50 rounded-full bg-black/60 p-3 text-white transition-all hover:bg-black/80"
         onClick={(e) => {
@@ -261,6 +270,7 @@ export default function Page(_props: RouteSectionProps) {
         <div
           class="control-element pointer-events-none fixed right-0 bottom-0 left-0 p-4"
           onClick={(e) => e.stopPropagation()}
+          role="button"
         >
           <div class="pointer-events-auto relative mx-auto flex w-full max-w-4xl flex-col gap-3">
             {/* Dropdown Panels */}
@@ -308,6 +318,7 @@ export default function Page(_props: RouteSectionProps) {
           <div
             class="control-element fixed top-8 right-20 z-50"
             onClick={(e) => e.stopPropagation()}
+            role="button"
           >
             <OpenInIINAButton
               beforePlaying={() => {
@@ -320,11 +331,19 @@ export default function Page(_props: RouteSectionProps) {
       </Show>
 
       {/* Autoplay Overlay */}
-      <div class="control-element" onClick={(e) => e.stopPropagation()}>
+      <div
+        class="control-element"
+        onClick={(e) => e.stopPropagation()}
+        role="button"
+      >
         <AutoplayOverlay
           isCollapsed={autoplayHook().isCollapsed()}
           isVisible={autoplayHook().showAutoplay()}
-          nextEpisode={autoplayHook().nextEpisode}
+          nextEpisode={
+            autoplayHook().nextEpisode as Awaited<
+              ReturnType<typeof library.query.getNextEpisode>
+            >
+          }
           onCancel={autoplayHook().cancelAutoplay}
           onPlayNext={() => {
             // before playing the next episode, clear the current video

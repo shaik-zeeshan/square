@@ -13,7 +13,7 @@ export type Chapter = {
   imageTag?: string | null;
 };
 
-export type OpenPanel = 'audio' | 'subtitles' | 'speed' | 'chapters' | null;
+export type OpenPanel = "audio" | "subtitles" | "speed" | "chapters" | null;
 
-export const DEFAULT_AUDIO_LANG = ['en', 'en-US'];
-export const DEFAULT_SUBTITLE_LANG = ['en', 'en-US'];
+export const DEFAULT_AUDIO_LANG = ["en", "en-US"];
+export const DEFAULT_SUBTITLE_LANG = ["en", "en-US"];

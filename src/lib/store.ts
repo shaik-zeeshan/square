@@ -1,13 +1,13 @@
-import { useQuery } from '@tanstack/solid-query';
-import { Store } from '@tauri-apps/plugin-store';
-import { onCleanup } from 'solid-js';
+import { useQuery } from "@tanstack/solid-query";
+import { Store } from "@tauri-apps/plugin-store";
+import { onCleanup } from "solid-js";
 
-import type { GeneralSettings } from '~/lib/tauri';
+import type { GeneralSettings } from "~/lib/tauri";
 
 let _store: Promise<Store> | undefined;
 const store = () => {
   if (!_store) {
-    _store = Store.load('store');
+    _store = Store.load("store");
   }
 
   return _store;
@@ -59,7 +59,7 @@ function declareStore<T extends object>(name: string) {
     },
     createQuery: () => {
       const query = useQuery(() => ({
-        queryKey: ['store', name],
+        queryKey: ["store", name],
         queryFn: async () => (await getAll()) ?? null,
       }));
 
@@ -73,4 +73,4 @@ function declareStore<T extends object>(name: string) {
   };
 }
 
-export const secureSettings = declareStore<GeneralSettings>('generalSettings');
+export const secureSettings = declareStore<GeneralSettings>("generalSettings");

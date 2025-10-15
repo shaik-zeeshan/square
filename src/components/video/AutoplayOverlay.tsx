@@ -1,14 +1,15 @@
-import { ChevronDown, ChevronUp, Play, SkipForward, X } from 'lucide-solid';
-import { Show } from 'solid-js';
+import { ChevronDown, ChevronUp, Play, SkipForward, X } from "lucide-solid";
+import { Show } from "solid-js";
+import type library from "~/lib/jellyfin/library";
 
-interface AutoplayOverlayProps {
-  nextEpisode: any | null;
+type AutoplayOverlayProps = {
+  nextEpisode: Awaited<ReturnType<typeof library.query.getNextEpisode>>;
   onPlayNext: () => void;
   onCancel: () => void;
   isVisible: boolean;
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
-}
+};
 
 export default function AutoplayOverlay(props: AutoplayOverlayProps) {
   const handlePlayNow = () => {
@@ -26,14 +27,14 @@ export default function AutoplayOverlay(props: AutoplayOverlayProps) {
           <div
             class="w-80 max-w-sm rounded-xl border border-white/20 bg-black/90 shadow-2xl backdrop-blur-md transition-all duration-300"
             classList={{
-              'p-2': props.isCollapsed,
-              'p-4': !props.isCollapsed,
+              "p-2": props.isCollapsed,
+              "p-4": !props.isCollapsed,
             }}
           >
             {/* Header */}
             <div
               class="flex items-center justify-between"
-              classList={{ 'mb-3': !props.isCollapsed }}
+              classList={{ "mb-3": !props.isCollapsed }}
             >
               <div class="flex items-center gap-2">
                 <SkipForward class="h-4 w-4 text-blue-400" />
@@ -74,7 +75,7 @@ export default function AutoplayOverlay(props: AutoplayOverlayProps) {
                 </h4>
                 <Show when={props.nextEpisode?.SeriesName}>
                   <p class="mb-1 text-white/70 text-xs">
-                    {props.nextEpisode?.SeriesName} • Episode{' '}
+                    {props.nextEpisode?.SeriesName} • Episode{" "}
                     {props.nextEpisode?.IndexNumber}
                   </p>
                 </Show>

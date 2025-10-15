@@ -1,7 +1,7 @@
-import { useNavigate } from '@solidjs/router';
-import { Show } from 'solid-js';
+import { useNavigate } from "@solidjs/router";
+import { Show } from "solid-js";
 
-interface VideoInfoOverlayProps {
+type VideoInfoOverlayProps = {
   itemDetails: {
     data?: {
       Name?: string | null;
@@ -19,7 +19,7 @@ interface VideoInfoOverlayProps {
       ParentId?: string | null;
     };
   };
-}
+};
 
 export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
   const navigate = useNavigate();
@@ -42,7 +42,7 @@ export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
                 class="pointer-events-auto mx-auto mb-3 block cursor-pointer text-center font-medium text-foreground/60 text-xl drop-shadow-lg transition-colors hover:text-white"
                 onClick={(e) => {
                   e.stopPropagation();
-                  const isMovie = props.itemDetails.data?.Type === 'Movie';
+                  const isMovie = props.itemDetails.data?.Type === "Movie";
                   if (isMovie) {
                     // Navigate to movie's library page
                     navigate(
@@ -64,7 +64,7 @@ export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
             {/* Season and Episode Info for Episodes */}
             <Show
               when={
-                props.itemDetails.data?.Type === 'Episode' &&
+                props.itemDetails.data?.Type === "Episode" &&
                 (props.itemDetails.data?.ParentIndexNumber ||
                   props.itemDetails.data?.IndexNumber)
               }
@@ -79,7 +79,7 @@ export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
                     props.itemDetails.data?.IndexNumber
                   }
                 >
-                  {' • '}
+                  {" • "}
                 </Show>
                 <Show when={props.itemDetails.data?.IndexNumber}>
                   Episode {props.itemDetails.data?.IndexNumber}

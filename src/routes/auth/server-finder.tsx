@@ -1,9 +1,9 @@
-import type { RecommendedServerInfo } from '@jellyfin/sdk';
-import { useNavigate } from '@solidjs/router';
-import { RouteProtection } from '~/components/auth/RouteProtection';
-import { ServerFinder } from '~/components/auth/ServerFinder';
-import { AuthErrorBoundary } from '~/components/error/ErrorBoundary';
-import { useServerStore } from '~/lib/store-hooks';
+import type { RecommendedServerInfo } from "@jellyfin/sdk";
+import { useNavigate } from "@solidjs/router";
+import { RouteProtection } from "~/components/auth/RouteProtection";
+import { ServerFinder } from "~/components/auth/ServerFinder";
+import { AuthErrorBoundary } from "~/components/error/ErrorBoundary";
+import { useServerStore } from "~/lib/store-hooks";
 
 export default function ServerFinderPage() {
   const navigate = useNavigate();
@@ -24,15 +24,15 @@ export default function ServerFinderPage() {
         isOnline: undefined,
         currentUser: undefined,
       };
-      setServerStore('servers', [...serverStore.servers, newServer]);
+      setServerStore("servers", [...serverStore.servers, newServer]);
     }
 
     // Navigate to server selection page which will handle the new AuthFlow
-    navigate('/auth/server-selection');
+    navigate("/auth/server-selection");
   };
 
   const handleBack = () => {
-    navigate('/auth/onboarding');
+    navigate("/auth/onboarding");
   };
 
   return (

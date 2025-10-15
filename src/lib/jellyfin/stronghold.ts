@@ -1,11 +1,11 @@
-import type { RecommendedServerInfo } from '@jellyfin/sdk';
-import { appDataDir } from '@tauri-apps/api/path';
-import { type Client, Stronghold } from '@tauri-apps/plugin-stronghold';
+import type { RecommendedServerInfo } from "@jellyfin/sdk";
+import { appDataDir } from "@tauri-apps/api/path";
+import { type Client, Stronghold } from "@tauri-apps/plugin-stronghold";
 
-export interface UserCredential {
+export type UserCredential = {
   password: string;
   saved_at: number;
-}
+};
 
 export interface StrongholdService {
   saveCredentials: (
@@ -46,7 +46,7 @@ class StrongholdServiceImpl implements StrongholdService {
   private initialized = false;
   private initializationPromise: Promise<void> | null = null;
 
-  private async initialize(): Promise<void> {
+  private initialize(): Promise<void> | undefined {
     if (this.initialized) {
       return;
     }
@@ -63,13 +63,13 @@ class StrongholdServiceImpl implements StrongholdService {
   private async _doInitialize(): Promise<void> {
     try {
       const vaultPath = `${await appDataDir()}/vault.hold`;
-      const vaultPassword = 'sreal-vault-password'; // This should come from OS keyring in production
+      const vaultPassword = "sreal-vault-password"; // This should come from OS keyring in production
 
       this.stronghold = await getStrongholdService(vaultPath, vaultPassword);
       try {
-        this.client = await this.stronghold.loadClient('sreal_credentials');
+        this.client = await this.stronghold.loadClient("sreal_credentials");
       } catch {
-        this.client = await this.stronghold.createClient('sreal_credentials');
+        this.client = await this.stronghold.createClient("sreal_credentials");
       }
       this.initialized = true;
     } catch (error) {
@@ -94,7 +94,7 @@ class StrongholdServiceImpl implements StrongholdService {
     try {
       await this.initialize();
       if (!this.client) {
-        throw new Error('Client not initialized');
+        throw new Error("Client not initialized");
       }
 
       const store = this.client.getStore();
@@ -123,7 +123,7 @@ class StrongholdServiceImpl implements StrongholdService {
     try {
       await this.initialize();
       if (!this.client) {
-        throw new Error('Client not initialized');
+        throw new Error("Client not initialized");
       }
 
       const store = this.client.getStore();
@@ -131,7 +131,7 @@ class StrongholdServiceImpl implements StrongholdService {
 
       const data = await store.get(key);
       if (!data) {
-        throw new Error('Credential not found');
+        throw new Error("Credential not found");
       }
       const credential = JSON.parse(
         new TextDecoder().decode(new Uint8Array(data))
@@ -149,7 +149,7 @@ class StrongholdServiceImpl implements StrongholdService {
     try {
       await this.initialize();
       if (!this.client) {
-        throw new Error('Client not initialized');
+        throw new Error("Client not initialized");
       }
 
       const store = this.client.getStore();

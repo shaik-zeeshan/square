@@ -1,47 +1,47 @@
-import { cva, type VariantProps } from 'class-variance-authority';
-import { type ComponentProps, splitProps } from 'solid-js';
-import { cn } from '~/lib/utils';
+import { cva, type VariantProps } from "class-variance-authority";
+import { type ComponentProps, splitProps } from "solid-js";
+import { cn } from "~/lib/utils";
 
 const sliderVariants = cva(
-  'group relative w-full cursor-pointer transition-all duration-[var(--glass-transition-base)]',
+  "group relative w-full cursor-pointer transition-all duration-[var(--glass-transition-base)]",
   {
     variants: {
       variant: {
-        glass: 'bg-white/20',
-        'glass-subtle': 'bg-white/10',
-        'glass-strong': 'bg-white/30',
+        glass: "bg-white/20",
+        "glass-subtle": "bg-white/10",
+        "glass-strong": "bg-white/30",
       },
       size: {
-        sm: 'h-0.5 rounded-full hover:h-1',
-        md: 'h-1 rounded-full hover:h-1.5',
-        lg: 'h-1.5 rounded-full hover:h-2',
+        sm: "h-0.5 rounded-full hover:h-1",
+        md: "h-1 rounded-full hover:h-1.5",
+        lg: "h-1.5 rounded-full hover:h-2",
       },
     },
     defaultVariants: {
-      variant: 'glass',
-      size: 'md',
+      variant: "glass",
+      size: "md",
     },
   }
 );
 
 const sliderFillVariants = cva(
-  'absolute top-0 left-0 h-full rounded-full transition-all duration-[var(--glass-transition-base)]',
+  "absolute top-0 left-0 h-full rounded-full transition-all duration-[var(--glass-transition-base)]",
   {
     variants: {
       variant: {
-        glass: 'bg-white',
-        'glass-subtle': 'bg-white/80',
-        'glass-strong': 'bg-white',
+        glass: "bg-white",
+        "glass-subtle": "bg-white/80",
+        "glass-strong": "bg-white",
       },
     },
     defaultVariants: {
-      variant: 'glass',
+      variant: "glass",
     },
   }
 );
 
 export interface GlassSliderProps
-  extends Omit<ComponentProps<'div'>, 'onChange'>,
+  extends Omit<ComponentProps<"div">, "onChange">,
     VariantProps<typeof sliderVariants> {
   value: number;
   onChange: (value: number) => void;
@@ -49,11 +49,11 @@ export interface GlassSliderProps
 
 export function GlassSlider(props: GlassSliderProps) {
   const [local, others] = splitProps(props, [
-    'class',
-    'variant',
-    'size',
-    'value',
-    'onChange',
+    "class",
+    "variant",
+    "size",
+    "value",
+    "onChange",
   ]);
 
   const handleClick = (e: MouseEvent) => {

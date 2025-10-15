@@ -1,4 +1,4 @@
-import toast, { type ToastOptions } from 'solid-toast';
+import toast, { type ToastOptions } from "solid-toast";
 
 export interface ToastMessage {
   title: string;
@@ -7,7 +7,7 @@ export interface ToastMessage {
 
 // Helper function to format message with optional description
 function formatMessage(message: string | ToastMessage): string {
-  if (typeof message === 'string') {
+  if (typeof message === "string") {
     return message;
   }
 
@@ -68,6 +68,6 @@ export function showPromiseToast<T>(
   });
 }
 
-export type { ToastOptions } from 'solid-toast';
+export type { ToastOptions } from "solid-toast";
 // Re-export solid-toast utilities
-export { toast, toast as default } from 'solid-toast';
+export { toast, toast as default } from "solid-toast";

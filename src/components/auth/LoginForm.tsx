@@ -1,31 +1,31 @@
-import type { RecommendedServerInfo } from '@jellyfin/sdk';
+import type { RecommendedServerInfo } from "@jellyfin/sdk";
 import {
   AlertCircle,
   ArrowLeft,
   CheckCircle2,
   Edit,
   Loader2,
-} from 'lucide-solid';
-import { createSignal, Show } from 'solid-js';
-import { createStore } from 'solid-js/store';
-import { Input } from '~/components/input';
-import { useAuthentication } from '~/hooks/useAuthentication';
-import { useServerStore } from '~/lib/store-hooks';
+} from "lucide-solid";
+import { createSignal, Show } from "solid-js";
+import { createStore } from "solid-js/store";
+import { Input } from "~/components/input";
+import { useAuthentication } from "~/hooks/useAuthentication";
+import { useServerStore } from "~/lib/store-hooks";
 import {
   commonRules,
   createFormField,
   touchFormField,
   updateFormField,
-} from '~/lib/validation';
-import type { AuthCredentials } from '~/types';
+} from "~/lib/validation";
+import type { AuthCredentials } from "~/types";
 
-interface LoginFormProps {
+type LoginFormProps = {
   server: RecommendedServerInfo;
   onBack?: () => void;
   initialUsername?: string;
   initialPassword?: string;
   isEditing?: boolean;
-}
+};
 
 export function LoginForm(props: LoginFormProps) {
   const { store: _serverStore } = useServerStore();
@@ -34,11 +34,11 @@ export function LoginForm(props: LoginFormProps) {
   // Form state
   const [formData, setFormData] = createStore({
     username: createFormField(
-      props.initialUsername || '',
+      props.initialUsername || "",
       commonRules.username
     ),
     password: createFormField(
-      props.initialPassword || '',
+      props.initialPassword || "",
       commonRules.password
     ),
   });
@@ -51,9 +51,9 @@ export function LoginForm(props: LoginFormProps) {
       formData.username,
       value,
       commonRules.username,
-      'username'
+      "username"
     );
-    setFormData('username', field);
+    setFormData("username", field);
   };
 
   const handlePasswordChange = (value: string) => {
@@ -61,27 +61,27 @@ export function LoginForm(props: LoginFormProps) {
       formData.password,
       value,
       commonRules.password,
-      'password'
+      "password"
     );
-    setFormData('password', field);
+    setFormData("password", field);
   };
 
   const handleUsernameBlur = () => {
     const field = touchFormField(
       formData.username,
       commonRules.username,
-      'username'
+      "username"
     );
-    setFormData('username', field);
+    setFormData("username", field);
   };
 
   const handlePasswordBlur = () => {
     const field = touchFormField(
       formData.password,
       commonRules.password,
-      'password'
+      "password"
     );
-    setFormData('password', field);
+    setFormData("password", field);
   };
 
   const handleSubmit = (e: Event) => {
@@ -91,16 +91,16 @@ export function LoginForm(props: LoginFormProps) {
     const usernameField = touchFormField(
       formData.username,
       commonRules.username,
-      'username'
+      "username"
     );
     const passwordField = touchFormField(
       formData.password,
       commonRules.password,
-      'password'
+      "password"
     );
 
-    setFormData('username', usernameField);
-    setFormData('password', passwordField);
+    setFormData("username", usernameField);
+    setFormData("password", passwordField);
 
     // Check for errors
     if (usernameField.error) {
@@ -122,11 +122,8 @@ export function LoginForm(props: LoginFormProps) {
   };
 
   // Check if form is valid
-  const isFormValid = () => {
-    return (
-      !formData.username.error && formData.username.value.trim().length > 0
-    );
-  };
+  const isFormValid = (): boolean =>
+    !formData.username.error && formData.username.value.trim().length > 0;
 
   return (
     <div class="space-y-6">
@@ -142,18 +139,18 @@ export function LoginForm(props: LoginFormProps) {
           </Show>
         </div>
         <h2 class="mb-2 font-bold text-3xl text-foreground">
-          {props.isEditing ? 'Edit Credentials' : 'Welcome Back'}
+          {props.isEditing ? "Edit Credentials" : "Welcome Back"}
         </h2>
         <p class="mb-3 text-muted-foreground text-sm">
           {props.isEditing
-            ? 'Update your login credentials'
-            : 'Sign in to continue'}
+            ? "Update your login credentials"
+            : "Sign in to continue"}
         </p>
         <div class="inline-block rounded-lg border border-orange-200 bg-orange-50 px-4 py-2 dark:border-orange-800 dark:bg-orange-900/20">
           <div class="flex items-center gap-2">
             <AlertCircle class="h-4 w-4 text-orange-600 dark:text-orange-400" />
             <p class="font-medium text-foreground text-sm">
-              {props.server.systemInfo?.ServerName || 'Jellyfin Server'}
+              {props.server.systemInfo?.ServerName || "Jellyfin Server"}
             </p>
           </div>
           <p class="mt-1 text-muted-foreground text-xs">
@@ -171,7 +168,7 @@ export function LoginForm(props: LoginFormProps) {
             <Input
               aria-describedby={
                 formData.username.error && formData.username.touched
-                  ? 'username-error'
+                  ? "username-error"
                   : undefined
               }
               aria-invalid={
@@ -180,8 +177,8 @@ export function LoginForm(props: LoginFormProps) {
               autocomplete="username"
               class={
                 formData.username.error && formData.username.touched
-                  ? 'border-destructive'
-                  : ''
+                  ? "border-destructive"
+                  : ""
               }
               disabled={isLoading()}
               id="username"
@@ -210,7 +207,7 @@ export function LoginForm(props: LoginFormProps) {
               <Input
                 aria-describedby={
                   formData.password.error && formData.password.touched
-                    ? 'password-error'
+                    ? "password-error"
                     : undefined
                 }
                 aria-invalid={
@@ -219,8 +216,8 @@ export function LoginForm(props: LoginFormProps) {
                 autocomplete="current-password"
                 class={
                   formData.password.error && formData.password.touched
-                    ? 'border-destructive pr-10'
-                    : 'pr-10'
+                    ? "border-destructive pr-10"
+                    : "pr-10"
                 }
                 disabled={isLoading()}
                 id="password"
@@ -228,22 +225,24 @@ export function LoginForm(props: LoginFormProps) {
                 onBlur={handlePasswordBlur}
                 onInput={(e) => handlePasswordChange(e.currentTarget.value)}
                 placeholder="Enter your password"
-                type={showPassword() ? 'text' : 'password'}
+                type={showPassword() ? "text" : "password"}
                 value={formData.password.value}
               />
               <button
-                aria-label={showPassword() ? 'Hide password' : 'Show password'}
+                aria-label={showPassword() ? "Hide password" : "Show password"}
                 class="-translate-y-1/2 absolute top-1/2 right-3 transform text-muted-foreground transition-colors hover:text-foreground"
                 onClick={togglePasswordVisibility}
                 type="button"
               >
                 {showPassword() ? (
                   <svg
+                    aria-label="Hide password"
                     class="h-4 w-4"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
+                    <title>Hide password</title>
                     <path
                       d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"
                       stroke-linecap="round"
@@ -258,6 +257,7 @@ export function LoginForm(props: LoginFormProps) {
                     stroke="currentColor"
                     viewBox="0 0 24 24"
                   >
+                    <title>Show password</title>
                     <path
                       d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
                       stroke-linecap="round"
@@ -294,11 +294,11 @@ export function LoginForm(props: LoginFormProps) {
             type="submit"
           >
             <Show
-              fallback={props.isEditing ? 'Update & Sign In' : 'Sign In'}
+              fallback={props.isEditing ? "Update & Sign In" : "Sign In"}
               when={isLoading()}
             >
               <Loader2 class="mr-2 h-4 w-4 animate-spin" />
-              {props.isEditing ? 'Updating...' : 'Signing In...'}
+              {props.isEditing ? "Updating..." : "Signing In..."}
             </Show>
           </button>
         </form>
