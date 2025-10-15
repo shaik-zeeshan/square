@@ -1,13 +1,14 @@
 import { createEventListener } from "@solid-primitives/event-listener";
 import { useNavigate } from "@solidjs/router";
+import type { Chapter } from "~/components/video/types";
 import { commands } from "~/lib/tauri";
 
-interface UseVideoKeyboardShortcutsProps {
+type UseVideoKeyboardShortcutsProps = {
   state: {
     playing: boolean;
     volume: number;
     showControls: boolean;
-    chapters: any[];
+    chapters: Chapter[];
     currentTime: string;
     duration: number;
   };
@@ -19,8 +20,8 @@ interface UseVideoKeyboardShortcutsProps {
   toggleMute: () => void;
   handleVolumeChange: (value: number) => void;
   showControls: () => void;
-  navigateToChapter: (chapter: any) => void;
-}
+  navigateToChapter: (chapter: Chapter) => void;
+};
 
 export function useVideoKeyboardShortcuts(
   props: UseVideoKeyboardShortcutsProps
@@ -145,6 +146,8 @@ export function useVideoKeyboardShortcuts(
             props.showControls();
           }
         }
+        break;
+      default:
         break;
     }
   });

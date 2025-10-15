@@ -1,5 +1,5 @@
 import type { RecommendedServerInfo } from "@jellyfin/sdk";
-import { createMutation, useQuery } from "@tanstack/solid-query";
+import { useMutation, useQuery } from "@tanstack/solid-query";
 import { createMemo, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
 import { getServers } from "~/lib/jellyfin";
@@ -11,11 +11,11 @@ import {
   updateFormField,
 } from "~/lib/validation";
 
-export interface UseServerDiscoveryOptions {
+export type UseServerDiscoveryOptions = {
   onServerSelected?: (server: RecommendedServerInfo) => void;
   onBack?: () => void;
   onError?: (error: Error) => void;
-}
+};
 
 export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
   // Use store for form data like LoginForm
@@ -37,13 +37,13 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
   >();
 
   // URL validation
-  const urlErrorDisplay = createMemo(() => {
-    return formData.url.touched ? formData.url.error : null;
-  });
+  const urlErrorDisplay = createMemo(() =>
+    formData.url.touched ? formData.url.error : null
+  );
 
-  const isUrlValid = createMemo(() => {
-    return !formData.url.error && formData.url.value.trim().length > 0;
-  });
+  const isUrlValid = createMemo(
+    () => !formData.url.error && formData.url.value.trim().length > 0
+  );
 
   // Server discovery query
   const serversQuery = useQuery(() => ({
@@ -83,8 +83,8 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
   }));
 
   // Search mutation
-  const searchMutation = createMutation(() => ({
-    mutationFn: async () => {
+  const searchMutation = useMutation(() => ({
+    mutationFn: () => {
       // Validate URL first
       const field = touchFormField(
         formData.url,

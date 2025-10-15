@@ -103,7 +103,7 @@ export default function OnboardingPage() {
                   initialUsername={editingServer()?.username}
                   isEditing={!!editingServer()}
                   onBack={handleBack}
-                  server={selectedServer()!}
+                  server={selectedServer() as RecommendedServerInfo}
                 />
               </Match>
             </Switch>

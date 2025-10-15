@@ -32,7 +32,7 @@ export async function createAPI(token?: string) {
   return api;
 }
 
-export async function getServers(url: string) {
+export function getServers(url: string) {
   return jellyfin.discovery.getRecommendedServerCandidates(url);
 }
 
@@ -78,6 +78,7 @@ export async function createJellyfinAPI() {
 
 const filterUndefined = (item: unknown) => item !== undefined;
 
+// biome-ignore lint/suspicious/noExplicitAny: it's a generic function
 export function query<F extends (...args: any) => any>(
   func: F,
   key: string | number

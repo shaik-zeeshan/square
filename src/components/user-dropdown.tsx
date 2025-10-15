@@ -5,23 +5,22 @@ import { createEffect, createSignal, onCleanup, Show } from "solid-js";
 import { user } from "~/lib/jellyfin/user";
 import { useGeneralInfo } from "./current-user-provider";
 
-interface UserDropdownProps {
+type UserDropdownProps = {
   /** Color variant for the button */
   variant?: "light" | "dark";
   /** Additional class for the container */
   class?: string;
-}
+};
 
 export function UserDropdown(props: UserDropdownProps) {
   const navigate = useNavigate();
   const generalInfo = useGeneralInfo();
   const [isUserDropdownOpen, setIsUserDropdownOpen] = createSignal(false);
-  let userDropdownRef: HTMLDivElement | undefined;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign this variable later
+  let userDropdownRef!: HTMLDivElement;
 
   const logout = useMutation(() => ({
-    mutationFn: async () => {
-      return await user.mutation.logout();
-    },
+    mutationFn: async () => await user.mutation.logout(),
     onSuccess: () => {
       navigate("/");
     },

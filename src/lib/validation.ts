@@ -105,6 +105,7 @@ export const commonRules = {
       if (!value || value.trim().length < 2) {
         return "Username must be at least 2 characters";
       }
+      // biome-ignore lint/performance/useTopLevelRegex: this is a common regex
       if (!/^[a-zA-Z0-9_.-]+$/.test(value)) {
         return "Username can only contain letters, numbers, dots, hyphens, and underscores";
       }

@@ -1,14 +1,15 @@
 import { ChevronDown, ChevronUp, Play, SkipForward, X } from "lucide-solid";
 import { Show } from "solid-js";
+import type library from "~/lib/jellyfin/library";
 
-interface AutoplayOverlayProps {
-  nextEpisode: any | null;
+type AutoplayOverlayProps = {
+  nextEpisode: Awaited<ReturnType<typeof library.query.getNextEpisode>>;
   onPlayNext: () => void;
   onCancel: () => void;
   isVisible: boolean;
   isCollapsed: boolean;
   setIsCollapsed: (collapsed: boolean) => void;
-}
+};
 
 export default function AutoplayOverlay(props: AutoplayOverlayProps) {
   const handlePlayNow = () => {

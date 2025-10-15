@@ -39,7 +39,9 @@ export const JellyFinProvider = (
 
   // Pre-initialize Stronghold on app startup for better performance
   onMount(() => {
-    strongholdService.preInitialize().catch((_error) => {});
+    strongholdService.preInitialize().catch((_error) => {
+      // Do nothing
+    });
   });
 
   createEffect(() => {
@@ -47,12 +49,12 @@ export const JellyFinProvider = (
       return;
     }
 
-    const jf = createJellyfinClient(store.current?.info);
-    if (!jf) {
+    const inner_jf = createJellyfinClient(store.current?.info);
+    if (!inner_jf) {
       return;
     }
 
-    setJf({ api: jf });
+    setJf({ api: inner_jf });
     queryclient.invalidateQueries();
   });
 
@@ -73,7 +75,7 @@ export const JellyFinProvider = (
   createEffect(() => {
     window.addEventListener(
       "storage",
-      async (e) => {
+      (e) => {
         if (e.key === AUTH_PRESIST_KEY) {
           if (!store.current?.info) {
             return;

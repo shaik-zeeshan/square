@@ -3,7 +3,7 @@ import type { JSX } from "solid-js";
 import { ErrorBoundary, Match, Suspense, Switch } from "solid-js";
 import { showErrorToast } from "~/lib/toast";
 
-export interface QueryBoundaryProps<T = unknown> {
+export type QueryBoundaryProps<T = unknown> = {
   query: UseQueryResult<T, Error>;
 
   /**
@@ -30,7 +30,7 @@ export interface QueryBoundaryProps<T = unknown> {
    * Triggered when fetching is complete, and the returned data is not falsey.
    */
   children: (data: Exclude<T, null | false | undefined>) => JSX.Element;
-}
+};
 
 /**
  * Convenience wrapper that handles suspense and errors for queries. Makes the results of query.data available to
@@ -101,7 +101,7 @@ export function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
           </Match>
 
           <Match when={!(props.query.isFetched || props.query.data)}>
-            {props.notStartedFallback ? props.notStartedFallback : <></>}
+            {props.notStartedFallback ? props.notStartedFallback : null}
           </Match>
 
           <Match when={props.query.data}>

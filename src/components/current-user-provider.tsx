@@ -9,9 +9,7 @@ const [GeneralInfoProvider, useGeneralInfoContext] = createContextProvider(
   (props: {
     store: AuthStore | undefined;
     setStore: SetStoreFunction<AuthStore>;
-  }) => {
-    return { store: props.store, setStore: props.setStore };
-  }
+  }) => ({ store: props.store, setStore: props.setStore })
 );
 
 export function useGeneralInfo() {

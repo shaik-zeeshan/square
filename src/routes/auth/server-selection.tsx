@@ -41,7 +41,9 @@ export default function ServerSelectionPage() {
   };
 
   onMount(() => {
-    strongholdService.preInitialize().catch((_error) => {});
+    strongholdService.preInitialize().catch((_error) => {
+      // Do nothing
+    });
   });
 
   return (
@@ -67,7 +69,7 @@ export default function ServerSelectionPage() {
               <AuthFlow
                 onBack={handleBack}
                 onSuccess={handleAuthSuccess}
-                server={selectedServer()!}
+                server={selectedServer() as RecommendedServerInfo}
               />
             </Show>
           </div>

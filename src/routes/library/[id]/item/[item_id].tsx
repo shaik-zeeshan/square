@@ -111,7 +111,8 @@ export default function Page(props: RouteSectionProps) {
   }));
 
   // Scroll to top handler
-  let contentAreaRef: HTMLDivElement | undefined;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign this variable later
+  let contentAreaRef!: HTMLDivElement;
 
   const scrollToTop = () => {
     if (contentAreaRef) {
@@ -261,7 +262,7 @@ export default function Page(props: RouteSectionProps) {
                       <div class="flex items-center gap-1 opacity-70">
                         <Calendar class="h-3.5 w-3.5" />
                         <span class="font-medium">
-                          {new Date(item?.PremiereDate!).getFullYear()}
+                          {new Date(item?.PremiereDate || "").getFullYear()}
                         </span>
                       </div>
                     </Show>
@@ -434,6 +435,24 @@ interface ItemsRenderProsp {
   onFilterChange: (filter: "all" | "unplayed" | "played" | "resumable") => void;
 }
 
+const FilterButton = (props: {
+  filter: ItemsRenderProsp["activeFilter"];
+  label: string;
+  activeFilter: ItemsRenderProsp["activeFilter"];
+  onFilterChange: ItemsRenderProsp["onFilterChange"];
+}) => (
+  <button
+    class={`rounded-full px-3 py-1 font-medium text-xs transition-all ${
+      props.activeFilter === props.filter
+        ? "border border-blue-500/50 bg-blue-500/30 text-blue-300"
+        : "border border-white/10 bg-white/5 hover:bg-white/10"
+    }`}
+    onClick={() => props.onFilterChange(props.filter)}
+  >
+    {props.label}
+  </button>
+);
+
 function ItemsRender({
   parentItem,
   items,
@@ -441,25 +460,13 @@ function ItemsRender({
   activeFilter,
   onFilterChange,
 }: ItemsRenderProsp) {
-  const FilterButton = (props: {
-    filter: typeof activeFilter;
-    label: string;
-  }) => (
-    <button
-      class={`rounded-full px-3 py-1 font-medium text-xs transition-all ${
-        activeFilter === props.filter
-          ? "border border-blue-500/50 bg-blue-500/30 text-blue-300"
-          : "border border-white/10 bg-white/5 hover:bg-white/10"
-      }`}
-      onClick={() => onFilterChange(props.filter)}
-    >
-      {props.label}
-    </button>
-  );
-
   return (
     <Switch>
-      <Match when={!parentItem?.Type} />
+      <Match when={!parentItem?.Type}>
+        <div class="space-y-4">
+          <h2 class="font-semibold text-lg">No seasons</h2>
+        </div>
+      </Match>
       <Match when={parentItem?.Type === "Series"}>
         <div class="space-y-4">
           <div class="flex items-center justify-between gap-4">
@@ -472,10 +479,30 @@ function ItemsRender({
 
             <div class="flex items-center gap-2">
               <Filter class="h-4 w-4 opacity-50" />
-              <FilterButton filter="all" label="All" />
-              <FilterButton filter="unplayed" label="Unwatched" />
-              <FilterButton filter="played" label="Watched" />
-              <FilterButton filter="resumable" label="In Progress" />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="all"
+                label="All"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="unplayed"
+                label="Unwatched"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="played"
+                label="Watched"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="resumable"
+                label="In Progress"
+                onFilterChange={onFilterChange}
+              />
             </div>
           </div>
           <div class="grid grid-cols-3 gap-6 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
@@ -505,10 +532,30 @@ function ItemsRender({
 
             <div class="flex items-center gap-2">
               <Filter class="h-4 w-4 opacity-50" />
-              <FilterButton filter="all" label="All" />
-              <FilterButton filter="unplayed" label="Unwatched" />
-              <FilterButton filter="played" label="Watched" />
-              <FilterButton filter="resumable" label="In Progress" />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="all"
+                label="All"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="unplayed"
+                label="Unwatched"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="played"
+                label="Watched"
+                onFilterChange={onFilterChange}
+              />
+              <FilterButton
+                activeFilter={activeFilter}
+                filter="resumable"
+                label="In Progress"
+                onFilterChange={onFilterChange}
+              />
             </div>
           </div>
           <div class="space-y-4">

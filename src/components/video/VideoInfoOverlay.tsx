@@ -1,7 +1,7 @@
 import { useNavigate } from "@solidjs/router";
 import { Show } from "solid-js";
 
-interface VideoInfoOverlayProps {
+type VideoInfoOverlayProps = {
   itemDetails: {
     data?: {
       Name?: string | null;
@@ -19,7 +19,7 @@ interface VideoInfoOverlayProps {
       ParentId?: string | null;
     };
   };
-}
+};
 
 export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
   const navigate = useNavigate();

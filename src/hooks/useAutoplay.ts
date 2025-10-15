@@ -2,25 +2,24 @@ import { useNavigate } from "@solidjs/router";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
 import { useGeneralInfo } from "~/components/current-user-provider";
-import { useJellyfin } from "~/components/jellyfin-provider";
 import library from "~/lib/jellyfin/library";
 import { commands } from "~/lib/tauri";
 import { createJellyFinQuery } from "~/lib/utils";
 
-interface UseAutoplayProps {
+type UseAutoplayProps = {
   currentItemId: () => string;
+  // biome-ignore lint/suspicious/noExplicitAny: query data
   currentItemDetails: any;
   onLoadNewVideo: (url: string, itemId: string) => void;
   playbackState: {
     currentTime: () => string;
     duration: () => number;
   };
-}
+};
 
 export function useAutoplay(props: UseAutoplayProps) {
   const navigate = useNavigate();
   const { store: userStore } = useGeneralInfo();
-  const _jf = useJellyfin();
 
   const [showAutoplay, setShowAutoplay] = createSignal(false);
   const [isCollapsed, setIsCollapsed] = createSignal(false);
@@ -87,7 +86,7 @@ export function useAutoplay(props: UseAutoplayProps) {
     setIsCancelled(false); // Reset cancelled state for new video
   };
 
-  const playNextEpisode = async () => {
+  const playNextEpisode = () => {
     if (!nextEpisode.data?.Id) {
       return;
     }
@@ -98,7 +97,7 @@ export function useAutoplay(props: UseAutoplayProps) {
 
       // Navigate to the new episode
       navigate(`/video/${nextEpisode.data.Id}`, { replace: true });
-    } catch (_error) {
+    } catch {
       setShowAutoplay(false);
     }
   };
@@ -201,21 +200,17 @@ export function useAutoplay(props: UseAutoplayProps) {
   });
 
   // Create a memoized nextEpisode that will be reactive
-  const nextEpisodeData = createMemo(() => {
-    return nextEpisode.data;
-  });
+  const nextEpisodeData = createMemo(() => nextEpisode.data);
 
   // Create a memoized return object to ensure reactivity
-  const returnValue = createMemo(() => {
-    return {
-      showAutoplay,
-      isCollapsed,
-      setIsCollapsed,
-      nextEpisode: nextEpisodeData(),
-      playNextEpisode,
-      cancelAutoplay: hideAutoplay,
-    };
-  });
+  const returnValue = createMemo(() => ({
+    showAutoplay,
+    isCollapsed,
+    setIsCollapsed,
+    nextEpisode: nextEpisodeData(),
+    playNextEpisode,
+    cancelAutoplay: hideAutoplay,
+  }));
 
   return returnValue;
 }

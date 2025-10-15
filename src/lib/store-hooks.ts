@@ -1,10 +1,8 @@
 import { createContextProvider } from "@solid-primitives/context";
 import { serversStore } from "./persist-store";
 
-const [ServerStoreProvider, useServerStoreContext] = createContextProvider(
-  () => {
-    return serversStore();
-  }
+const [ServerStoreProvider, useServerStoreContext] = createContextProvider(() =>
+  serversStore()
 );
 
 export function useServerStore() {

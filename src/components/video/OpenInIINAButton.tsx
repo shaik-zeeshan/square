@@ -29,7 +29,11 @@ export const OpenInIINAButton = (props: OpenInIINAButtonProps) => {
       }}
     >
       <span>
-        <img src="https://raw.githubusercontent.com/iina/iina/master/iina/Assets.xcassets/AppIcon.appiconset/iina-icon-32.png" />
+        <img
+          alt="IINA"
+          aria-label="Open in IINA"
+          src="https://raw.githubusercontent.com/iina/iina/master/iina/Assets.xcassets/AppIcon.appiconset/iina-icon-32.png"
+        />
       </span>
     </button>
   );

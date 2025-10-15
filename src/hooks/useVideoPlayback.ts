@@ -12,7 +12,10 @@ import {
 } from "~/components/video/types";
 import { commands } from "~/lib/tauri";
 
-export function useVideoPlayback(itemId: () => string, itemDetails: any) {
+export function useVideoPlayback(
+  itemId: () => string, // biome-ignore lint/suspicious/noExplicitAny: query data
+  itemDetails: any
+) {
   const jf = useJellyfin();
 
   const [state, setState] = createStore({
@@ -44,7 +47,7 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
   const playSessionId = crypto.randomUUID();
   let lastProgressReportTime = 0;
 
-  const showControls = async () => {
+  const showControls = () => {
     if (state.controlsLocked) {
       return;
     }
@@ -174,7 +177,7 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
     }
   };
 
-  createEffect(async () => {
+  createEffect(() => {
     const currentItemId = itemId();
     const token = jf.api?.accessToken;
     const basePath = jf.api?.basePath;
@@ -194,34 +197,36 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
     // Check for chapters in different possible fields
     if (itemDetails.data?.Chapters) {
       if (Array.isArray(itemDetails.data.Chapters)) {
-        chapters = itemDetails.data.Chapters.map((chapter: any) => ({
-          startPositionTicks: chapter.StartPositionTicks || 0,
-          name: chapter.Name || null,
-          imagePath: chapter.ImagePath || null,
-          imageDateModified: chapter.ImageDateModified || null,
-          imageTag: chapter.ImageTag || null,
+        chapters = itemDetails.data.Chapters.map((chapter: Chapter) => ({
+          startPositionTicks: chapter.startPositionTicks || 0,
+          name: chapter.name || null,
+          imagePath: chapter.imagePath || null,
+          imageDateModified: chapter.imageDateModified || null,
+          imageTag: chapter.imageTag || null,
         }));
       } else if (typeof itemDetails.data.Chapters === "string") {
         // Handle case where chapters are stored as JSON string
         try {
           const chaptersData = JSON.parse(itemDetails.data.Chapters);
-          chapters = chaptersData.map((chapter: any) => ({
-            startPositionTicks: chapter.StartPositionTicks || 0,
-            name: chapter.Name || null,
-            imagePath: chapter.ImagePath || null,
-            imageDateModified: chapter.ImageDateModified || null,
-            imageTag: chapter.ImageTag || null,
+          chapters = chaptersData.map((chapter: Chapter) => ({
+            startPositionTicks: chapter.startPositionTicks || 0,
+            name: chapter.name || null,
+            imagePath: chapter.imagePath || null,
+            imageDateModified: chapter.imageDateModified || null,
+            imageTag: chapter.imageTag || null,
           }));
-        } catch (_e) {}
+        } catch {
+          // Do nothing
+        }
       }
     } else if (itemDetails.data?.MediaSources?.[0]?.Chapters) {
       chapters = itemDetails.data.MediaSources[0].Chapters.map(
-        (chapter: any) => ({
-          startPositionTicks: chapter.StartPositionTicks || 0,
-          name: chapter.Name || null,
-          imagePath: chapter.ImagePath || null,
-          imageDateModified: chapter.ImageDateModified || null,
-          imageTag: chapter.ImageTag || null,
+        (chapter: Chapter) => ({
+          startPositionTicks: chapter.startPositionTicks || 0,
+          name: chapter.name || null,
+          imagePath: chapter.imagePath || null,
+          imageDateModified: chapter.imageDateModified || null,
+          imageTag: chapter.imageTag || null,
         })
       );
     } else {
@@ -239,15 +244,17 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
         ) {
           try {
             const chaptersData = JSON.parse(itemDetails.data[field]);
-            chapters = chaptersData.map((chapter: any) => ({
-              startPositionTicks: chapter.StartPositionTicks || 0,
-              name: chapter.Name || null,
-              imagePath: chapter.ImagePath || null,
-              imageDateModified: chapter.ImageDateModified || null,
-              imageTag: chapter.ImageTag || null,
+            chapters = chaptersData.map((chapter: Chapter) => ({
+              startPositionTicks: chapter.startPositionTicks || 0,
+              name: chapter.name || null,
+              imagePath: chapter.imagePath || null,
+              imageDateModified: chapter.imageDateModified || null,
+              imageTag: chapter.imageTag || null,
             }));
             break;
-          } catch (_e) {}
+          } catch {
+            // Do nothing
+          }
         }
       }
     }
@@ -297,7 +304,9 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
                 state.subtitleIndex > 0 ? state.subtitleIndex : undefined,
             },
           });
-        } catch (_error) {}
+        } catch (_error) {
+          // Do nothing
+        }
       }
     });
 
@@ -353,8 +362,8 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
         // Convert ticks to seconds (1 tick = 0.0000001 seconds)
         const savedSeconds = savedPosition / 10_000_000;
         // Only resume if not near the end (more than 5% remaining)
-        const duration = Number(event.payload as string);
-        if (savedSeconds < duration * 0.95) {
+        const eventDuration = Number(event.payload as string);
+        if (savedSeconds < eventDuration * 0.95) {
           commands.playbackSeek(savedSeconds);
           setState("currentTime", savedSeconds.toString());
         }
@@ -383,7 +392,9 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
 
         // Initialize last progress report time
         lastProgressReportTime = Date.now();
-      } catch (_error) {}
+      } catch (_error) {
+        // Do nothing
+      }
     });
 
     unlistenFuncs.push(duration);
@@ -432,7 +443,9 @@ export function useVideoPlayback(itemId: () => string, itemDetails: any) {
             PositionTicks: Math.floor(Number(state.currentTime) * 10_000_000),
           },
         });
-      } catch (_error) {}
+      } catch (_error) {
+        // Do nothing
+      }
     }
 
     commands.toggleTitlebarHide(false);

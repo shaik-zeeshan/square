@@ -16,7 +16,7 @@ import type { Chapter, Track } from "~/components/video/types";
 import { formatTime } from "~/components/video/utils";
 import { cn } from "~/lib/utils";
 
-interface VideoControlsProps {
+type VideoControlsProps = {
   state: {
     playing: boolean;
     currentTime: string;
@@ -43,7 +43,7 @@ interface VideoControlsProps {
   audioBtnRef?: HTMLButtonElement;
   subsBtnRef?: HTMLButtonElement;
   speedBtnRef?: HTMLButtonElement;
-}
+};
 
 export default function VideoControls(props: VideoControlsProps) {
   const progressPercentage = () =>
@@ -82,9 +82,7 @@ export default function VideoControls(props: VideoControlsProps) {
     return `${track.title || ""} ${track.lang || ""}`.trim() || "On";
   });
 
-  const currentSpeed = createMemo(() => {
-    return `${props.state.playbackSpeed}x`;
-  });
+  const currentSpeed = createMemo(() => `${props.state.playbackSpeed}x`);
 
   return (
     <div class="rounded-xl border border-white/20 bg-black/90 p-4 shadow-2xl backdrop-blur-md">

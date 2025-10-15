@@ -17,10 +17,10 @@ import {
   updateFormField,
 } from "~/lib/validation";
 
-interface ServerFinderProps {
+type ServerFinderProps = {
   onServerSelected: (server: RecommendedServerInfo) => void;
   onBack?: () => void;
-}
+};
 
 export function ServerFinder(props: ServerFinderProps) {
   // Use a store for form data like LoginForm does
@@ -209,6 +209,7 @@ export function ServerFinder(props: ServerFinderProps) {
 
       <Show when={props.onBack}>
         <button
+          aria-label="Back to server list"
           class="flex h-10 w-full items-center justify-center rounded-lg border border-orange-500 bg-transparent px-4 text-orange-600 transition-colors hover:bg-orange-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-orange-400 dark:text-orange-400 dark:hover:bg-orange-900/20"
           disabled={isLoading()}
           onClick={handleBack}
@@ -221,10 +222,10 @@ export function ServerFinder(props: ServerFinderProps) {
   );
 }
 
-interface DiscoveredServerListProps {
+type DiscoveredServerListProps = {
   servers: RecommendedServerInfo[];
   onServerSelect: (server: RecommendedServerInfo) => void;
-}
+};
 
 function DiscoveredServerList(props: DiscoveredServerListProps) {
   return (
@@ -239,10 +240,10 @@ function DiscoveredServerList(props: DiscoveredServerListProps) {
   );
 }
 
-interface DiscoveredServerCardProps {
+type DiscoveredServerCardProps = {
   server: RecommendedServerInfo;
   onSelect: () => void;
-}
+};
 
 function DiscoveredServerCard(props: DiscoveredServerCardProps) {
   return (

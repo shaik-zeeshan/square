@@ -3,10 +3,10 @@ import { createMemo, Show } from "solid-js";
 import type library from "~/lib/jellyfin/library";
 import { GlassCard } from "./ui";
 
-interface SeriesCardProps {
+type SeriesCardProps = {
   item: Awaited<ReturnType<typeof library.query.getItem>>;
   parentId?: string;
-}
+};
 
 export function SeriesCard({ item, parentId }: SeriesCardProps) {
   return (
@@ -77,9 +77,9 @@ export function SeriesCard({ item, parentId }: SeriesCardProps) {
   );
 }
 
-interface EpisodeCardProps {
+type EpisodeCardProps = {
   item: Awaited<ReturnType<typeof library.query.getItem>> | undefined;
-}
+};
 
 export function EpisodeCard({ item }: EpisodeCardProps) {
   if (item?.LocationType !== "FileSystem") {

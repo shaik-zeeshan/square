@@ -1,48 +1,47 @@
 import { AlertTriangle, Home, RefreshCw } from "lucide-solid";
 import {
   createSignal,
+  type JSX,
   type ParentComponent,
   ErrorBoundary as SolidErrorBoundary,
 } from "solid-js";
 import { GlassCard } from "~/components/ui";
 import { GlassButton } from "~/components/ui/glass-button";
 
-interface ErrorBoundaryProps {
+type ErrorBoundaryProps = {
   fallback?: (error: Error, reset: () => void) => JSX.Element;
   onError?: (error: Error, errorInfo: unknown) => void;
   children: JSX.Element;
-}
-
-export const ErrorBoundary: ParentComponent<ErrorBoundaryProps> = (props) => {
-  return (
-    <SolidErrorBoundary
-      fallback={(error, reset) => {
-        props.onError?.(error, { componentStack: "No stack available" });
-
-        if (props.fallback) {
-          return props.fallback(error, reset);
-        }
-
-        return <DefaultErrorFallback error={error} reset={reset} />;
-      }}
-    >
-      {props.children}
-    </SolidErrorBoundary>
-  );
 };
 
-interface DefaultErrorFallbackProps {
+export const ErrorBoundary: ParentComponent<ErrorBoundaryProps> = (props) => (
+  <SolidErrorBoundary
+    fallback={(error, reset) => {
+      props.onError?.(error, { componentStack: "No stack available" });
+
+      if (props.fallback) {
+        return props.fallback(error, reset);
+      }
+
+      return <DefaultErrorFallback error={error} reset={reset} />;
+    }}
+  >
+    {props.children}
+  </SolidErrorBoundary>
+);
+
+type DefaultErrorFallbackProps = {
   error: Error;
   reset: () => void;
-}
+};
 
 function DefaultErrorFallback(props: DefaultErrorFallbackProps) {
   const [isRetrying, setIsRetrying] = createSignal(false);
 
-  const handleRetry = async () => {
+  const handleRetry = () => {
     setIsRetrying(true);
     try {
-      await props.reset();
+      props.reset();
     } finally {
       setIsRetrying(false);
     }

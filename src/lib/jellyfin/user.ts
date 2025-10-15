@@ -20,7 +20,7 @@ const _getAuthStore = () => {
   });
 };
 
-export const setAuthStore = (value: AuthStore | {}, replace = false) => {
+export const setAuthStore = (value: AuthStore | undefined, replace = false) => {
   const auth_store = localStorage.getItem(AUTH_PRESIST_KEY);
   const new_value = JSON.stringify({
     ...(replace
@@ -44,7 +44,10 @@ export const setAuthStore = (value: AuthStore | {}, replace = false) => {
   window.dispatchEvent(storageEvent);
 };
 
-export const setServerStore = (value: ServerStore | {}, replace = false) => {
+export const setServerStore = (
+  value: Partial<ServerStore> | undefined,
+  replace = false
+) => {
   const serverStore = localStorage.getItem(SERVERS_KEY);
   const newValue = JSON.stringify({
     ...(replace
@@ -91,7 +94,7 @@ const mutation = {
 
     return token;
   },
-  logout: async () => {
+  logout: () => {
     setAuthStore(
       { isUserLoggedIn: false, accessToken: null, user: null },
       true

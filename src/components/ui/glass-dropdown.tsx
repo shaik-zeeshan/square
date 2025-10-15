@@ -59,7 +59,7 @@ export function GlassDropdownItem(props: GlassDropdownItemProps) {
 
   return (
     <button
-      aria-selected={local.selected}
+      aria-current={local.selected ? "true" : "false"}
       class={cn(
         "w-full cursor-pointer rounded-md px-3 py-2 text-left text-white/90 transition-all duration-[var(--glass-transition-fast)] hover:bg-[#111111d1] hover:text-white focus:bg-[#111111d1] focus:outline-none",
         local.selected && "bg-[#111111d1] text-white",

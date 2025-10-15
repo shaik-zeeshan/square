@@ -4,7 +4,7 @@ import { formatTime } from "~/components/video/utils";
 import { commands } from "~/lib/tauri";
 import { cn } from "~/lib/utils";
 
-interface VideoSettingsPanelsProps {
+type VideoSettingsPanelsProps = {
   openPanel: OpenPanel;
   setOpenPanel: (panel: OpenPanel) => void;
   state: {
@@ -17,10 +17,10 @@ interface VideoSettingsPanelsProps {
     duration: number;
     currentTime: string;
   };
-  setState: (key: string, value: any) => void;
+  setState: (key: string, value: unknown) => void;
   onNavigateToChapter: (chapter: Chapter) => void;
-  panelRef?: HTMLDivElement;
-}
+  panelRef?: HTMLButtonElement;
+};
 
 export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
   const setSpeed = (speed: number) => {
@@ -30,7 +30,7 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
 
   return (
     <Show when={props.openPanel !== null}>
-      <div
+      <button
         class="right-0 bottom-full left-0 max-h-96 overflow-hidden rounded-lg border border-white/20 bg-black/95 p-2 shadow-2xl backdrop-blur-md"
         onKeyDown={(e) => {
           if (e.key === "Escape") {
@@ -194,7 +194,7 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
             </For>
           </div>
         </Show>
-      </div>
+      </button>
     </Show>
   );
 }

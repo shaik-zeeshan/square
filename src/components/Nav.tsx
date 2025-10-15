@@ -3,7 +3,7 @@ import { ChevronRight, Home, Search, X } from "lucide-solid";
 import { createEffect, createSignal, type JSX, Show } from "solid-js";
 import { UserDropdown } from "./user-dropdown";
 
-interface NavProps {
+type NavProps = {
   /** Breadcrumb items to display */
   breadcrumbs?: Array<{
     label: string;
@@ -24,13 +24,14 @@ interface NavProps {
   class?: string;
   /** Color variant for the nav */
   variant?: "light" | "dark";
-}
+};
 
 export function Nav(props: NavProps) {
   const navigate = useNavigate();
   const [isSearchOpen, setIsSearchOpen] = createSignal(false);
 
-  let searchInputRef: HTMLInputElement | undefined;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign this variable later
+  let searchInputRef!: HTMLInputElement;
 
   // Auto-focus search input when opened
   createEffect(() => {

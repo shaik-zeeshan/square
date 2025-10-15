@@ -2,17 +2,18 @@ import type { RecommendedServerInfo } from "@jellyfin/sdk";
 import { ArrowLeft, Loader2, Plus, Trash2, User } from "lucide-solid";
 import { createSignal, For, Show } from "solid-js";
 import { strongholdService } from "~/lib/jellyfin/stronghold";
+import type { Server } from "~/lib/persist-store";
 import { useServerStore } from "~/lib/store-hooks";
 import { showErrorToast, showSuccessToast } from "~/lib/toast";
 
-interface UserSelectionProps {
+type UserSelectionProps = {
   server: RecommendedServerInfo;
   users: string[];
   onSelectUser: (username: string, password: string) => void;
   onAddNewUser: () => void;
   onBack?: () => void;
   onUserDeleted?: (username: string) => void;
-}
+};
 
 export function UserSelection(props: UserSelectionProps) {
   const [isDeleting, setIsDeleting] = createSignal<string | null>(null);
@@ -42,7 +43,7 @@ export function UserSelection(props: UserSelectionProps) {
     const serverIndex = serverStore.servers.findIndex(
       (s) => s.info.address === props.server.address
     );
-    let originalServer: any = null;
+    let originalServer: Server | null = null;
 
     if (serverIndex >= 0) {
       // Store original state for rollback
@@ -154,12 +155,12 @@ export function UserSelection(props: UserSelectionProps) {
   );
 }
 
-interface UserCardProps {
+type UserCardProps = {
   username: string;
   isDeleting: boolean;
   onSelect: () => void;
   onDelete: (event: Event) => void;
-}
+};
 
 function UserCard(props: UserCardProps) {
   return (
@@ -191,6 +192,7 @@ function UserCard(props: UserCardProps) {
         <div
           class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(e) => e.stopPropagation()}
+          role="button"
         >
           <button
             aria-label="Delete user"

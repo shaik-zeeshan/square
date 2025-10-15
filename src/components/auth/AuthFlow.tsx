@@ -7,11 +7,11 @@ import type { AuthCredentials } from "~/types";
 import { LoginForm } from "./LoginForm";
 import { UserSelection } from "./UserSelection";
 
-interface AuthFlowProps {
+type AuthFlowProps = {
   server: RecommendedServerInfo;
   onBack?: () => void;
   onSuccess?: () => void;
-}
+};
 
 type AuthStep = "user-selection" | "login";
 
@@ -38,12 +38,14 @@ export function AuthFlow(props: AuthFlowProps) {
   });
 
   // Load saved users on mount
-  const loadSavedUsers = async () => {
+  const loadSavedUsers = () => {
     try {
       setIsLoading(true);
 
       // Pre-initialize Stronghold in background for faster auto-login
-      strongholdService.preInitialize().catch((_error) => {});
+      strongholdService.preInitialize().catch((_error) => {
+        // Do nothing
+      });
 
       // Get users from the server store only
       const storedServer = serverStore.servers.find(
@@ -68,7 +70,7 @@ export function AuthFlow(props: AuthFlowProps) {
     loadSavedUsers();
   });
 
-  const handleSelectUser = async (username: string, password: string) => {
+  const handleSelectUser = (username: string, password: string) => {
     setIsAutoLoggingIn(true);
 
     try {

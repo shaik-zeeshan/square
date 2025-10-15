@@ -1,15 +1,63 @@
 {
-  "$schema": "https://biomejs.dev/schemas/2.1.2/schema.json",
+  "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "extends": ["ultracite"],
+  "files": {
+    "includes": ["!src/lib/tauri.ts"]
+  },
   "linter": {
+    "domains": {
+      "solid": "all",
+      "qwik": "none"
+    },
     "rules": {
-      "nursery": "warn",
-      "correctness": "warn",
-      "style": "warn",
-      "a11y": "warn",
-      "suspicious": "warn",
-      "complexity": "warn",
-      "performance": "warn"
+      "recommended": false,
+      "nursery": {
+        "recommended": false,
+        "useExplicitType": "off",
+        "useQwikValidLexicalScope": "off",
+        "useImageSize": "off",
+        "useMaxParams": "off",
+        "noShadow": "off",
+        "useConsistentTypeDefinitions": "off"
+      },
+      "correctness": {
+        "useImportExtensions": "off",
+        "noUnusedVariables": "off",
+        "noInvalidPositionAtImportRule": "off"
+      },
+      "style": {
+        "recommended": false,
+        "useExportsLast": "off",
+        "noMagicNumbers": "off",
+        "useFilenamingConvention": "off",
+        "useConsistentMemberAccessibility": "off",
+        "noParameterProperties": "off"
+      },
+      "a11y": {
+        "recommended": false,
+        "useSemanticElements": "off",
+        "useButtonType": "off",
+        "useFocusableInteractive": "off",
+        "noNoninteractiveElementInteractions": "off",
+        "useKeyWithClickEvents": "off"
+      },
+      "suspicious": {
+        "recommended": false,
+        "noDebugger": "off",
+        "useIterableCallbackReturn": "off",
+        "noUnknownAtRules": "off"
+      },
+      "complexity": {
+        "recommended": false,
+        "noExcessiveLinesPerFunction": "off",
+        "noExcessiveCognitiveComplexity": "off",
+        "noForEach": "off"
+      },
+      "performance": {
+        "recommended": false,
+        "noImgElement": "off",
+        "noBarrelFile": "off"
+      }
     }
   },
   "formatter": {

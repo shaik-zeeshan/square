@@ -86,10 +86,14 @@ export default function Page(_props: RouteSectionProps) {
     },
   });
 
-  let audioBtnRef: HTMLButtonElement | undefined;
-  let subsBtnRef: HTMLButtonElement | undefined;
-  let speedBtnRef: HTMLButtonElement | undefined;
-  let panelRef: HTMLDivElement | undefined;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
+  let audioBtnRef!: HTMLButtonElement;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
+  let subsBtnRef!: HTMLButtonElement;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
+  let speedBtnRef!: HTMLButtonElement;
+  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
+  let panelRef!: HTMLButtonElement;
 
   // Use keyboard shortcuts hook
   useVideoKeyboardShortcuts({
@@ -149,7 +153,9 @@ export default function Page(_props: RouteSectionProps) {
 
     const addControlListeners = () => {
       // Clean up existing listeners first
-      cleanupFunctions.forEach((cleanup) => cleanup());
+      cleanupFunctions.forEach((cleanup) => {
+        cleanup();
+      });
       cleanupFunctions = [];
 
       const controlElements = document.querySelectorAll(".control-element");
@@ -178,7 +184,9 @@ export default function Page(_props: RouteSectionProps) {
 
     onCleanup(() => {
       clearTimeout(timeout);
-      cleanupFunctions.forEach((cleanup) => cleanup());
+      cleanupFunctions.forEach((cleanup) => {
+        cleanup();
+      });
     });
   });
 
@@ -233,6 +241,7 @@ export default function Page(_props: RouteSectionProps) {
       class="dark relative flex h-full w-full flex-col gap-2 overflow-hidden bg-transparent"
       onClick={handleWindowClick}
       onMouseMove={handleMouseMove}
+      role="button"
     >
       {/* Lock Button - Always Visible */}
       <button
@@ -261,6 +270,7 @@ export default function Page(_props: RouteSectionProps) {
         <div
           class="control-element pointer-events-none fixed right-0 bottom-0 left-0 p-4"
           onClick={(e) => e.stopPropagation()}
+          role="button"
         >
           <div class="pointer-events-auto relative mx-auto flex w-full max-w-4xl flex-col gap-3">
             {/* Dropdown Panels */}
@@ -308,6 +318,7 @@ export default function Page(_props: RouteSectionProps) {
           <div
             class="control-element fixed top-8 right-20 z-50"
             onClick={(e) => e.stopPropagation()}
+            role="button"
           >
             <OpenInIINAButton
               beforePlaying={() => {
@@ -320,11 +331,19 @@ export default function Page(_props: RouteSectionProps) {
       </Show>
 
       {/* Autoplay Overlay */}
-      <div class="control-element" onClick={(e) => e.stopPropagation()}>
+      <div
+        class="control-element"
+        onClick={(e) => e.stopPropagation()}
+        role="button"
+      >
         <AutoplayOverlay
           isCollapsed={autoplayHook().isCollapsed()}
           isVisible={autoplayHook().showAutoplay()}
-          nextEpisode={autoplayHook().nextEpisode}
+          nextEpisode={
+            autoplayHook().nextEpisode as Awaited<
+              ReturnType<typeof library.query.getNextEpisode>
+            >
+          }
           onCancel={autoplayHook().cancelAutoplay}
           onPlayNext={() => {
             // before playing the next episode, clear the current video

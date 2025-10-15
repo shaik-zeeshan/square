@@ -189,12 +189,6 @@
   }
 }
 
-/* Firefox (uncomment to work in Firefox, although other properties will not work!)  */
-/** {
-  scrollbar-width: thin;
-  scrollbar-color: #397524 #DFE9EB;
-}*/
-
 * {
   scrollbar-width: none;
 }
@@ -204,35 +198,6 @@
   height: 0px;
   width: 0px;
 }
-/* 
-*::-webkit-scrollbar-track {
-  border-radius: 5px;
-  background-color: transparent;
-}
-
-*::-webkit-scrollbar-track:hover {
-  background-color: transparent;
-}
-
-*::-webkit-scrollbar-track:active {
-  background-color: transparent;
-}
-
-*::-webkit-scrollbar-thumb {
-  border-radius: 5px;
-  background-color: var(--primary);
-  opacity: 0.5;
-}
-
-*::-webkit-scrollbar-thumb:hover {
-  background-color: var(--primary);
-  opacity: 0.5;
-}
-
-*::-webkit-scrollbar-thumb:active {
-  background-color: var(--primary);
-  opacity: 0.5;
-} */
 
 /* OverlayScrollbars Custom Theme */
 .os-theme-custom.os-scrollbar {

@@ -11,16 +11,14 @@ import library from "~/lib/jellyfin/library";
 import { authStore } from "~/lib/persist-store";
 import { createJellyFinQuery } from "~/lib/utils";
 
-const LoadingSection = (props: { name: string }) => {
-  return (
-    <div class="col-span-full grid place-items-center py-8">
-      <div class="inline-flex w-max animate-pulse space-x-4">
-        <InlineLoading />
-        <div class="text-foreground/80">Loading {props.name}...</div>
-      </div>
+const LoadingSection = (props: { name: string }) => (
+  <div class="col-span-full grid place-items-center py-8">
+    <div class="inline-flex w-max animate-pulse space-x-4">
+      <InlineLoading />
+      <div class="text-foreground/80">Loading {props.name}...</div>
     </div>
-  );
-};
+  </div>
+);
 
 export default function Home() {
   const navigate = useNavigate();

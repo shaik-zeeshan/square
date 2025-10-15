@@ -2,10 +2,10 @@ import type { RecommendedServerInfo } from "@jellyfin/sdk";
 import { appDataDir } from "@tauri-apps/api/path";
 import { type Client, Stronghold } from "@tauri-apps/plugin-stronghold";
 
-export interface UserCredential {
+export type UserCredential = {
   password: string;
   saved_at: number;
-}
+};
 
 export interface StrongholdService {
   saveCredentials: (
@@ -46,7 +46,7 @@ class StrongholdServiceImpl implements StrongholdService {
   private initialized = false;
   private initializationPromise: Promise<void> | null = null;
 
-  private async initialize(): Promise<void> {
+  private initialize(): Promise<void> | undefined {
     if (this.initialized) {
       return;
     }

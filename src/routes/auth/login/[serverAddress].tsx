@@ -1,9 +1,9 @@
+import type { RecommendedServerInfo } from "@jellyfin/sdk/lib/models/recommended-server-info";
 import { useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Show } from "solid-js";
 import { LoginForm } from "~/components/auth/LoginForm";
 import { RouteProtection } from "~/components/auth/RouteProtection";
 import { AuthErrorBoundary } from "~/components/error/ErrorBoundary";
-import { useAuthentication } from "~/hooks/useAuthentication";
 import { useServerStore } from "~/lib/store-hooks";
 
 export default function LoginPage() {
@@ -11,7 +11,6 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { store: serverStore } = useServerStore();
-  const { isAuthenticated } = useAuthentication();
 
   // Find the server by address from URL params
   const server = () => {
@@ -26,11 +25,6 @@ export default function LoginPage() {
     return foundServer?.info || null;
   };
 
-  const _handleLoginComplete = () => {
-    // Redirect to home after successful login
-    navigate("/");
-  };
-
   const handleBack = () => {
     navigate("/auth/onboarding");
   };
@@ -42,27 +36,11 @@ export default function LoginPage() {
           <div class="relative z-10 w-full max-w-md px-4">
             <Show when={server()}>
               <LoginForm
-                initialPassword={
-                  searchParams.edit
-                    ? serverStore.servers.find(
-                        (s) =>
-                          s.info.address ===
-                          decodeURIComponent(params.serverAddress)
-                      )?.auth.password
-                    : undefined
-                }
-                initialUsername={
-                  searchParams.edit
-                    ? serverStore.servers.find(
-                        (s) =>
-                          s.info.address ===
-                          decodeURIComponent(params.serverAddress)
-                      )?.auth.username
-                    : undefined
-                }
+                initialPassword={undefined}
+                initialUsername={undefined}
                 isEditing={!!searchParams.edit}
                 onBack={handleBack}
-                server={server()!}
+                server={server() as RecommendedServerInfo}
               />
             </Show>
             <Show when={!server()}>

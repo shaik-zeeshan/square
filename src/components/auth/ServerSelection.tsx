@@ -5,12 +5,12 @@ import { useAuthentication } from "~/hooks/useAuthentication";
 import type { Server } from "~/lib/persist-store";
 import { useServerStore } from "~/lib/store-hooks";
 
-interface ServerSelectionProps {
+type ServerSelectionProps = {
   onBack?: () => void;
   onSelectServer: (server: RecommendedServerInfo) => void;
   onEditServer: (server: RecommendedServerInfo) => void;
   onSearchNewServer: () => void;
-}
+};
 
 export function ServerSelection(props: ServerSelectionProps) {
   const { store: serverStore } = useServerStore();
@@ -87,12 +87,12 @@ export function ServerSelection(props: ServerSelectionProps) {
   );
 }
 
-interface ServerCardProps {
+type ServerCardProps = {
   server: Server;
   onSelect: () => void;
   onEdit: () => void;
   onDelete: () => void;
-}
+};
 
 function ServerCard(props: ServerCardProps) {
   return (
@@ -142,6 +142,7 @@ function ServerCard(props: ServerCardProps) {
         <div
           class="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100"
           onClick={(e) => e.stopPropagation()}
+          role="button"
         >
           <button
             aria-label="Edit server"

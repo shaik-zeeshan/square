@@ -1,12 +1,12 @@
 import { useNavigate } from "@solidjs/router";
-import { createEffect, Show } from "solid-js";
+import { createEffect, type JSX, Show } from "solid-js";
 import { authStore } from "~/lib/persist-store";
 
-interface RouteProtectionProps {
-  children: any;
+type RouteProtectionProps = {
+  children: JSX.Element;
   redirectTo?: string;
   requireAuth?: boolean;
-}
+};
 
 export function RouteProtection(props: RouteProtectionProps) {
   const navigate = useNavigate();
