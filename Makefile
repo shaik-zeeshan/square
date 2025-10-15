@@ -124,13 +124,17 @@ download-dylibs: $(FILELIST_FILE)
 	@echo "Downloading libraries to: $(DYLIB_DIR)"
 	@while IFS= read -r filename; do \
 		if [ -n "$$filename" ]; then \
-			echo "Downloading: $$filename"; \
-			curl -s "$(DYLIBS_URL)/$$filename" -o "$(DYLIB_DIR)/$$filename"; \
-			if [ $$? -eq 0 ]; then \
-				echo "✅ $$filename"; \
+			if [ -f "$(DYLIB_DIR)/$$filename" ]; then \
+				echo "⏭️  Skipping $$filename (already exists)"; \
 			else \
-				echo "❌ Failed to download $$filename"; \
-				exit 1; \
+				echo "Downloading: $$filename"; \
+				curl -s "$(DYLIBS_URL)/$$filename" -o "$(DYLIB_DIR)/$$filename"; \
+				if [ $$? -eq 0 ]; then \
+					echo "✅ $$filename"; \
+				else \
+					echo "❌ Failed to download $$filename"; \
+					exit 1; \
+				fi; \
 			fi; \
 		fi; \
 	done < $(FILELIST_FILE)

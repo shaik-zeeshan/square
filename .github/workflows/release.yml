@@ -109,6 +109,17 @@ jobs:
         with:
           path: ./artifacts
 
+      - name: Debug - List downloaded artifacts
+        run: |
+          echo "Contents of artifacts directory:"
+          find ./artifacts -type f -name "*.dmg" -o -name "*.app" | head -10
+          echo ""
+          echo "Contents of sreal-macos-dmg directory:"
+          ls -la ./artifacts/sreal-macos-dmg/ || echo "Directory not found"
+          echo ""
+          echo "DMG files found:"
+          find ./artifacts -name "*.dmg" -exec ls -la {} \;
+
       - name: Generate Changelog
         run: |
           # Install conventional changelog
@@ -127,7 +138,7 @@ jobs:
           name: Release v${{ steps.version.outputs.version }}
           body_path: CHANGELOG.md
           files: |
-            artifacts/sreal-macos-dmg/sreal_*_aarch64.dmg
+            artifacts/sreal-macos-dmg/
           draft: false
           prerelease: false
         env:
