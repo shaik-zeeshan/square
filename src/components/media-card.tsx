@@ -1,6 +1,11 @@
+import type { ItemFields } from "@jellyfin/sdk/lib/generated-client/models/item-fields";
+import { useQueryClient } from "@tanstack/solid-query";
 import { Check, Play } from "lucide-solid";
 import { createMemo, Show } from "solid-js";
-import type library from "~/lib/jellyfin/library";
+import library from "~/lib/jellyfin/library";
+import { createJellyFinQuery } from "~/lib/utils";
+import { useGeneralInfo } from "./current-user-provider";
+import { ItemActions } from "./ItemActions";
 import { GlassCard } from "./ui";
 
 type SeriesCardProps = {
@@ -8,11 +13,24 @@ type SeriesCardProps = {
   parentId?: string;
 };
 
-export function SeriesCard({ item, parentId }: SeriesCardProps) {
+export function SeriesCard({ item: initialItem, parentId }: SeriesCardProps) {
+  const { store } = useGeneralInfo();
+
+  const item = createJellyFinQuery(() => ({
+    queryKey: [
+      library.query.getItem.key,
+      library.query.getItem.keyFor(initialItem?.Id, store?.user?.Id),
+    ],
+    queryFn: async (jf) =>
+      library.query.getItem(jf, initialItem?.Id as string, store?.user?.Id),
+    initialData: initialItem,
+    staleTime: Number.POSITIVE_INFINITY,
+  }));
+
   return (
     <a
       class="group block"
-      href={`/library/${parentId || item.ParentId}/item/${item.Id}`}
+      href={`/library/${parentId || item.data?.ParentId}/item/${item.data?.Id}`}
     >
       <GlassCard
         class="h-full overflow-hidden transition-all duration-300 group-hover:scale-[1.03] group-hover:shadow-[var(--glass-shadow-xl)]"
@@ -21,11 +39,11 @@ export function SeriesCard({ item, parentId }: SeriesCardProps) {
         <div class="relative aspect-[2/3] overflow-hidden">
           {/* Image fills entire card */}
           <img
-            alt={item.Name ?? "Media item"}
+            alt={item.data?.Name ?? "Media item"}
             class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
             src={
-              "Primary" in item.Images
-                ? item.Images.Primary
+              item.data?.Images && "Primary" in item.data.Images
+                ? item.data?.Images.Primary
                 : "https://placehold.co/300x442?text=No+Image"
             }
           />
@@ -43,31 +61,45 @@ export function SeriesCard({ item, parentId }: SeriesCardProps) {
           {/* Unplayed Item Count Badge */}
           <Show
             when={
-              item.UserData?.UnplayedItemCount &&
-              item.UserData.UnplayedItemCount > 0
+              item.data?.UserData?.UnplayedItemCount &&
+              item.data?.UserData.UnplayedItemCount > 0
             }
           >
             <div class="absolute top-3 right-3 z-10 rounded-full border-2 border-white/30 bg-blue-500 px-2.5 py-1.5 font-bold text-white text-xs shadow-lg">
-              {item.UserData?.UnplayedItemCount}
+              {item.data?.UserData?.UnplayedItemCount}
             </div>
           </Show>
 
           {/* Played Indicator */}
-          <Show when={item.UserData?.Played}>
+          <Show when={item.data?.UserData?.Played}>
             <div class="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-full border border-white/20 bg-green-500/90 px-2.5 py-1.5 font-semibold text-white text-xs shadow-lg">
               <Check class="h-3 w-3" />
               <span>Watched</span>
             </div>
           </Show>
 
+          {/* Item Actions - Show on hover */}
+          <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+            <ItemActions
+              item={
+                item.data as {
+                  UserData?: { Played?: boolean; IsFavorite?: boolean };
+                }
+              }
+              itemId={item.data?.Id as string}
+              userId={store?.user?.Id}
+              variant="card"
+            />
+          </div>
+
           {/* Title Info - always visible at bottom */}
           <div class="absolute right-0 bottom-0 left-0 p-4">
             <p class="line-clamp-2 font-semibold text-sm text-white drop-shadow-lg">
-              {item.Name}
+              {item.data?.Name}
             </p>
-            <Show when={item.ProductionYear}>
+            <Show when={item.data?.ProductionYear}>
               <p class="mt-1 text-white/80 text-xs drop-shadow-md">
-                {item.ProductionYear}
+                {item.data?.ProductionYear}
               </p>
             </Show>
           </div>
@@ -81,17 +113,38 @@ type EpisodeCardProps = {
   item: Awaited<ReturnType<typeof library.query.getItem>> | undefined;
 };
 
-export function EpisodeCard({ item }: EpisodeCardProps) {
-  if (item?.LocationType !== "FileSystem") {
+export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
+  const { store } = useGeneralInfo();
+
+  const item = createJellyFinQuery(() => ({
+    queryKey: [
+      library.query.getItem.key,
+      library.query.getItem.keyFor(initialItem?.Id, store?.user?.Id),
+    ],
+    queryFn: async (jf) =>
+      library.query.getItem(jf, initialItem?.Id as string, store?.user?.Id, [
+        "ParentId",
+        "Overview",
+        "MediaStreams",
+        ...((initialItem?.Type === "Movie"
+          ? ["Studios", "People"]
+          : []) as ItemFields[]),
+      ]),
+    initialData: initialItem,
+    enabled: initialItem?.Type === "Episode",
+    staleTime: Number.POSITIVE_INFINITY,
+  }));
+
+  if (item.data?.LocationType !== "FileSystem") {
     return;
   }
 
   const audioLangs = createMemo(() =>
     Array.from(
       new Set(
-        item?.MediaStreams?.filter((stream) => stream.Type === "Audio").map(
-          (stream) => stream.Language
-        )
+        item.data?.MediaStreams?.filter(
+          (stream) => stream.Type === "Audio"
+        ).map((stream) => stream.Language)
       )
     )
   );
@@ -99,15 +152,15 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
   const subtitleLangs = createMemo(() =>
     Array.from(
       new Set(
-        item?.MediaStreams?.filter((stream) => stream.Type === "Subtitle").map(
-          (stream) => stream.Language
-        )
+        item.data?.MediaStreams?.filter(
+          (stream) => stream.Type === "Subtitle"
+        ).map((stream) => stream.Language)
       )
     )
   );
 
-  const runtimeMinutes = item.RunTimeTicks
-    ? Math.round(item.RunTimeTicks / 600_000_000)
+  const runtimeMinutes = item.data?.RunTimeTicks
+    ? Math.round(item.data?.RunTimeTicks / 600_000_000)
     : null;
 
   // Format runtime as hours and minutes if >= 60 minutes
@@ -124,29 +177,34 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
   };
 
   // Calculate playback progress percentage
-  const playbackProgress =
-    item.UserData?.PlaybackPositionTicks && item.RunTimeTicks
-      ? (item.UserData.PlaybackPositionTicks / item.RunTimeTicks) * 100
+  const playbackProgress = () =>
+    item.data?.UserData?.PlaybackPositionTicks && item.data?.RunTimeTicks
+      ? (item.data?.UserData.PlaybackPositionTicks / item.data?.RunTimeTicks) *
+        100
       : 0;
 
-  const isWatched = item.UserData?.Played;
-  const isInProgress = playbackProgress > 0 && playbackProgress < 95;
+  const isWatched = () => item.data?.UserData?.Played;
+  const isInProgress = () => playbackProgress() > 0 && playbackProgress() < 95;
 
   return (
     <a
-      aria-disabled={item.LocationType !== "FileSystem"}
-      aria-label={`Play ${item.Name ?? "Episode"}${runtimeMinutes ? ` (${formatRuntime(runtimeMinutes)})` : ""}`}
+      aria-disabled={item.data?.LocationType !== "FileSystem"}
+      aria-label={`Play ${item.data?.Name ?? "Episode"}${runtimeMinutes ? ` (${formatRuntime(runtimeMinutes)})` : ""}`}
       class="group block"
-      href={item.LocationType === "FileSystem" ? `/video/${item.Id}` : ""}
-      role={item.LocationType === "FileSystem" ? "link" : "button"}
-      tabIndex={item.LocationType === "FileSystem" ? 0 : -1}
+      href={
+        item.data?.LocationType === "FileSystem"
+          ? `/video/${item.data?.Id}`
+          : ""
+      }
+      role={item.data?.LocationType === "FileSystem" ? "link" : "button"}
+      tabIndex={item.data?.LocationType === "FileSystem" ? 0 : -1}
     >
       <div class="flex gap-4 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 transition-all duration-300 hover:border-white/20 hover:bg-white/10">
         {/* Episode Number Badge */}
-        <Show when={item.IndexNumber}>
+        <Show when={item.data?.IndexNumber}>
           <div class="relative flex w-12 flex-shrink-0 items-center justify-center">
             <div class="font-bold text-4xl opacity-30 transition-opacity group-hover:opacity-50">
-              {item.IndexNumber}
+              {item.data?.IndexNumber}
             </div>
           </div>
         </Show>
@@ -154,9 +212,9 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
         {/* Thumbnail */}
         <div class="relative aspect-video w-64 flex-shrink-0 overflow-hidden rounded-xl">
           <img
-            alt={item.Name ?? "Episode"}
+            alt={item.data?.Name ?? "Episode"}
             class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            src={item.Images.Primary}
+            src={item.data?.Images.Primary}
           />
           <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
@@ -168,14 +226,24 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
           </div>
 
           {/* Progress bar */}
-          <Show when={isInProgress}>
+          <Show when={isInProgress()}>
             <div class="absolute right-0 bottom-0 left-0 z-10 h-1 bg-white/20">
               <div
                 class="h-full bg-blue-500 transition-all duration-300"
-                style={{ width: `${playbackProgress}%` }}
+                style={{ width: `${playbackProgress()}%` }}
               />
             </div>
           </Show>
+
+          {/* Item Actions - Show on hover */}
+          <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+            <ItemActions
+              item={item.data}
+              itemId={item.data?.Id as string}
+              userId={store?.user?.Id}
+              variant="card"
+            />
+          </div>
 
           {/* Runtime badge */}
           <Show when={runtimeMinutes}>
@@ -185,7 +253,7 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
           </Show>
 
           {/* Watched overlay */}
-          <Show when={isWatched}>
+          <Show when={isWatched()}>
             <div class="absolute top-2 right-2 z-10 rounded-full border border-white/30 bg-green-500/90 p-1">
               <Check class="h-3.5 w-3.5 text-white" />
             </div>
@@ -195,18 +263,18 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
         {/* Episode Info */}
         <div class="flex min-w-0 flex-1 flex-col justify-center gap-2 overflow-hidden">
           <div class="min-w-0">
-            <Show when={item.Type === "Episode"}>
+            <Show when={item.data?.Type === "Episode"}>
               <span class="mb-0.5 block truncate font-semibold text-xs uppercase tracking-wide opacity-60">
-                {item.SeasonName}
+                {item.data?.SeasonName}
               </span>
             </Show>
             <h3 class="line-clamp-1 font-bold text-lg transition-colors group-hover:text-white">
-              {item.Name}
+              {item.data?.Name}
             </h3>
           </div>
 
           <p class="line-clamp-3 text-sm leading-relaxed opacity-70">
-            {item.Overview}
+            {item.data?.Overview}
           </p>
 
           {/* Audio & Subtitle Badges */}
@@ -262,13 +330,27 @@ export function EpisodeCard({ item }: EpisodeCardProps) {
 }
 
 // New compact episode card for main page
-export function MainPageEpisodeCard({ item }: EpisodeCardProps) {
-  if (!item || item.LocationType !== "FileSystem") {
+export function MainPageEpisodeCard({ item: initialItem }: EpisodeCardProps) {
+  const { store } = useGeneralInfo();
+  const queryClient = useQueryClient();
+
+  const item = createJellyFinQuery(() => ({
+    queryKey: [
+      library.query.getItem.key,
+      library.query.getItem.keyFor(initialItem?.Id, store?.user?.Id),
+    ],
+    queryFn: async (jf) =>
+      library.query.getItem(jf, initialItem?.Id as string, store?.user?.Id),
+    initialData: initialItem,
+    staleTime: Number.POSITIVE_INFINITY,
+  }));
+
+  if (!item.data || item.data.LocationType !== "FileSystem") {
     return null;
   }
 
-  const runtimeMinutes = item.RunTimeTicks
-    ? Math.round(item.RunTimeTicks / 600_000_000)
+  const runtimeMinutes = item.data.RunTimeTicks
+    ? Math.round(item.data.RunTimeTicks / 600_000_000)
     : null;
 
   // Format runtime as hours and minutes if >= 60 minutes
@@ -285,16 +367,17 @@ export function MainPageEpisodeCard({ item }: EpisodeCardProps) {
   };
 
   // Calculate playback progress percentage
-  const playbackProgress =
-    item.UserData?.PlaybackPositionTicks && item.RunTimeTicks
-      ? (item.UserData.PlaybackPositionTicks / item.RunTimeTicks) * 100
+  const playbackProgress = () =>
+    item.data.UserData?.PlaybackPositionTicks && item.data.RunTimeTicks
+      ? (item.data.UserData.PlaybackPositionTicks / item.data.RunTimeTicks) *
+        100
       : 0;
 
-  const isWatched = item.UserData?.Played;
-  const isInProgress = playbackProgress > 0 && playbackProgress < 95;
+  const isWatched = () => item.data.UserData?.Played;
+  const isInProgress = () => playbackProgress() > 0 && playbackProgress() < 95;
 
   return (
-    <a class="group block" href={`/video/${item.Id}`}>
+    <a class="group block" href={`/video/${item.data.Id}`}>
       <GlassCard
         class="h-full overflow-hidden shadow-[var(--glass-shadow-md)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-[var(--glass-shadow-lg)]"
         preset="card"
@@ -304,15 +387,17 @@ export function MainPageEpisodeCard({ item }: EpisodeCardProps) {
           <Show
             fallback={
               <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--glass-bg-medium)] to-[var(--glass-bg-subtle)]">
-                <span class="text-4xl opacity-30">{item.Name?.charAt(0)}</span>
+                <span class="text-4xl opacity-30">
+                  {item.data.Name?.charAt(0)}
+                </span>
               </div>
             }
-            when={item.Images?.Primary}
+            when={item.data.Images?.Primary}
           >
             <img
-              alt={item.Name ?? "Episode"}
+              alt={item.data.Name ?? "Episode"}
               class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
-              src={item.Images.Primary}
+              src={item.data.Images.Primary}
             />
           </Show>
 
@@ -327,29 +412,44 @@ export function MainPageEpisodeCard({ item }: EpisodeCardProps) {
           </div>
 
           {/* Progress bar */}
-          <Show when={isInProgress}>
+          <Show when={isInProgress()}>
             <div class="absolute right-0 bottom-0 left-0 h-1 bg-black/50">
               <div
                 class="h-full bg-blue-500 transition-all duration-300"
-                style={{ width: `${playbackProgress}%` }}
+                style={{ width: `${playbackProgress()}%` }}
               />
             </div>
           </Show>
 
           {/* Episode number badge */}
-          <Show when={item.IndexNumber}>
+          <Show when={item.data.IndexNumber}>
             <div class="absolute top-3 left-3 z-10 rounded-full border border-white/30 bg-blue-500/90 px-2.5 py-1 font-bold text-sm text-white shadow-lg">
-              E{item.IndexNumber}
+              E{item.data.IndexNumber}
             </div>
           </Show>
 
           {/* Watched indicator */}
-          <Show when={isWatched}>
+          <Show when={isWatched()}>
             <div class="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-full border border-white/20 bg-green-500/90 px-2.5 py-1.5 font-semibold text-white text-xs shadow-lg">
               <Check class="h-3 w-3" />
               <span>Watched</span>
             </div>
           </Show>
+
+          {/* Item Actions - Show on hover */}
+          <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+            <ItemActions
+              item={item.data}
+              itemId={item.data.Id as string}
+              onDone={() => {
+                queryClient.invalidateQueries({
+                  queryKey: [library.query.getNextupItems.key],
+                });
+              }}
+              userId={store?.user?.Id}
+              variant="card"
+            />
+          </div>
 
           {/* Runtime badge */}
           <Show when={runtimeMinutes}>
@@ -361,16 +461,16 @@ export function MainPageEpisodeCard({ item }: EpisodeCardProps) {
           {/* Episode Info */}
           <div class="absolute right-0 bottom-0 left-0 p-3">
             <h3 class="line-clamp-2 font-semibold text-sm text-white drop-shadow-lg">
-              {item.Name}
+              {item.data.Name}
             </h3>
-            <Show when={item.SeriesName}>
+            <Show when={item.data.SeriesName}>
               <p class="mt-1 line-clamp-1 text-white/80 text-xs drop-shadow-md">
-                {item.SeriesName}
+                {item.data.SeriesName}
               </p>
             </Show>
-            <Show when={item.SeasonName && item.IndexNumber}>
+            <Show when={item.data.SeasonName && item.data.IndexNumber}>
               <p class="mt-0.5 text-white/70 text-xs drop-shadow-md">
-                {item.SeasonName} • Episode {item.IndexNumber}
+                {item.data.SeasonName} • Episode {item.data.IndexNumber}
               </p>
             </Show>
           </div>
