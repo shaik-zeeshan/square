@@ -11,7 +11,35 @@ import { getItemsApi } from "@jellyfin/sdk/lib/utils/api/items-api";
 import { getMediaInfoApi } from "@jellyfin/sdk/lib/utils/api/media-info-api";
 import { query } from ".";
 
-const mutation = {};
+const mutation = {
+  markPlayed: async (jf: Api, itemId: string, userId: string) => {
+    const { getPlaystateApi } = await import(
+      "@jellyfin/sdk/lib/utils/api/playstate-api"
+    );
+    await getPlaystateApi(jf).markPlayedItem({ userId, itemId });
+  },
+
+  markUnplayed: async (jf: Api, itemId: string, userId: string) => {
+    const { getPlaystateApi } = await import(
+      "@jellyfin/sdk/lib/utils/api/playstate-api"
+    );
+    await getPlaystateApi(jf).markUnplayedItem({ userId, itemId });
+  },
+
+  markFavorite: async (jf: Api, itemId: string, userId: string) => {
+    const { getUserLibraryApi } = await import(
+      "@jellyfin/sdk/lib/utils/api/user-library-api"
+    );
+    await getUserLibraryApi(jf).markFavoriteItem({ userId, itemId });
+  },
+
+  unmarkFavorite: async (jf: Api, itemId: string, userId: string) => {
+    const { getUserLibraryApi } = await import(
+      "@jellyfin/sdk/lib/utils/api/user-library-api"
+    );
+    await getUserLibraryApi(jf).unmarkFavoriteItem({ userId, itemId });
+  },
+};
 
 const getImageUrlsApi = (api: Api) => new ImageUrlsApi(api.configuration);
 

@@ -1,9 +1,13 @@
 import type { Api } from "@jellyfin/sdk/lib/api";
 import {
+  type InitialDataFunction,
   type QueryFunctionContext,
   type QueryKey,
+  type SolidMutationOptions,
   type SolidQueryOptions,
+  type UseMutationResult,
   type UseQueryResult,
+  useMutation,
   useQuery,
 } from "@tanstack/solid-query";
 import { type ClassValue, clsx } from "clsx";
@@ -46,14 +50,14 @@ export function createQuery<
 }
 
 export function createJellyFinQuery<
-  A,
   E extends Error,
   QueryKeyType extends QueryKey = QueryKey,
+  A = unknown,
 >(
   opts: Accessor<
     Omit<
       SolidQueryOptions<A, E, A, QueryKeyType> & {
-        initialData?: undefined;
+        initialData?: A | InitialDataFunction<A>;
         onError?: (error: Error) => void;
       },
       "queryFn"
@@ -70,6 +74,7 @@ export function createJellyFinQuery<
 
   return useQuery<A, E, A, QueryKeyType>(() => ({
     ...opts(),
+    initialData: (opts().initialData ?? undefined) as A | (() => A),
     queryKey: [
       ...opts().queryKey,
       store.current?.currentUser,
@@ -108,4 +113,49 @@ export function queryJellfinOptions<
   >,
 >(opts: Options): Options {
   return opts;
+}
+
+// export function createMutation<
+//   A,
+//   E extends Error,
+//   MutationKeyType extends MutationKey = MutationKey,
+// >(
+//   opts: Accessor<
+//     SolidMutationOptions<A, E, A, MutationKeyType> & {
+//       initialData?: undefined;
+//       onError?: (error: Error) => void;
+//     }
+//   >
+// ): UseMutationResult<A, E, A, MutationKeyType> {
+//   return useMutation<A, E, A, MutationKeyType>(opts);
+// }
+
+export function createJellyFinMutation<
+  A,
+  E extends Error,
+  MutationContext = unknown,
+  MutationVariables = void,
+>(
+  opts: Accessor<
+    Omit<
+      SolidMutationOptions<A, E, MutationVariables, MutationContext>,
+      "mutationFn"
+    > & {
+      mutationFn: (
+        jellyfin: Api,
+        variables: MutationVariables
+      ) => A | Promise<A>;
+    }
+  >
+): UseMutationResult<A, E, MutationVariables, MutationContext> {
+  const jf = useJellyfin();
+  return useMutation<A, E, MutationVariables, MutationContext>(() => ({
+    ...opts(),
+    mutationFn: async (...args: [MutationVariables]) => {
+      if (!jf.api) {
+        throw new Error("Jellyfin API not found");
+      }
+      return await opts().mutationFn(jf.api, ...args);
+    },
+  }));
 }

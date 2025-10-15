@@ -2,6 +2,7 @@ import { useNavigate } from "@solidjs/router";
 import { HouseIcon } from "lucide-solid";
 import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
 import { useGeneralInfo } from "~/components/current-user-provider";
+import { ItemActions } from "~/components/ItemActions";
 import { MainPageEpisodeCard, SeriesCard } from "~/components/media-card";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
@@ -45,17 +46,13 @@ export default function Home() {
   });
 
   const libraries = createJellyFinQuery(() => ({
-    queryKey: [library.query.getLibraries.key, auth.isUserLoggedIn],
+    queryKey: [library.query.getLibraries.key],
     queryFn: (jf) => library.query.getLibraries(jf, store?.user?.Id),
     enabled: auth.isUserLoggedIn,
   }));
 
   const resumeItems = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getResumeItems.key,
-      auth.isUserLoggedIn,
-      debouncedSearchTerm(),
-    ],
+    queryKey: [library.query.getResumeItems.key, debouncedSearchTerm()],
     queryFn: (jf) =>
       library.query.getResumeItems(jf, store?.user?.Id, {
         searchTerm: debouncedSearchTerm(),
@@ -64,7 +61,7 @@ export default function Home() {
   }));
 
   const nextupItems = createJellyFinQuery(() => ({
-    queryKey: [library.query.getNextupItems.key, auth.isUserLoggedIn],
+    queryKey: [library.query.getNextupItems.key],
     queryFn: (jf) =>
       library.query.getNextupItems(jf, store?.user?.Id, { limit: 3 }),
     enabled: auth.isUserLoggedIn,
@@ -74,7 +71,6 @@ export default function Home() {
     queryKey: [
       library.query.getLatestItems.key,
       "latestMovies",
-      auth.isUserLoggedIn,
       debouncedSearchTerm(),
       libraries.data?.length,
     ],
@@ -111,7 +107,6 @@ export default function Home() {
     queryKey: [
       library.query.getLatestItems.key,
       "latestTVShows",
-      auth.isUserLoggedIn,
       debouncedSearchTerm(),
       libraries.data?.length,
     ],
@@ -271,18 +266,12 @@ export default function Home() {
               >
                 {(data) => (
                   <Switch>
-                    {/* <Match when={data.length === 0}>
-                        <div class="col-span-full text-center py-20 opacity-60">
-                          No resume items found
-                        </div>
-                      </Match> */}
-
                     <Match when={data.length > 0}>
-                      <div>
-                        <h2 class="mb-8 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text font-bold text-2xl text-transparent">
+                      <div class="max-w-full overflow-hidden">
+                        <h2 class="mb-8 w-full overflow-hidden bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text font-bold text-2xl text-transparent">
                           Continue Watching
                         </h2>
-                        <div class="grid grid-cols-3 gap-6 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8">
+                        <div class="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
                           <For each={data}>
                             {(item) => {
                               const progressPercentage =
@@ -296,7 +285,7 @@ export default function Home() {
                                   href={`/video/${item.Id}`}
                                 >
                                   <GlassCard
-                                    class="overflow-hidden shadow-[var(--glass-shadow-md)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-[var(--glass-shadow-lg)]"
+                                    class="w-96 overflow-hidden shadow-[var(--glass-shadow-md)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-[var(--glass-shadow-lg)]"
                                     preset="card"
                                   >
                                     <div class="relative aspect-[16/9] overflow-hidden">
@@ -340,6 +329,25 @@ export default function Home() {
                                             style={`width: ${progressPercentage}%`}
                                           />
                                         </div>
+                                      </Show>
+
+                                      {/* Item Actions - Show on hover */}
+                                      <Show when={item.Id}>
+                                        {(itemId) => (
+                                          <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                                            <ItemActions
+                                              item={item}
+                                              itemId={itemId()}
+                                              onDone={() => {
+                                                resumeItems.refetch({
+                                                  cancelRefetch: true,
+                                                });
+                                              }}
+                                              userId={store?.user?.Id}
+                                              variant="card"
+                                            />
+                                          </div>
+                                        )}
                                       </Show>
 
                                       {/* Title Info */}

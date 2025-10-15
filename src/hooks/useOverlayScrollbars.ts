@@ -9,7 +9,11 @@ export const useOverlayScrollbars = () => {
       const scrollableElements = [
         document.body,
         document.querySelector('[data-scrollable="true"]'),
+        // for vertical scroll
         ...document.querySelectorAll(".overflow-y-auto"),
+        // for horizontal scroll
+        ...document.querySelectorAll(".overflow-x-auto"),
+        // for both vertical and horizontal scroll
         ...document.querySelectorAll(".overflow-auto"),
       ].filter(Boolean) as Element[];
 

@@ -1,5 +1,6 @@
 import { ItemFilter } from "@jellyfin/sdk/lib/generated-client";
 import { type RouteSectionProps, useNavigate } from "@solidjs/router";
+import { useQueryClient } from "@tanstack/solid-query";
 import {
   ArrowUp,
   Calendar,
@@ -21,6 +22,7 @@ import {
   splitProps,
 } from "solid-js";
 import { useGeneralInfo } from "~/components/current-user-provider";
+import { ItemActions } from "~/components/ItemActions";
 import { EpisodeCard, SeriesCard } from "~/components/media-card";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
@@ -32,6 +34,7 @@ import { createJellyFinQuery } from "~/lib/utils";
 export default function Page(props: RouteSectionProps) {
   const [{ params }] = splitProps(props, ["params"]);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const { store } = useGeneralInfo();
   const [isOverviewExpanded, setIsOverviewExpanded] = createSignal(false);
@@ -103,6 +106,17 @@ export default function Page(props: RouteSectionProps) {
       if (!seasons || seasons.length === 0) {
         return [];
       }
+
+      seasons.forEach((season) => {
+        queryClient.setQueryData(
+          [
+            library.query.getItem.key,
+            library.query.getItem.keyFor(season.Id, store?.user?.Id),
+            store?.user?.Name,
+          ],
+          season
+        );
+      });
 
       return seasons;
     },
@@ -225,7 +239,7 @@ export default function Page(props: RouteSectionProps) {
             />
 
             <div
-              class="relative z-20 flex-1 overflow-y-auto px-8 py-8 text-white"
+              class="relative z-20 flex-1 px-8 py-8 text-white"
               ref={contentAreaRef}
             >
               <div class="mx-auto flex h-full max-w-7xl flex-col">
@@ -284,6 +298,19 @@ export default function Page(props: RouteSectionProps) {
                         </span>
                       </div>
                     </Show>
+                  </div>
+
+                  {/* Item Actions */}
+                  <div class="flex items-center gap-2 pt-2">
+                    <ItemActions
+                      item={item}
+                      itemId={item.Id || ""}
+                      onDone={() => {
+                        childrens.refetch({ cancelRefetch: true });
+                      }}
+                      userId={store?.user?.Id}
+                      variant="detail"
+                    />
                   </div>
 
                   {/* Genres - Compact pills */}

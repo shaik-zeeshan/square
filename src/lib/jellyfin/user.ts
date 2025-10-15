@@ -90,7 +90,8 @@ const mutation = {
       throw new Error("token not found");
     }
 
-    setAuthStore({ accessToken: token, isUserLoggedIn: true });
+    const userData = loginReq.data.User;
+    setAuthStore({ accessToken: token, isUserLoggedIn: true, user: userData });
 
     return token;
   },

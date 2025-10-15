@@ -80,7 +80,7 @@ export default function Page(props: RouteSectionProps) {
       </QueryBoundary>
 
       {/* Content Area */}
-      <div class="relative z-20 flex-1 overflow-y-auto px-8 py-6">
+      <div class="relative z-20 flex-1 px-8 py-6">
         <div class="grid grid-cols-4 gap-6 xl:grid-cols-6 2xl:grid-cols-8">
           <QueryBoundary
             loadingFallback={
