@@ -1,3 +1,4 @@
+import { createEventListener } from "@solid-primitives/event-listener";
 import { useNavigate } from "@solidjs/router";
 import { ChevronRight, Home, Search, X } from "lucide-solid";
 import { createEffect, createSignal, type JSX, Show } from "solid-js";
@@ -44,6 +45,37 @@ export function Nav(props: NavProps) {
     setIsSearchOpen(false);
     props.onSearchChange?.("");
   };
+
+  const handleSearchOpen = () => {
+    if (props.showSearch) {
+      setIsSearchOpen(true);
+    }
+  };
+
+  // Add Ctrl+K keyboard shortcut to open search
+  createEventListener(
+    document,
+    "keydown",
+    (e) => {
+      // Don't trigger shortcuts when typing in input fields
+      const target = e.target as HTMLElement;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
+        return;
+      }
+
+      // Check for Ctrl+K (or Cmd+K on Mac)
+      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+        e.preventDefault();
+        handleSearchOpen();
+      }
+      // Close search with Escape
+      if (e.key === "Escape" && isSearchOpen()) {
+        e.preventDefault();
+        handleSearchClose();
+      }
+    },
+    { passive: false }
+  );
 
   // Determine text color based on variant
   const variant = props.variant ?? "dark";
@@ -127,8 +159,8 @@ export function Nav(props: NavProps) {
                 <button
                   aria-label="Search"
                   class={`rounded-md p-2 ${hoverBgClass} transition-colors`}
-                  onClick={() => setIsSearchOpen(true)}
-                  title="Search"
+                  onClick={handleSearchOpen}
+                  title="Search (Ctrl+K)"
                   type="button"
                 >
                   <Search class="h-5 w-5" />
@@ -143,6 +175,12 @@ export function Nav(props: NavProps) {
                 <input
                   class={`w-48 bg-transparent text-sm outline-none ${searchTextClass}`}
                   onInput={(e) => props.onSearchChange?.(e.currentTarget.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      handleSearchClose();
+                    }
+                  }}
                   placeholder="Search..."
                   ref={searchInputRef}
                   type="text"
