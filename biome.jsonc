@@ -45,7 +45,8 @@
         "recommended": false,
         "noDebugger": "off",
         "useIterableCallbackReturn": "off",
-        "noUnknownAtRules": "off"
+        "noUnknownAtRules": "off",
+        "noUnassignedVariables": "off"
       },
       "complexity": {
         "recommended": false,

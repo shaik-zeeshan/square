@@ -29,6 +29,12 @@ type VideoControlsProps = {
     audioList: Track[];
     subtitleList: Track[];
     chapters: Chapter[];
+    // New buffering and loading states
+    bufferedTime: number;
+    bufferingPercentage: number;
+    isLoading: boolean;
+    isBuffering: boolean;
+    isSeeking: boolean;
   };
   openPanel: () => "audio" | "subtitles" | "speed" | "chapters" | null;
   setOpenPanel: (
@@ -48,6 +54,13 @@ type VideoControlsProps = {
 export default function VideoControls(props: VideoControlsProps) {
   const progressPercentage = () =>
     (Number(props.state.currentTime) / props.state.duration) * 100 || 0;
+
+  const bufferedPercentage = () => {
+    if (props.state.duration === 0) {
+      return 0;
+    }
+    return (props.state.bufferedTime / props.state.duration) * 100 || 0;
+  };
 
   const getVolumeIcon = () => {
     if (props.state.isMuted || props.state.volume === 0) {
@@ -93,10 +106,42 @@ export default function VideoControls(props: VideoControlsProps) {
         </span>
         <div class="relative flex-1">
           <div class="relative h-1.5 overflow-hidden rounded-lg bg-white/30">
+            {/* Buffered range */}
             <div
-              class="h-full bg-white/80 transition-all duration-150"
+              class="absolute top-0 left-0 h-full bg-white/40 transition-all duration-300"
+              style={{ width: `${bufferedPercentage()}%` }}
+            />
+            {/* Current progress */}
+            <div
+              class="relative h-full bg-white/80 transition-all duration-150"
               style={{ width: `${progressPercentage()}%` }}
             />
+            {/* Shimmer effect for buffered sections */}
+            <Show when={props.state.isBuffering}>
+              <div
+                class="absolute top-0 h-full w-8 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                style={{
+                  left: `${bufferedPercentage()}%`,
+                  animation: "shimmer 1.5s ease-in-out infinite",
+                }}
+              />
+            </Show>
+
+            {/* Enhanced buffering/seeking indicator */}
+            <Show when={props.state.isBuffering || props.state.isSeeking}>
+              <div
+                class="-translate-y-1/2 absolute top-1/2 h-4 w-4 translate-x-1/2 rounded-full border-2 border-white bg-white/80 shadow-lg"
+                style={{
+                  left: `${props.state.isSeeking ? progressPercentage() : bufferedPercentage()}%`,
+                  animation: props.state.isBuffering
+                    ? "pulse 1.5s ease-in-out infinite"
+                    : "none",
+                  "box-shadow": props.state.isBuffering
+                    ? "0 0 8px rgba(255, 255, 255, 0.6)"
+                    : "none",
+                }}
+              />
+            </Show>
             {/* Chapter markers */}
             <Show when={props.state.chapters.length > 0}>
               <For each={props.state.chapters}>

@@ -222,3 +222,13 @@
   margin-right: 4px;
   cursor: grab;
 }
+
+/* Video player animations */
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(400%);
+  }
+}

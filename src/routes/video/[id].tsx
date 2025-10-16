@@ -8,7 +8,11 @@ import { createEffect, onCleanup, onMount, Show } from "solid-js";
 import { useGeneralInfo } from "~/components/current-user-provider";
 import {
   AutoplayOverlay,
+  BufferingIndicator,
+  KeyboardShortcutsHelp,
+  LoadingSpinner,
   OpenInIINAButton,
+  OSD,
   VideoControls,
   VideoInfoOverlay,
   VideoSettingsPanels,
@@ -32,30 +36,48 @@ export default function Page(_props: RouteSectionProps) {
       library.query.getItem.key,
       library.query.getItem.keyFor(routeParams.id, userStore?.user?.Id),
     ],
-    queryFn: async (jf) =>
-      library.query.getItem(jf, routeParams.id, userStore?.user?.Id, [
+    queryFn: (jf) => {
+      if (!routeParams.id) {
+        throw new Error("Route parameter ID not found");
+      }
+      return library.query.getItem(jf, routeParams.id, userStore?.user?.Id, [
         "Overview",
         "ParentId",
-      ]),
+      ]);
+    },
+    enabled: !!routeParams.id && !!userStore?.user?.Id,
     refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 3,
   }));
 
   const parentDetails = createJellyFinQuery(() => ({
     queryKey: [
       library.query.getItem.key,
-      library.query.getItem.keyFor(routeParams.id, userStore?.user?.Id),
+      library.query.getItem.keyFor(
+        itemDetails.data?.ParentId || "",
+        userStore?.user?.Id
+      ),
       itemDetails.data?.ParentId,
     ],
-    queryFn: async (jf) =>
-      library.query.getItem(
-        jf,
-        itemDetails.data?.ParentId || "",
-        userStore?.user?.Id,
-        ["Overview", "ParentId"]
-      ),
+    queryFn: (jf) => {
+      const parentId = itemDetails.data?.ParentId;
+      if (!parentId) {
+        throw new Error("Parent ID not found");
+      }
+      return library.query.getItem(jf, parentId, userStore?.user?.Id, [
+        "Overview",
+        "ParentId",
+      ]);
+    },
 
-    enabled: !!itemDetails.data?.ParentId && itemDetails.data.Type !== "Movie",
+    enabled:
+      !!itemDetails.data?.ParentId &&
+      itemDetails.data?.Type !== "Movie" &&
+      !!userStore?.user?.Id,
     refetchOnWindowFocus: false,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 3,
   }));
 
   // Use the custom hook for playback state management
@@ -75,7 +97,13 @@ export default function Page(_props: RouteSectionProps) {
     handleControlMouseEnter,
     handleControlMouseLeave,
     navigateToChapter,
-  } = useVideoPlayback(() => routeParams.id, itemDetails);
+    showOSD,
+    hideOSD,
+    toggleHelp,
+  } = useVideoPlayback(
+    () => routeParams.id,
+    () => itemDetails.data
+  );
 
   // Use autoplay hook - don't destructure to maintain reactivity
   const autoplayHook = useAutoplay({
@@ -88,13 +116,9 @@ export default function Page(_props: RouteSectionProps) {
     },
   });
 
-  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
   let audioBtnRef!: HTMLButtonElement;
-  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
   let subsBtnRef!: HTMLButtonElement;
-  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
   let speedBtnRef!: HTMLButtonElement;
-  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign these variables later
   let panelRef!: HTMLButtonElement;
 
   // Use keyboard shortcuts hook
@@ -105,8 +129,11 @@ export default function Page(_props: RouteSectionProps) {
     togglePlay,
     toggleMute,
     handleVolumeChange,
+    setSpeed,
     showControls,
     navigateToChapter,
+    toggleHelp,
+    showOSD,
   });
 
   // Close panel when clicking outside
@@ -245,6 +272,31 @@ export default function Page(_props: RouteSectionProps) {
       onMouseMove={handleMouseMove}
       role="button"
     >
+      {/* Initial Loading Overlay */}
+      <Show when={state.isLoading}>
+        <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <LoadingSpinner
+            loadingStage={state.loadingStage}
+            progress={state.bufferingPercentage}
+            size="lg"
+            text="Loading video..."
+          />
+        </div>
+      </Show>
+
+      {/* Buffering Overlay */}
+      <Show when={state.isBuffering && !state.isLoading}>
+        <div class="absolute inset-0 z-40 flex items-center justify-center">
+          <BufferingIndicator
+            bufferHealth={state.bufferHealth}
+            bufferingPercentage={state.bufferingPercentage}
+            isBuffering={state.isBuffering}
+            networkQuality={state.networkQuality}
+            showText
+            variant="overlay"
+          />
+        </div>
+      </Show>
       {/* Lock Button - Always Visible */}
       <button
         aria-label={
@@ -355,6 +407,12 @@ export default function Page(_props: RouteSectionProps) {
           setIsCollapsed={autoplayHook().setIsCollapsed}
         />
       </div>
+
+      {/* OSD (On-Screen Display) */}
+      <OSD onHide={hideOSD} state={state.osd} />
+
+      {/* Keyboard Shortcuts Help Overlay */}
+      <KeyboardShortcutsHelp onClose={toggleHelp} visible={state.showHelp} />
     </div>
   );
 }

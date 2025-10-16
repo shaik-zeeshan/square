@@ -125,7 +125,6 @@ export default function Page(props: RouteSectionProps) {
   }));
 
   // Scroll to top handler
-  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign this variable later
   let contentAreaRef!: HTMLDivElement;
 
   const scrollToTop = () => {
@@ -489,6 +488,11 @@ function ItemsRender({
 }: ItemsRenderProsp) {
   return (
     <Switch>
+      <Match when={!parentItem}>
+        <div class="space-y-4">
+          <h2 class="font-semibold text-lg">No item</h2>
+        </div>
+      </Match>
       <Match when={!parentItem?.Type}>
         <div class="space-y-4">
           <h2 class="font-semibold text-lg">No seasons</h2>
