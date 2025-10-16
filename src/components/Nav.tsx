@@ -31,7 +31,6 @@ export function Nav(props: NavProps) {
   const navigate = useNavigate();
   const [isSearchOpen, setIsSearchOpen] = createSignal(false);
 
-  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign this variable later
   let searchInputRef!: HTMLInputElement;
 
   // Auto-focus search input when opened

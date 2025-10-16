@@ -16,11 +16,10 @@ export function UserDropdown(props: UserDropdownProps) {
   const navigate = useNavigate();
   const generalInfo = useGeneralInfo();
   const [isUserDropdownOpen, setIsUserDropdownOpen] = createSignal(false);
-  // biome-ignore lint/suspicious/noUnassignedVariables: we need to assign this variable later
   let userDropdownRef!: HTMLDivElement;
 
   const logout = useMutation(() => ({
-    mutationFn: async () => await user.mutation.logout(),
+    mutationFn: async () => user.mutation.logout(),
     onSuccess: () => {
       navigate("/");
     },
