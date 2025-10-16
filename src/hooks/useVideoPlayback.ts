@@ -5,16 +5,29 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { createEffect, createSignal, onCleanup } from "solid-js";
 import { createStore } from "solid-js/store";
 import { useJellyfin } from "~/components/jellyfin-provider";
-import type { Chapter, OpenPanel, Track } from "~/components/video/types";
+import type {
+  BufferHealth,
+  Chapter,
+  LoadingStage,
+  NetworkQuality,
+  OpenPanel,
+  OSDState,
+  Track,
+} from "~/components/video/types";
 import {
   DEFAULT_AUDIO_LANG,
   DEFAULT_SUBTITLE_LANG,
 } from "~/components/video/types";
+import type library from "~/lib/jellyfin/library";
 import { commands } from "~/lib/tauri";
 
+type ItemDetails =
+  | Awaited<ReturnType<typeof library.query.getItem>>
+  | undefined;
+
 export function useVideoPlayback(
-  itemId: () => string, // biome-ignore lint/suspicious/noExplicitAny: query data
-  itemDetails: any
+  itemId: () => string,
+  itemDetails: () => ItemDetails
 ) {
   const jf = useJellyfin();
 
@@ -35,6 +48,24 @@ export function useVideoPlayback(
     url: "",
     currentItemId: itemId(),
     isHoveringControls: false,
+    // New buffering and loading states
+    bufferedTime: 0,
+    bufferingPercentage: 0,
+    isLoading: true,
+    isBuffering: false,
+    isSeeking: false,
+    // OSD and help states
+    osd: {
+      visible: false,
+      type: "play" as const,
+      value: null,
+      icon: "Play",
+      label: "",
+    } as OSDState,
+    showHelp: false,
+    loadingStage: "connecting" as LoadingStage,
+    networkQuality: "good" as NetworkQuality,
+    bufferHealth: "healthy" as BufferHealth,
   });
 
   const [openPanel, setOpenPanel] = createSignal<OpenPanel>(null);
@@ -92,11 +123,47 @@ export function useVideoPlayback(
     }
   };
 
+  const showOSD = (
+    type: OSDState["type"],
+    value: string | number | null,
+    label?: string
+  ) => {
+    setState("osd", {
+      visible: true,
+      type,
+      value,
+      icon: type,
+      label: label || "",
+    });
+  };
+
+  const hideOSD = () => {
+    setState("osd", "visible", false);
+  };
+
+  const toggleHelp = () => {
+    setState("showHelp", !state.showHelp);
+  };
+
+  const updateLoadingStage = (stage: LoadingStage) => {
+    setState("loadingStage", stage);
+  };
+
+  const updateNetworkQuality = (quality: NetworkQuality) => {
+    setState("networkQuality", quality);
+  };
+
+  const updateBufferHealth = (health: BufferHealth) => {
+    setState("bufferHealth", health);
+  };
+
   const togglePlay = () => {
     if (state.playing) {
       commands.playbackPause();
+      showOSD("pause", null, "Paused");
     } else {
       commands.playbackPlay();
+      showOSD("play", null, "Playing");
     }
   };
 
@@ -106,9 +173,11 @@ export function useVideoPlayback(
       commands.playbackVolume(lastVolume);
       setState("volume", lastVolume);
       setState("isMuted", false);
+      showOSD("unmute", lastVolume, "Unmuted");
     } else {
       commands.playbackVolume(0);
       setState("isMuted", true);
+      showOSD("mute", 0, "Muted");
     }
   };
 
@@ -117,11 +186,13 @@ export function useVideoPlayback(
     commands.playbackVolume(newVolume);
     setState("volume", newVolume);
     setState("isMuted", newVolume === 0);
+    showOSD("volume", newVolume);
   };
 
   const setSpeed = (speed: number) => {
     commands.playbackSpeed(speed);
     setState("playbackSpeed", speed);
+    showOSD("speed", speed);
   };
 
   const navigateToChapter = (chapter: Chapter) => {
@@ -131,7 +202,17 @@ export function useVideoPlayback(
     // Use relative time approach like handleProgressClick
     const currentTime = Number(state.currentTime);
     const relativeTime = startTimeSeconds - currentTime;
+
+    // Set seeking state
+    setState("isSeeking", true);
+    showControls();
+
     commands.playbackSeek(relativeTime);
+
+    // Reset seeking state after a delay
+    setTimeout(() => {
+      setState("isSeeking", false);
+    }, 1000);
 
     // Don't immediately update state - let Tauri's playback-time event handle it
     // This prevents the state from being overwritten by stale time events
@@ -143,8 +224,18 @@ export function useVideoPlayback(
     }
     const newTime = (value / 100) * state.duration;
     const relativeTime = newTime - Number(state.currentTime);
+
+    // Set seeking state
+    setState("isSeeking", true);
+    showControls();
+
     commands.playbackSeek(relativeTime);
     setState("currentTime", newTime.toString());
+
+    // Reset seeking state after a delay
+    setTimeout(() => {
+      setState("isSeeking", false);
+    }, 1000);
   };
 
   const loadNewVideo = (url: string, newItemId: string) => {
@@ -153,6 +244,12 @@ export function useVideoPlayback(
     setState("currentTime", "0");
     setState("duration", 0);
     setState("playing", true);
+    // Reset buffering and loading states for new video
+    setState("bufferedTime", 0);
+    setState("bufferingPercentage", 0);
+    setState("isLoading", true);
+    setState("isBuffering", false);
+    setState("isSeeking", false);
     commands.playbackLoad(url);
   };
 
@@ -192,76 +289,25 @@ export function useVideoPlayback(
     setState("currentTime", "0");
     setState("duration", 0);
 
+    commands.playbackLoad(url);
+    commands.playbackPlay();
+  });
+
+  createEffect(() => {
     let chapters: Chapter[] = [];
 
     // Check for chapters in different possible fields
-    if (itemDetails.data?.Chapters) {
-      if (Array.isArray(itemDetails.data.Chapters)) {
-        chapters = itemDetails.data.Chapters.map((chapter: Chapter) => ({
-          startPositionTicks: chapter.startPositionTicks || 0,
-          name: chapter.name || null,
-          imagePath: chapter.imagePath || null,
-          imageDateModified: chapter.imageDateModified || null,
-          imageTag: chapter.imageTag || null,
-        }));
-      } else if (typeof itemDetails.data.Chapters === "string") {
-        // Handle case where chapters are stored as JSON string
-        try {
-          const chaptersData = JSON.parse(itemDetails.data.Chapters);
-          chapters = chaptersData.map((chapter: Chapter) => ({
-            startPositionTicks: chapter.startPositionTicks || 0,
-            name: chapter.name || null,
-            imagePath: chapter.imagePath || null,
-            imageDateModified: chapter.imageDateModified || null,
-            imageTag: chapter.imageTag || null,
-          }));
-        } catch {
-          // Do nothing
-        }
-      }
-    } else if (itemDetails.data?.MediaSources?.[0]?.Chapters) {
-      chapters = itemDetails.data.MediaSources[0].Chapters.map(
-        (chapter: Chapter) => ({
-          startPositionTicks: chapter.startPositionTicks || 0,
-          name: chapter.name || null,
-          imagePath: chapter.imagePath || null,
-          imageDateModified: chapter.imageDateModified || null,
-          imageTag: chapter.imageTag || null,
-        })
-      );
-    } else {
-      // Check all possible fields that might contain chapter data
-      const possibleFields = [
-        "Chapters",
-        "ChapterInfo",
-        "ChapterList",
-        "MediaChapters",
-      ];
-      for (const field of possibleFields) {
-        if (
-          itemDetails.data?.[field] &&
-          typeof itemDetails.data[field] === "string"
-        ) {
-          try {
-            const chaptersData = JSON.parse(itemDetails.data[field]);
-            chapters = chaptersData.map((chapter: Chapter) => ({
-              startPositionTicks: chapter.startPositionTicks || 0,
-              name: chapter.name || null,
-              imagePath: chapter.imagePath || null,
-              imageDateModified: chapter.imageDateModified || null,
-              imageTag: chapter.imageTag || null,
-            }));
-            break;
-          } catch {
-            // Do nothing
-          }
-        }
-      }
+    if (itemDetails()?.Chapters && Array.isArray(itemDetails()?.Chapters)) {
+      chapters =
+        (itemDetails()?.Chapters?.map((chapter) => ({
+          startPositionTicks: chapter?.StartPositionTicks || 0,
+          name: chapter?.Name || null,
+          imagePath: chapter?.ImagePath || null,
+          imageDateModified: chapter?.ImageDateModified || null,
+          imageTag: chapter?.ImageTag || null,
+        })) as Chapter[]) ?? [];
     }
     setState("chapters", chapters);
-
-    commands.playbackLoad(url);
-    commands.playbackPlay();
   });
 
   createEffect(async () => {
@@ -273,6 +319,9 @@ export function useVideoPlayback(
     unlistenFuncs = [];
 
     const fileLoaded = await listen("file-loaded", (_event) => {
+      // Reset loading state when file is loaded
+      setState("isLoading", false);
+      setState("isBuffering", false);
       commands.playbackPlay();
     });
 
@@ -280,7 +329,13 @@ export function useVideoPlayback(
 
     const playbackTime = await listen("playback-time", async (event) => {
       const newTime = event.payload as string;
-      setState("currentTime", newTime);
+
+      // Batch state updates for better performance
+      setState({
+        currentTime: newTime,
+        // Reset seeking state if we're getting time updates
+        isSeeking: false,
+      });
 
       // Report progress to Jellyfin every 3 seconds
       const now = Date.now();
@@ -292,7 +347,7 @@ export function useVideoPlayback(
             playbackProgressInfo: {
               ItemId: currentItemId,
               PlaySessionId: playSessionId,
-              PositionTicks: Math.floor(Number(state.currentTime) * 10_000_000),
+              PositionTicks: Math.floor(Number(newTime) * 10_000_000),
               IsPaused: !state.playing,
               IsMuted: state.isMuted,
               VolumeLevel: Math.min(state.volume, 100),
@@ -318,36 +373,41 @@ export function useVideoPlayback(
 
     unlistenFuncs.push(pause);
 
-    const audioList = await listen("audio-list", (event) => {
+    const audioList = await listen("audio-list", async (event) => {
       setState("audioList", event.payload as Track[]);
-      if (state.audioIndex >= -1) {
+      if (state.audioIndex > -1) {
         return;
       }
       const defaultAudio = (event.payload as Track[]).find((track) =>
         DEFAULT_AUDIO_LANG.includes(track.lang ?? "")
       );
       if (defaultAudio) {
-        commands.playbackChangeAudio(defaultAudio.id.toString());
+        await commands.playbackChangeAudio(defaultAudio.id.toString());
         setState("audioIndex", defaultAudio.id as number);
-      } else if (state.audioList.length > 0) {
-        commands.playbackChangeAudio(state.audioList[0].id.toString());
+      } else if ((event.payload as Track[]).length > 0) {
+        await commands.playbackChangeAudio(state.audioList[0].id.toString());
         setState("audioIndex", state.audioList[0].id);
       }
     });
 
     unlistenFuncs.push(audioList);
 
-    const subtitleList = await listen("subtitle-list", (event) => {
+    const subtitleList = await listen("subtitle-list", async (event) => {
       setState("subtitleList", event.payload as Track[]);
-      if (state.subtitleIndex >= -1) {
+      if (state.subtitleIndex > -1) {
         return;
       }
       const defaultSubtitle = (event.payload as Track[]).find((track) =>
         DEFAULT_SUBTITLE_LANG.includes(track.lang ?? "")
       );
       if (defaultSubtitle) {
-        commands.playbackChangeSubtitle(defaultSubtitle.id.toString());
+        await commands.playbackChangeSubtitle(defaultSubtitle.id.toString());
         setState("subtitleIndex", defaultSubtitle.id);
+      } else if ((event.payload as Track[]).length > 0) {
+        await commands.playbackChangeSubtitle(
+          state.subtitleList[0].id.toString()
+        );
+        setState("subtitleIndex", state.subtitleList[0].id);
       }
     });
 
@@ -357,7 +417,7 @@ export function useVideoPlayback(
       setState("duration", Number(event.payload as string));
 
       // Resume from saved position if available
-      const savedPosition = itemDetails.data?.UserData?.PlaybackPositionTicks;
+      const savedPosition = itemDetails()?.UserData?.PlaybackPositionTicks ?? 0;
       if (savedPosition && savedPosition > 0) {
         // Convert ticks to seconds (1 tick = 0.0000001 seconds)
         const savedSeconds = savedPosition / 10_000_000;
@@ -416,6 +476,67 @@ export function useVideoPlayback(
     });
 
     unlistenFuncs.push(speed);
+
+    // Cache and buffering event listeners with debouncing
+    let cacheUpdateTimeout: NodeJS.Timeout;
+    const cacheTime = await listen("cache-time", (event) => {
+      const currentTime = Number(state.currentTime);
+      const bufferedDuration = Number(event.payload as number);
+
+      // Debounce cache updates to prevent excessive re-renders
+      clearTimeout(cacheUpdateTimeout);
+      cacheUpdateTimeout = setTimeout(() => {
+        setState("bufferedTime", Math.max(0, currentTime + bufferedDuration));
+
+        // Update loading state based on buffer
+        if (state.isLoading && bufferedDuration > 0) {
+          setState("isLoading", false);
+        }
+      }, 100);
+    });
+
+    unlistenFuncs.push(cacheTime);
+
+    const bufferingState = await listen("buffering-state", (event) => {
+      const percentage = Number(event.payload as number);
+
+      // Only update if percentage changed significantly to reduce re-renders
+      const currentPercentage = state.bufferingPercentage;
+      if (Math.abs(percentage - currentPercentage) > 1) {
+        setState("bufferingPercentage", Math.max(0, Math.min(100, percentage)));
+
+        // Determine if we're actively buffering
+        const wasBuffering = state.isBuffering;
+        const isNowBuffering = percentage < 100 && percentage > 0;
+
+        if (isNowBuffering !== wasBuffering) {
+          setState("isBuffering", isNowBuffering);
+
+          // Show controls when buffering starts
+          if (isNowBuffering) {
+            showControls();
+          }
+        }
+      }
+    });
+
+    unlistenFuncs.push(bufferingState);
+
+    const pausedForCache = await listen("paused-for-cache", (event) => {
+      const isPaused = event.payload as boolean;
+
+      // Only update if state actually changed
+      if (state.isBuffering !== isPaused) {
+        setState("isBuffering", isPaused);
+
+        // Show controls when paused for cache
+        if (isPaused) {
+          showControls();
+        }
+      }
+    });
+
+    unlistenFuncs.push(pausedForCache);
   });
 
   const offFullscreenIfOnWhenCleanup = async () => {
@@ -468,5 +589,12 @@ export function useVideoPlayback(
     handleControlMouseEnter,
     handleControlMouseLeave,
     navigateToChapter,
+    // OSD and help functions
+    showOSD,
+    hideOSD,
+    toggleHelp,
+    updateLoadingStage,
+    updateNetworkQuality,
+    updateBufferHealth,
   };
 }

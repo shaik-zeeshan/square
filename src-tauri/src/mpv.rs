@@ -105,6 +105,10 @@ impl MpvPlayer {
         mpv.observe_property("aid", libmpv2::Format::String, 5)?;
         mpv.observe_property("sid", libmpv2::Format::String, 6)?;
         mpv.observe_property("speed", libmpv2::Format::Double, 7)?;
+        // Cache and buffering properties
+        mpv.observe_property("demuxer-cache-time", libmpv2::Format::Double, 8)?;
+        mpv.observe_property("cache-buffering-state", libmpv2::Format::Int64, 9)?;
+        mpv.observe_property("paused-for-cache", libmpv2::Format::Flag, 10)?;
 
         mpv.disable_deprecated_events()?;
 
@@ -306,6 +310,7 @@ impl EventHandler {
                 change: PropertyData::Str(aid),
                 reply_userdata: 5,
             } => {
+                println!("aid: {}", aid);
                 window.emit("aid", aid).unwrap();
             }
 
@@ -314,6 +319,7 @@ impl EventHandler {
                 change: PropertyData::Str(sid),
                 reply_userdata: 6,
             } => {
+                println!("sid: {}", sid);
                 window.emit("sid", sid).unwrap();
             }
 
@@ -323,6 +329,31 @@ impl EventHandler {
                 reply_userdata: 7,
             } => {
                 window.emit("speed", speed).unwrap();
+            }
+
+            // Cache and buffering events
+            libmpv2::events::Event::PropertyChange {
+                name: "demuxer-cache-time",
+                change: PropertyData::Double(cache_time),
+                reply_userdata: 8,
+            } => {
+                window.emit("cache-time", cache_time).unwrap();
+            }
+
+            libmpv2::events::Event::PropertyChange {
+                name: "cache-buffering-state",
+                change: PropertyData::Int64(buffering_state),
+                reply_userdata: 9,
+            } => {
+                window.emit("buffering-state", buffering_state).unwrap();
+            }
+
+            libmpv2::events::Event::PropertyChange {
+                name: "paused-for-cache",
+                change: PropertyData::Flag(paused_for_cache),
+                reply_userdata: 10,
+            } => {
+                window.emit("paused-for-cache", paused_for_cache).unwrap();
             }
 
             libmpv2::events::Event::EndFile(reason) => {
