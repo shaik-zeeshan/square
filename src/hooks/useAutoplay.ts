@@ -47,6 +47,7 @@ export function useAutoplay(props: UseAutoplayProps) {
       !!props.currentItemId() &&
       !!userStore?.user?.Id &&
       props.currentItemDetails?.data?.Type === "Episode",
+    refetchOnWindowFocus: false,
   }));
 
   // Check if we should show autoplay when query completes

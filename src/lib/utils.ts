@@ -49,6 +49,19 @@ export function createQuery<
   return useQuery<A, E, A, QueryKeyType>(opts);
 }
 
+/**
+ * Create a Jellyfin query with automatic API injection
+ * @template E - The error type
+ * @template QueryKeyType - The query key type
+ * @template A - The data type
+ * @param opts - The query options with a custom queryFn that receives the Jellyfin API
+ * @returns The query result
+ * @example
+ * const query = createJellyFinQuery(() => ({
+ *   queryKey: ["items"],
+ *   queryFn: async (jf) => jf.getItems(),
+ * }));
+ */
 export function createJellyFinQuery<
   E extends Error,
   QueryKeyType extends QueryKey = QueryKey,

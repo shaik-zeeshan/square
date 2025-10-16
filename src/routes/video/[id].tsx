@@ -37,6 +37,7 @@ export default function Page(_props: RouteSectionProps) {
         "Overview",
         "ParentId",
       ]),
+    refetchOnWindowFocus: false,
   }));
 
   const parentDetails = createJellyFinQuery(() => ({
@@ -54,6 +55,7 @@ export default function Page(_props: RouteSectionProps) {
       ),
 
     enabled: !!itemDetails.data?.ParentId && itemDetails.data.Type !== "Movie",
+    refetchOnWindowFocus: false,
   }));
 
   // Use the custom hook for playback state management
