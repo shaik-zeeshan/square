@@ -267,11 +267,11 @@ export default function Home() {
                 {(data) => (
                   <Switch>
                     <Match when={data.length > 0}>
-                      <div class="max-w-full overflow-hidden">
-                        <h2 class="mb-8 w-full overflow-hidden bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text font-bold text-2xl text-transparent">
+                      <div>
+                        <h2 class="mb-8 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text font-bold text-2xl text-transparent">
                           Continue Watching
                         </h2>
-                        <div class="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                        <div class="grid grid-cols-2 gap-6 md:grid-cols-3">
                           <For each={data}>
                             {(item) => {
                               const progressPercentage =
@@ -285,7 +285,7 @@ export default function Home() {
                                   href={`/video/${item.Id}`}
                                 >
                                   <GlassCard
-                                    class="w-96 overflow-hidden shadow-[var(--glass-shadow-md)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-[var(--glass-shadow-lg)]"
+                                    class="overflow-hidden shadow-[var(--glass-shadow-md)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-[var(--glass-shadow-lg)]"
                                     preset="card"
                                   >
                                     <div class="relative aspect-[16/9] overflow-hidden">
