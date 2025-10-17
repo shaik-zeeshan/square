@@ -1,7 +1,6 @@
 use specta::specta;
 use tauri::{Manager, WebviewBuilder, WindowBuilder, Wry};
-use keyring::{Entry, Result as KeyringResult};
-use rand::{distributions::Alphanumeric, Rng};
+
 
 use tauri_plugin_http;
 
@@ -12,30 +11,10 @@ pub mod mpv;
 mod store;
 mod credentials;
 
+#[derive(Clone)]
 struct AppState {
     render_tx: std::sync::mpsc::Sender<PlaybackEvent>,
-}
-
-fn generate_secure_password() -> String {
-    rand::thread_rng()
-        .sample_iter(&Alphanumeric)
-        .take(32)
-        .map(char::from)
-        .collect()
-}
-
-fn get_or_create_vault_password() -> KeyringResult<String> {
-    let entry = Entry::new("com.sreal.vault", "master")?;
-    
-    match entry.get_password() {
-        Ok(password) => Ok(password),
-        Err(_) => {
-            // Generate new password on first run
-            let password = generate_secure_password();
-            entry.set_password(&password)?;
-            Ok(password)
-        }
-    }
+    pip_window: std::sync::Arc<std::sync::Mutex<Option<tauri::Window>>>,
 }
 
 #[specta]
@@ -62,6 +41,14 @@ fn playback_seek(app: tauri::AppHandle, time: f64) {
     let app_state = app.state::<AppState>();
     let _ = app_state.render_tx.send(PlaybackEvent::Seek(time));
 }
+
+#[specta]
+#[tauri::command]
+fn playback_absolute_seek(app: tauri::AppHandle, time: f64) {
+    let app_state = app.state::<AppState>();
+    let _ = app_state.render_tx.send(PlaybackEvent::AbsoluteSeek(time));
+}
+
 
 #[specta]
 #[tauri::command]
@@ -107,6 +94,87 @@ fn playback_change_audio(app: tauri::AppHandle, audio: String) {
 fn playback_clear(app: tauri::AppHandle) {
     let app_state = app.state::<AppState>();
     let _ = app_state.render_tx.send(PlaybackEvent::Clear);
+}
+
+#[specta]
+#[tauri::command]
+fn open_pip_window(app: tauri::AppHandle) -> Result<(), String> {
+    let app_state = app.state::<AppState>();
+    
+    // Check if PiP window already exists
+    {
+        let pip_window_guard = app_state.pip_window.lock().unwrap();
+        if pip_window_guard.is_some() {
+            return Err("PiP window already exists".to_string());
+        }
+    }
+    
+    // Create PiP window
+    let pip_window = tauri::WindowBuilder::new(&app, "pip")
+        .title("Picture in Picture")
+        .inner_size(400.0, 225.0) // 16:9 aspect ratio
+        .min_inner_size(200.0, 112.0)
+        .max_inner_size(800.0, 450.0)
+        .resizable(true)
+        .always_on_top(true)
+        .decorations(false)
+        .transparent(true)
+        .build()
+        .map_err(|e| format!("Failed to create PiP window: {}", e))?;
+    
+    // Create transparent webview for PiP
+    let pip_webview = tauri::WebviewBuilder::new("pip", tauri::WebviewUrl::App("/pip".into()))
+        .transparent(true);
+    
+    pip_window
+        .add_child(
+            pip_webview,
+            tauri::LogicalPosition::new(0, 0),
+            pip_window.inner_size().unwrap(),
+        )
+        .map_err(|e| format!("Failed to add webview to PiP window: {}", e))?;
+    
+    // Store PiP window in state
+    {
+        let mut pip_window_guard = app_state.pip_window.lock().unwrap();
+        *pip_window_guard = Some(pip_window);
+    }
+    
+    // Send event to add PiP window context
+    if let Err(e) = app_state.render_tx.send(PlaybackEvent::AddPipWindow) {
+        log::error!("Failed to send AddPipWindow event: {}", e);
+    }
+    
+    
+    Ok(())
+}
+
+#[specta]
+#[tauri::command]
+fn close_pip_window(app: tauri::AppHandle) -> Result<(), String> {
+    let app_state = app.state::<AppState>();
+
+    log::info!("Closing PiP window");
+    
+    // Get and close PiP window
+    let pip_window = {
+        let mut pip_window_guard = app_state.pip_window.lock().unwrap();
+        pip_window_guard.take()
+    };
+    
+    if let Some(pip_window) = pip_window {
+        pip_window.destroy()
+            .map_err(|e| format!("Failed to close PiP window: {}", e))?;
+    } else {
+        return Err("No PiP window to close".to_string());
+    }
+    
+    // Send event to remove PiP window context
+    if let Err(e) = app_state.render_tx.send(PlaybackEvent::RemovePipWindow) {
+        log::error!("Failed to send RemovePipWindow event: {}", e);
+    }
+    
+    Ok(())
 }
 
 
@@ -194,6 +262,7 @@ pub async fn run() {
             playback_play,
             playback_pause,
             playback_seek,
+            playback_absolute_seek,
             playback_volume,
             playback_speed,
             playback_load,
@@ -201,7 +270,9 @@ pub async fn run() {
             playback_change_audio,
             playback_clear,
             toggle_titlebar_hide,
-            toggle_fullscreen
+            toggle_fullscreen,
+            open_pip_window,
+            close_pip_window
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Throw)
         .typ::<store::GeneralSettings>();
@@ -255,6 +326,7 @@ pub async fn run() {
             // webview should be transparent if window url start with /video
             let webview =
                 WebviewBuilder::new("main", tauri::WebviewUrl::App("/".into())).transparent(true);
+
             window
                 .add_child(
                     webview,
@@ -268,11 +340,16 @@ pub async fn run() {
 
             let app_state = AppState {
                 render_tx: render_tx.clone(),
+                pip_window: std::sync::Arc::new(std::sync::Mutex::new(None)),
             };
 
             // Move all MPV and OpenGL setup to a dedicated thread
             let window_clone = window.clone();
-            tokio::spawn(run_render_thread(window_clone, render_tx, render_rx));
+            let app_state_clone = app_state.clone();
+            let get_pip_window = Box::new(move || {
+                app_state_clone.pip_window.lock().unwrap().clone()
+            });
+            tokio::spawn(run_render_thread(window_clone, render_tx, render_rx, get_pip_window));
 
             app.manage(app_state);
 
@@ -292,27 +369,43 @@ pub async fn run() {
             tauri::RunEvent::ExitRequested { code, .. } => {
                 println!("ExitRequested: {:?}", code);
             }
-            tauri::RunEvent::WindowEvent { event, .. } => {
+            tauri::RunEvent::WindowEvent { label, event, .. } => {
                 match event {
                     tauri::WindowEvent::Resized(physical_size) => {
                         let (width, height): (u32, u32) = physical_size.into();
-                        if let Err(e) = app_state
-                            .render_tx
-                            .send(PlaybackEvent::Resize(width, height)) {
-                            log::error!("Failed to send resize event to render thread: {}", e);
-                        }
-
-                        if let Some(webview) = _app.get_webview("main") {
-                            if let Err(e) = webview.set_size(physical_size) {
-                                log::error!("Failed to resize webview: {}", e);
+                        
+                        // Only send resize events for the main window to avoid affecting PiP rendering
+                        if label == "main" {
+                            if let Err(e) = app_state
+                                .render_tx
+                                .send(PlaybackEvent::Resize(width, height)) {
+                                log::error!("Failed to send resize event to render thread: {}", e);
                             }
 
-                            let _ = webview.set_focus();
-                        } else {
-                            log::warn!("Main webview not found during resize");
+                            if let Some(webview) = _app.get_webview("main") {
+                                if let Err(e) = webview.set_size(physical_size) {
+                                    log::error!("Failed to resize webview: {}", e);
+                                }
+
+                                let _ = webview.set_focus();
+                            } else {
+                                log::warn!("Main webview not found during resize");
+                            }
+                        } else if label == "pip" {
+                            // Handle PiP window resize separately
+                            if let Some(webview) = _app.get_webview("pip") {
+                                if let Err(e) = webview.set_size(physical_size) {
+                                    log::error!("Failed to resize PiP webview: {}", e);
+                                }
+                            }
+                            
+                            // Send PiP resize event to render thread
+                            if let Err(e) = app_state
+                                .render_tx
+                                .send(PlaybackEvent::ResizePipWindow { width, height }) {
+                                log::error!("Failed to send PiP resize event to render thread: {}", e);
+                            }
                         }
-
-
                     }
                     _ => {}
                 };
