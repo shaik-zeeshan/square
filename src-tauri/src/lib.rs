@@ -1,183 +1,191 @@
-use objc2_app_kit::NSAccessibility;
 use specta::specta;
 use tauri::{Manager, WebviewBuilder, WindowBuilder, Wry};
-
 use tauri_plugin_http;
 
 use crate::mpv::{run_render_thread, PlaybackEvent};
+
 // Credential operations are handled by the frontend JavaScript API
 
 mod credentials;
 pub mod mpv;
 mod store;
 
+/// Application state shared across Tauri commands
 #[derive(Clone)]
 struct AppState {
     render_tx: std::sync::mpsc::Sender<PlaybackEvent>,
     pip_window: std::sync::Arc<std::sync::Mutex<Option<tauri::Window>>>,
 }
 
+/// Helper function to send events to render thread with error logging
+fn send_render_event(app: &tauri::AppHandle, event: PlaybackEvent) -> Result<(), String> {
+    let app_state = app.state::<AppState>();
+    app_state
+        .render_tx
+        .send(event)
+        .map_err(|e| format!("Failed to send event to render thread: {}", e))
+}
+
+// ===== PLAYBACK CONTROL COMMANDS =====
+
+/// Start or resume playback
 #[specta]
 #[tauri::command]
 fn playback_play(app: tauri::AppHandle) {
-    let app_state = app.state::<AppState>();
-    if let Err(e) = app_state.render_tx.send(PlaybackEvent::Play) {
-        log::error!("Failed to send play event to render thread: {}", e);
+    if let Err(e) = send_render_event(&app, PlaybackEvent::Play) {
+        log::error!("{}", e);
     }
 }
 
+/// Pause playback
 #[specta]
 #[tauri::command]
 fn playback_pause(app: tauri::AppHandle) {
-    let app_state = app.state::<AppState>();
-    if let Err(e) = app_state.render_tx.send(PlaybackEvent::Pause) {
-        log::error!("Failed to send pause event to render thread: {}", e);
+    if let Err(e) = send_render_event(&app, PlaybackEvent::Pause) {
+        log::error!("{}", e);
     }
 }
 
+/// Seek to a relative time position
 #[specta]
 #[tauri::command]
 fn playback_seek(app: tauri::AppHandle, time: f64) {
-    let app_state = app.state::<AppState>();
-    let _ = app_state.render_tx.send(PlaybackEvent::Seek(time));
+    let _ = send_render_event(&app, PlaybackEvent::Seek(time));
 }
 
+/// Seek to an absolute time position
 #[specta]
 #[tauri::command]
 fn playback_absolute_seek(app: tauri::AppHandle, time: f64) {
-    let app_state = app.state::<AppState>();
-    let _ = app_state.render_tx.send(PlaybackEvent::AbsoluteSeek(time));
+    let _ = send_render_event(&app, PlaybackEvent::AbsoluteSeek(time));
 }
 
+/// Set playback volume (0.0 - 100.0)
 #[specta]
 #[tauri::command]
 fn playback_volume(app: tauri::AppHandle, volume: f64) {
-    let app_state = app.state::<AppState>();
-    let _ = app_state.render_tx.send(PlaybackEvent::Volume(volume));
+    let _ = send_render_event(&app, PlaybackEvent::Volume(volume));
 }
 
+/// Set playback speed
 #[specta]
 #[tauri::command]
 fn playback_speed(app: tauri::AppHandle, speed: f64) {
-    let app_state = app.state::<AppState>();
-    let _ = app_state.render_tx.send(PlaybackEvent::Speed(speed));
+    let _ = send_render_event(&app, PlaybackEvent::Speed(speed));
 }
 
+/// Load a media file URL
 #[specta]
 #[tauri::command]
 fn playback_load(app: tauri::AppHandle, url: String) {
-    let app_state = app.state::<AppState>();
-    if let Err(e) = app_state.render_tx.send(PlaybackEvent::Load(url)) {
-        log::error!("Failed to send load event to render thread: {}", e);
+    if let Err(e) = send_render_event(&app, PlaybackEvent::Load(url)) {
+        log::error!("{}", e);
     }
 }
 
+/// Change subtitle track
 #[specta]
 #[tauri::command]
 fn playback_change_subtitle(app: tauri::AppHandle, subtitle: String) {
-    let app_state = app.state::<AppState>();
-    let _ = app_state
-        .render_tx
-        .send(PlaybackEvent::ChangeSubtitle(subtitle));
+    let _ = send_render_event(&app, PlaybackEvent::ChangeSubtitle(subtitle));
 }
 
+/// Change audio track
 #[specta]
 #[tauri::command]
 fn playback_change_audio(app: tauri::AppHandle, audio: String) {
-    let app_state = app.state::<AppState>();
-    let _ = app_state.render_tx.send(PlaybackEvent::ChangeAudio(audio));
+    let _ = send_render_event(&app, PlaybackEvent::ChangeAudio(audio));
 }
 
+/// Clear current playback
 #[specta]
 #[tauri::command]
 fn playback_clear(app: tauri::AppHandle) {
-    let app_state = app.state::<AppState>();
-    let _ = app_state.render_tx.send(PlaybackEvent::Clear);
+    let _ = send_render_event(&app, PlaybackEvent::Clear);
 }
 
+// ===== PICTURE IN PICTURE (PIP) COMMANDS =====
+
+/// Show PiP window (makes it visible)
 #[specta]
 #[tauri::command]
-fn open_pip_window(app: tauri::AppHandle) -> Result<(), String> {
+fn show_pip_window(app: tauri::AppHandle) -> Result<(), String> {
+    let app_clone = app.clone();
     let app_state = app.state::<AppState>();
+    let pip_window_guard = app_state.pip_window.lock().unwrap();
 
-    // Check if PiP window already exists
-    {
-        let pip_window_guard = app_state.pip_window.lock().unwrap();
-        if pip_window_guard.is_some() {
-            return Err("PiP window already exists".to_string());
-        }
-    }
-
-    // Create PiP window
-    let pip_window = tauri::WindowBuilder::new(&app, "pip")
-        .title("Picture in Picture")
-        .inner_size(400.0, 225.0) // 16:9 aspect ratio
-        .min_inner_size(200.0, 112.0)
-        .resizable(true)
-        .always_on_top(true)
-        .transparent(true)
-        .visible_on_all_workspaces(true)
-        .build()
-        .map_err(|e| format!("Failed to create PiP window: {}", e))?;
-
-    let _ = make_frameless_window(&pip_window)
-        .map_err(|e| format!("failed to make frameless window {}", e.to_string()))?;
-
-    // Create transparent webview for PiP
-    let pip_webview =
-        tauri::WebviewBuilder::new("pip", tauri::WebviewUrl::App("/pip".into())).transparent(true);
-
-    pip_window
-        .add_child(
-            pip_webview,
-            tauri::LogicalPosition::new(0, 0),
-            pip_window.inner_size().unwrap(),
-        )
-        .map_err(|e| format!("Failed to add webview to PiP window: {}", e))?;
-
-    // Store PiP window in state
-    {
-        let mut pip_window_guard = app_state.pip_window.lock().unwrap();
-        *pip_window_guard = Some(pip_window);
-    }
-
-    // Send event to add PiP window context
-    if let Err(e) = app_state.render_tx.send(PlaybackEvent::AddPipWindow) {
-        log::error!("Failed to send AddPipWindow event: {}", e);
-    }
-
-    Ok(())
-}
-
-#[specta]
-#[tauri::command]
-fn close_pip_window(app: tauri::AppHandle) -> Result<(), String> {
-    let app_state = app.state::<AppState>();
-
-    log::info!("Closing PiP window");
-
-    // Get and close PiP window
-    let pip_window = {
-        let mut pip_window_guard = app_state.pip_window.lock().unwrap();
-        pip_window_guard.take()
-    };
-
-    if let Some(pip_window) = pip_window {
+    if let Some(pip_window) = pip_window_guard.as_ref() {
         pip_window
-            .destroy()
-            .map_err(|e| format!("Failed to close PiP window: {}", e))?;
+            .show()
+            .map_err(|e| format!("Failed to show PiP window: {}", e))?;
+        log::info!("PiP window shown");
+        switch_render_window(app_clone, "pip".to_string()).unwrap();
+        Ok(())
     } else {
-        return Err("No PiP window to close".to_string());
+        Err("PiP window not available".to_string())
     }
+}
 
-    // Send event to remove PiP window context
-    if let Err(e) = app_state.render_tx.send(PlaybackEvent::RemovePipWindow) {
-        log::error!("Failed to send RemovePipWindow event: {}", e);
-    }
-
+fn switch_render_window(app: tauri::AppHandle, target: String) -> Result<(), String> {
+    let _ = send_render_event(&app, PlaybackEvent::SwitchTarget(target));
     Ok(())
 }
 
+/// Hide PiP window (makes it invisible)
+#[specta]
+#[tauri::command]
+fn hide_pip_window(app: tauri::AppHandle) -> Result<(), String> {
+    let app_clone = app.clone();
+    let app_state = app.state::<AppState>();
+    let pip_window_guard = app_state.pip_window.lock().unwrap();
+
+    if let Some(pip_window) = pip_window_guard.as_ref() {
+        pip_window
+            .hide()
+            .map_err(|e| format!("Failed to hide PiP window: {}", e))?;
+        log::info!("PiP window hidden");
+        switch_render_window(app_clone, "main".to_string()).unwrap();
+        Ok(())
+    } else {
+        Err("PiP window not available".to_string())
+    }
+}
+
+/// Toggle PiP window visibility
+#[specta]
+#[tauri::command]
+fn toggle_pip_window(app: tauri::AppHandle) -> Result<(), String> {
+    let app_clone = app.clone();
+    let app_state = app.state::<AppState>();
+    let pip_window_guard = app_state.pip_window.lock().unwrap();
+
+    if let Some(pip_window) = pip_window_guard.as_ref() {
+        let is_visible = pip_window
+            .is_visible()
+            .map_err(|e| format!("Failed to get PiP window visibility: {}", e))?;
+
+        if is_visible {
+            pip_window
+                .hide()
+                .map_err(|e| format!("Failed to hide PiP window: {}", e))?;
+            log::info!("PiP window hidden");
+            switch_render_window(app_clone, "main".to_string()).unwrap();
+        } else {
+            pip_window
+                .show()
+                .map_err(|e| format!("Failed to show PiP window: {}", e))?;
+            log::info!("PiP window shown");
+            switch_render_window(app_clone, "pip".to_string()).unwrap();
+        }
+        Ok(())
+    } else {
+        Err("PiP window not available".to_string())
+    }
+}
+
+// ===== WINDOW CONTROL COMMANDS =====
+
+/// Toggle fullscreen mode for main window
 #[specta]
 #[tauri::command]
 fn toggle_fullscreen(app: tauri::AppHandle) -> Result<(), String> {
@@ -201,6 +209,72 @@ fn toggle_fullscreen(app: tauri::AppHandle) -> Result<(), String> {
         .map_err(|e| format!("Failed to set fullscreen state: {}", e))?;
 
     Ok(())
+}
+
+fn nearest_corner(
+    current_x: i32,
+    current_y: i32,
+    screen_width: i32,
+    screen_height: i32,
+    window_width: i32,
+    window_height: i32,
+    padding: i32,
+) -> (i32, i32) {
+    let corners = [
+        (padding, padding),                                 // TopLeft
+        (screen_width - window_width - padding, padding),   // TopRight
+        (padding, screen_height - window_height - padding), // BottomLeft
+        (
+            screen_width - window_width - padding,
+            screen_height - window_height - padding,
+        ), // BottomRight
+    ];
+
+    corners
+        .iter()
+        .min_by_key(|(cx, cy)| {
+            let dx = (current_x - cx).pow(2);
+            let dy = (current_y - cy).pow(2);
+            dx + dy
+        })
+        .copied()
+        .unwrap_or((padding, padding))
+}
+/// Helper function to create PiP window with proper configuration
+fn create_pip_window(handle: &tauri::AppHandle) -> Result<tauri::Window, String> {
+    // Create PiP window
+    let pip_window = tauri::WindowBuilder::new(handle, "pip")
+        .title("Picture in Picture")
+        .inner_size(400.0, 225.0) // 16:9 aspect ratio
+        .min_inner_size(200.0, 112.0)
+        .position(16.0, 16.0)
+        .resizable(true)
+        .always_on_top(true)
+        .transparent(true)
+        .visible_on_all_workspaces(true)
+        .visible(false) // Start hidden
+        .shadow(false)
+        .skip_taskbar(false)
+        .build()
+        .map_err(|e| format!("Failed to create PiP window: {}", e))?;
+
+    // Apply frameless styling
+    make_frameless_window(&pip_window)
+        .map_err(|e| format!("Failed to make frameless window: {}", e))?;
+
+    // Create transparent webview for PiP
+    let pip_webview =
+        tauri::WebviewBuilder::new("pip", tauri::WebviewUrl::App("/pip".into())).transparent(true);
+
+    pip_window
+        .add_child(
+            pip_webview,
+            tauri::LogicalPosition::new(0, 0),
+            pip_window.inner_size().unwrap(),
+        )
+        .map_err(|e| format!("Failed to add webview to PiP window: {}", e))?;
+
+    Ok(pip_window)
 }
 
 fn toggle_titlebar(window: &tauri::Window, hide: bool) -> Result<(), String> {
@@ -253,7 +327,10 @@ fn make_frameless_window(window: &tauri::Window) -> Result<(), String> {
         .map_err(|e| format!("Failed to get NS window handle: {}", e))?;
 
     unsafe {
-        use objc2_app_kit::{NSWindowButton, NSWindowCollectionBehavior, NSWindowTitleVisibility};
+        use objc2_app_kit::{
+            NSFloatingWindowLevel, NSWindowButton, NSWindowCollectionBehavior,
+            NSWindowTitleVisibility,
+        };
 
         let objc_window = ns_window as *mut objc2_app_kit::NSWindow;
         let window = objc_window.as_ref().unwrap();
@@ -275,12 +352,16 @@ fn make_frameless_window(window: &tauri::Window) -> Result<(), String> {
         window.setTitleVisibility(NSWindowTitleVisibility::Hidden);
         window.setTitlebarAppearsTransparent(true);
 
-        window.setLevel(26);
+        window.setLevel(NSFloatingWindowLevel);
 
-        window.setMovableByWindowBackground(true);
+        // window.setMovableByWindowBackground(true);
 
         window.setCollectionBehavior(
-            NSWindowCollectionBehavior::CanJoinAllSpaces | NSWindowCollectionBehavior::Stationary,
+            NSWindowCollectionBehavior::CanJoinAllSpaces
+                | NSWindowCollectionBehavior::Stationary
+                | NSWindowCollectionBehavior::FullScreenAuxiliary
+                | NSWindowCollectionBehavior::Transient
+                | NSWindowCollectionBehavior::IgnoresCycle,
         );
     };
 
@@ -319,8 +400,9 @@ pub async fn run() {
             playback_clear,
             toggle_titlebar_hide,
             toggle_fullscreen,
-            open_pip_window,
-            close_pip_window
+            show_pip_window,
+            hide_pip_window,
+            toggle_pip_window
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Throw)
         .typ::<store::GeneralSettings>();
@@ -365,6 +447,7 @@ pub async fn run() {
             let handle = app.handle().clone();
 
             let window = WindowBuilder::new(&handle, "main")
+                .title("sreal")
                 .hidden_title(true)
                 .title_bar_style(tauri::TitleBarStyle::Overlay)
                 .build()
@@ -382,23 +465,31 @@ pub async fn run() {
                 )
                 .unwrap();
 
+            // Create PiP window at startup (hidden by default)
+            let pip_window = create_pip_window(&handle)
+                .map_err(|e| format!("Failed to create PiP window at startup: {}", e))?;
+            log::info!("PiP window created at startup (hidden)");
+
             // Create channel for render signals
             let (render_tx, render_rx) = std::sync::mpsc::channel::<PlaybackEvent>();
 
             let app_state = AppState {
                 render_tx: render_tx.clone(),
-                pip_window: std::sync::Arc::new(std::sync::Mutex::new(None)),
+                pip_window: std::sync::Arc::new(std::sync::Mutex::new(Some(pip_window.clone()))),
             };
 
             // Move all MPV and OpenGL setup to a dedicated thread
             let window_clone = window.clone();
             let app_state_clone = app_state.clone();
+            let pip_window_clone = pip_window.clone();
             let get_pip_window =
                 Box::new(move || app_state_clone.pip_window.lock().unwrap().clone());
+
             tokio::spawn(run_render_thread(
                 window_clone,
                 render_tx,
                 render_rx,
+                pip_window_clone,
                 get_pip_window,
             ));
 
@@ -462,6 +553,23 @@ pub async fn run() {
                                 );
                             }
                         }
+                    }
+                    tauri::WindowEvent::CloseRequested { .. } => {
+                        if let Some(window) = _app.get_window(&label) {
+                            window.destroy().unwrap();
+                        } else {
+                            log::warn!("Main not found during close request");
+                        };
+                    }
+                    tauri::WindowEvent::Destroyed => {
+                        if label != "main".to_string() {
+                            return;
+                        };
+                        if let Some(window) = _app.get_window("pip") {
+                            window.destroy().unwrap();
+                        } else {
+                            log::warn!("{} window not found during destory", label);
+                        };
                     }
                     _ => {}
                 };

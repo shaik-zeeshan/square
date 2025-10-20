@@ -117,7 +117,7 @@ export default function Page(_props: RouteSectionProps) {
       currentTime: () => state.currentTime,
       duration: () => state.duration,
     },
-    onEndOfFile,
+    // onEndOfFile,
   });
 
   let audioBtnRef!: HTMLButtonElement;

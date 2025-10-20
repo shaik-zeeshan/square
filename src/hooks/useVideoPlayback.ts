@@ -243,7 +243,7 @@ export function useVideoPlayback(
 
   const handleOpenPip = async () => {
     try {
-      await commands.openPipWindow();
+      await commands.showPipWindow();
       showOSD("play", null, "Picture in Picture opened");
     } catch (error) {
       showOSD("play", null, "Picture in Picture failed to open");
@@ -286,12 +286,17 @@ export function useVideoPlayback(
     }
   };
 
-  createEffect(() => {
+  createEffect(async () => {
     const currentItemId = itemId();
     const token = jf.api?.accessToken;
     const basePath = jf.api?.basePath;
 
     if (!(token && jf.api && currentItemId)) {
+      return;
+    }
+
+    // Prevent reloading if we're already playing the same item
+    if (state.currentItemId === currentItemId && state.url) {
       return;
     }
 
@@ -301,8 +306,8 @@ export function useVideoPlayback(
     setState("currentTime", "0");
     setState("duration", 0);
 
-    commands.playbackLoad(url);
-    commands.playbackPlay();
+    await commands.playbackLoad(url);
+    await commands.playbackPlay();
   });
 
   createEffect(() => {
@@ -320,11 +325,6 @@ export function useVideoPlayback(
         })) as Chapter[]) ?? [];
     }
     setState("chapters", chapters);
-  });
-
-  createEffect(() => {
-    // console.log("userProgress", userProgress);
-    // setState("currentTime", userProgress.toString());
   });
 
   createEffect(async () => {
@@ -566,7 +566,12 @@ export function useVideoPlayback(
   };
 
   onCleanup(async () => {
+    const itemId = state.currentItemId;
+    const currentTime = state.currentTime;
+    commands.hidePipWindow();
     offFullscreenIfOnWhenCleanup();
+    commands.toggleTitlebarHide(false);
+    commands.playbackClear();
     unlistenFuncs.forEach((unlisten) => {
       unlisten();
     });
@@ -578,18 +583,22 @@ export function useVideoPlayback(
         const playstateApi = getPlaystateApi(jf.api);
         await playstateApi.reportPlaybackStopped({
           playbackStopInfo: {
-            ItemId: itemId(),
+            ItemId: itemId,
             PlaySessionId: playSessionId,
-            PositionTicks: Math.floor(Number(state.currentTime) * 10_000_000),
+            PositionTicks: Math.floor(Number(currentTime) * 10_000_000),
           },
+        });
+        const queryKey = [
+          library.query.getItem.key,
+          library.query.getItem.keyFor(itemId, userStore?.user?.Id),
+        ];
+        await queryClient.invalidateQueries({
+          queryKey,
         });
       } catch (_error) {
         // Do nothing
       }
     }
-
-    commands.toggleTitlebarHide(false);
-    commands.playbackClear();
   });
 
   const onEndOfFile = async () => {

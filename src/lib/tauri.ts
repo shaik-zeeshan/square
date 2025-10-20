@@ -5,47 +5,92 @@
 
 
 export const commands = {
+/**
+ * Start or resume playback
+ */
 async playbackPlay() : Promise<void> {
     await TAURI_INVOKE("playback_play");
 },
+/**
+ * Pause playback
+ */
 async playbackPause() : Promise<void> {
     await TAURI_INVOKE("playback_pause");
 },
+/**
+ * Seek to a relative time position
+ */
 async playbackSeek(time: number) : Promise<void> {
     await TAURI_INVOKE("playback_seek", { time });
 },
+/**
+ * Seek to an absolute time position
+ */
 async playbackAbsoluteSeek(time: number) : Promise<void> {
     await TAURI_INVOKE("playback_absolute_seek", { time });
 },
+/**
+ * Set playback volume (0.0 - 100.0)
+ */
 async playbackVolume(volume: number) : Promise<void> {
     await TAURI_INVOKE("playback_volume", { volume });
 },
+/**
+ * Set playback speed
+ */
 async playbackSpeed(speed: number) : Promise<void> {
     await TAURI_INVOKE("playback_speed", { speed });
 },
+/**
+ * Load a media file URL
+ */
 async playbackLoad(url: string) : Promise<void> {
     await TAURI_INVOKE("playback_load", { url });
 },
+/**
+ * Change subtitle track
+ */
 async playbackChangeSubtitle(subtitle: string) : Promise<void> {
     await TAURI_INVOKE("playback_change_subtitle", { subtitle });
 },
+/**
+ * Change audio track
+ */
 async playbackChangeAudio(audio: string) : Promise<void> {
     await TAURI_INVOKE("playback_change_audio", { audio });
 },
+/**
+ * Clear current playback
+ */
 async playbackClear() : Promise<void> {
     await TAURI_INVOKE("playback_clear");
 },
 async toggleTitlebarHide(hide: boolean) : Promise<null> {
     return await TAURI_INVOKE("toggle_titlebar_hide", { hide });
 },
+/**
+ * Toggle fullscreen mode for main window
+ */
 async toggleFullscreen() : Promise<null> {
     return await TAURI_INVOKE("toggle_fullscreen");
 },
-async openPipWindow() : Promise<null> {
-    return await TAURI_INVOKE("open_pip_window");
+/**
+ * Show PiP window (makes it visible)
+ */
+async showPipWindow() : Promise<null> {
+    return await TAURI_INVOKE("show_pip_window");
 },
-async closePipWindow() : Promise<null> {
-    return await TAURI_INVOKE("close_pip_window");
+/**
+ * Hide PiP window (makes it invisible)
+ */
+async hidePipWindow() : Promise<null> {
+    return await TAURI_INVOKE("hide_pip_window");
+},
+/**
+ * Toggle PiP window visibility
+ */
+async togglePipWindow() : Promise<null> {
+    return await TAURI_INVOKE("toggle_pip_window");
 }
 }
 

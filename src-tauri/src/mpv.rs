@@ -1,3 +1,5 @@
+// ===== DEPENDENCIES =====
+
 use std::{
     collections::HashMap,
     sync::mpsc::{Receiver, Sender},
@@ -20,6 +22,8 @@ use libmpv2::{
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, PhysicalSize, Window};
+
+// ===== OPENGL CONTEXT MANAGEMENT =====
 
 /// OpenGL context management struct
 pub struct OpenGLContext {
@@ -79,13 +83,14 @@ impl OpenGLContext {
     }
 }
 
+// ===== MPV PLAYER MANAGEMENT =====
+
 /// MPV player management struct
 pub struct MpvPlayer {
     pub mpv: Mpv,
     pub render_context: RenderContext,
     pub window: Window,
 }
-
 
 impl MpvPlayer {
     pub fn new(display: &Display, window: &Window) -> Result<Self, Box<dyn std::error::Error>> {
@@ -95,8 +100,11 @@ impl MpvPlayer {
         mpv.set_property("vo", "libmpv")?;
         mpv.set_property("idle", "yes")?;
         mpv.set_property("pause", true)?;
-        mpv.set_property("keep-open", "yes")?;
-        mpv.set_property("input-ipc-server", "/tmp/sreal")?;
+        mpv.set_property("keep-open", "always")?;
+        mpv.set_property("keep-open-pause", "no")?; // ✅ Added this
+        mpv.set_property("video-timing-offset", "0")?;
+        // mpv.set_property("save-position-on-quit", true)?;
+        // mpv.set_property("log-file", "/tmp/mpv.log")?;
 
         // Observe properties
         mpv.observe_property("pause", libmpv2::Format::Flag, 1)?;
@@ -106,6 +114,7 @@ impl MpvPlayer {
         mpv.observe_property("aid", libmpv2::Format::String, 5)?;
         mpv.observe_property("sid", libmpv2::Format::String, 6)?;
         mpv.observe_property("speed", libmpv2::Format::Double, 7)?;
+        mpv.observe_property("eof-reached", libmpv2::Format::Flag, 11)?;
         // Cache and buffering properties
         mpv.observe_property("demuxer-cache-time", libmpv2::Format::Double, 8)?;
         mpv.observe_property("cache-buffering-state", libmpv2::Format::Int64, 9)?;
@@ -149,7 +158,9 @@ impl MpvPlayer {
                 }
             }
             PlaybackEvent::AbsoluteSeek(time) => {
-                self.mpv.command("seek", &[&time.to_string(), "absolute"]).unwrap();
+                self.mpv
+                    .command("seek", &[&time.to_string(), "absolute"])
+                    .unwrap();
             }
             PlaybackEvent::Volume(volume) => {
                 self.mpv.set_property("volume", volume).unwrap();
@@ -176,7 +187,7 @@ impl MpvPlayer {
             PlaybackEvent::FileLoaded => {
                 // self.mpv.set_property("time-pos", "0").unwrap();
                 let time = self.mpv.get_property::<f64>("time-pos").unwrap();
-                let duration = self.mpv.get_property::<f64>("duration").unwrap();
+                let duration = self.mpv.get_property::<String>("duration").unwrap();
                 self.window.emit("file-loaded", (time, duration)).unwrap();
             }
             _ => {}
@@ -184,7 +195,7 @@ impl MpvPlayer {
     }
 }
 
-/// Render manager struct
+/// Render manager struct - handles OpenGL contexts and MPV rendering
 pub struct RenderManager {
     gl_contexts: HashMap<String, OpenGLContext>,
     mpv_player: MpvPlayer,
@@ -192,6 +203,7 @@ pub struct RenderManager {
 }
 
 impl RenderManager {
+    /// Create new render manager with main window context
     pub fn new(window: &Window) -> Result<Self, Box<dyn std::error::Error>> {
         let gl_context = OpenGLContext::new(window)?;
         let mpv_player = MpvPlayer::new(&gl_context.display, window)?;
@@ -206,24 +218,52 @@ impl RenderManager {
         })
     }
 
-    pub fn add_pip_window_context(&mut self, window: &Window) -> Result<(), Box<dyn std::error::Error>> {
-        // Use the same display as the main context to enable resource sharing
-        let main_context = self.gl_contexts.get("main").unwrap();
-        let gl_context = create_gl_context_with_display(window, &main_context.display, &main_context.context)?;
-        self.gl_contexts.insert("pip".to_string(), gl_context);
-        self.active_window = "pip".to_string();
-        Ok(())
-    }
+    /// Create render manager with both main and PiP contexts
+    pub fn new_with_pip(
+        main_window: &Window,
+        pip_window: &Window,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let main_gl_context = OpenGLContext::new(main_window)?;
+        let mpv_player = MpvPlayer::new(&main_gl_context.display, main_window)?;
 
-    pub fn remove_pip_window_context(&mut self) {
-        self.gl_contexts.remove("pip");
-        self.active_window = "main".to_string();
-        let main_context = self.gl_contexts.get("main").unwrap();
-        main_context.context.make_current(&main_context.surface).unwrap();
+        let mut gl_contexts = HashMap::new();
+
+        let pip_gl_context = create_gl_context_with_display(
+            pip_window,
+            &main_gl_context.display,
+            &main_gl_context.context,
+        )?;
+
+        gl_contexts.insert("main".to_string(), main_gl_context);
+        // Create PiP context using shared display
+        gl_contexts.insert("pip".to_string(), pip_gl_context);
+
+        let mut rm = RenderManager {
+            gl_contexts,
+            mpv_player,
+            active_window: "main".to_string(),
+        };
+
+        rm.switch_target_window("main".to_string());
+
+        Ok(rm)
     }
 
     pub fn render(&self, window: &Window) {
         self.render_to_window(&self.active_window, window);
+    }
+
+    pub fn switch_target_window(&mut self, window_id: String) {
+        log::info!("Switching target window to {}", window_id);
+        let gl_context = self.gl_contexts.get(&window_id).unwrap();
+
+        gl_context
+            .context
+            .make_current(&gl_context.surface)
+            .unwrap();
+
+        self.active_window = window_id.to_string();
+        log::info!("Switched to window context '{}'", window_id);
     }
 
     pub fn render_to_window(&self, window_id: &str, window: &Window) {
@@ -241,19 +281,19 @@ impl RenderManager {
             .into();
 
         // Try to render with timeout
-        match self
-            .mpv_player
-            .render_context
-            .render::<()>(0, width as _, height as _, true)
-        {
+        match self.mpv_player.render_context.render::<OpenGLContext>(
+            0,
+            width as _,
+            height as _,
+            true,
+        ) {
             Ok(_) => {
                 // Only swap buffers if render succeeded
-                if let Err(e) = gl_context
-                    .surface
-                    .swap_buffers(&gl_context.context)
-                {
+                if let Err(e) = gl_context.surface.swap_buffers(&gl_context.context) {
                     log::error!("Failed to swap buffers for window '{}': {}", window_id, e);
                 }
+
+                self.mpv_player.render_context.report_swap();
             }
             Err(e) => {
                 log::error!("Failed to render to window '{}': {}", window_id, e);
@@ -269,14 +309,18 @@ impl RenderManager {
         }
     }
 
-    pub fn resize(&self, window_id: &str, width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
+    pub fn resize(
+        &self,
+        window_id: &str,
+        width: u32,
+        height: u32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         if let Some(gl_context) = self.gl_contexts.get(window_id) {
             gl_context.resize(width, height)
         } else {
             Err(format!("Window context '{}' not found", window_id).into())
         }
     }
-
 
     pub fn set_update_callback<F>(&mut self, callback: F)
     where
@@ -307,6 +351,14 @@ impl EventHandler {
                 //    render_tx.send(PlaybackEvent::FileLoaded).unwrap();
                 //window.emit("file-loaded", ()).unwrap();
                 render_tx.send(PlaybackEvent::FileLoaded).unwrap();
+            }
+            libmpv2::events::Event::LogMessage {
+                prefix,
+                level,
+                text,
+                log_level: _,
+            } => {
+                log::info!("{}: {} - {}", prefix, level, text);
             }
 
             libmpv2::events::Event::PropertyChange {
@@ -418,6 +470,14 @@ impl EventHandler {
                 window.emit("paused-for-cache", paused_for_cache).unwrap();
             }
 
+            libmpv2::events::Event::PropertyChange {
+                name: "eof-reached",
+                change: PropertyData::Flag(eof_reached),
+                reply_userdata: 11,
+            } => {
+                window.emit("end-of-file", 0).unwrap();
+            }
+
             libmpv2::events::Event::EndFile(reason) => {
                 log::info!("MPV: End of file: {:?}", reason);
                 render_tx.send(PlaybackEvent::EndOfFile).unwrap();
@@ -441,7 +501,6 @@ fn get_proc_address_fn(ctx: &*mut std::ffi::c_void, name: &str) -> *mut std::ffi
         std::ptr::null_mut()
     }
 }
-
 
 fn create_gl_context_with_display(
     window: &Window,
@@ -594,8 +653,7 @@ pub enum PlaybackEvent {
     Clear,
     Redraw,
     FileLoaded,
-    AddPipWindow,
-    RemovePipWindow,
+    SwitchTarget(String),
     ResizePipWindow { width: u32, height: u32 },
 }
 
@@ -616,14 +674,17 @@ pub struct Track {
     lang: Option<String>,
 }
 
+/// Main render thread function - handles MPV events and rendering
 pub async fn run_render_thread(
     window: Window,
     render_tx: Sender<PlaybackEvent>,
     render_rx: Receiver<PlaybackEvent>,
+    pip_window: Window,
     get_pip_window: Box<dyn Fn() -> Option<Window> + Send + Sync>,
 ) {
     // Create render manager with OpenGL context and MPV player
-    let mut render_manager = RenderManager::new(&window).unwrap();
+
+    let mut render_manager = RenderManager::new_with_pip(&window, &pip_window).unwrap();
     log::info!("OpenGL context and MPV player created successfully on render thread");
 
     // Set up MPV update callback to trigger rendering on this thread
@@ -653,7 +714,9 @@ pub async fn run_render_thread(
                             render_manager.render_to_window("pip", &pip_window);
                         } else {
                             // PiP window no longer exists, switch back to main and render there
-                            log::info!("PiP window no longer exists, switching back to main window");
+                            log::info!(
+                                "PiP window no longer exists, switching back to main window"
+                            );
                             render_manager.render_to_window("main", &window);
                         }
                     } else {
@@ -661,31 +724,17 @@ pub async fn run_render_thread(
                     }
                 }
                 PlaybackEvent::Resize(width, height) => {
-                    if let Err(e) = render_manager.resize(&render_manager.active_window, width, height) {
+                    if let Err(e) =
+                        render_manager.resize(&render_manager.active_window, width, height)
+                    {
                         log::error!("Failed to resize: {}", e);
                     }
                 }
                 PlaybackEvent::Clear => {
                     render_manager.clear(&window);
                 }
-                PlaybackEvent::AddPipWindow => {
-                    // Get the PiP window and add its GL context
-                    if let Some(pip_window) = get_pip_window() {
-                        if let Err(e) = render_manager.add_pip_window_context(&pip_window) {
-                            log::error!("Failed to add PiP window context: {}", e);
-                        } else {
-                            log::info!("PiP window context added successfully");
-                        }
-                    } else {
-                        log::error!("AddPipWindow event received but no PiP window found");
-                    }
-                }
-                PlaybackEvent::RemovePipWindow => {
-                    // Remove the PiP window context
-                    render_manager.remove_pip_window_context();
-                    log::info!("PiP window context removed");
-                    
-                    log::info!("Active window: {}", render_manager.active_window);
+                PlaybackEvent::SwitchTarget(target) => {
+                    render_manager.switch_target_window(target);
                 }
                 PlaybackEvent::ResizePipWindow { width, height } => {
                     if let Err(e) = render_manager.resize("pip", width, height) {

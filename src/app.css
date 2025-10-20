@@ -232,3 +232,55 @@
     transform: translateX(400%);
   }
 }
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes progressGlow {
+  0%,
+  100% {
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(59, 130, 246, 0.8);
+  }
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.progress-glow {
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Enhanced progress bar styles */
+.progress-bar-container {
+  position: relative;
+  overflow: visible;
+}
+
+.progress-bar-container:hover .progress-indicator {
+  transform: scale(1.1);
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+}
+
+.progress-bar-container:hover .progress-glow {
+  opacity: 1;
+}

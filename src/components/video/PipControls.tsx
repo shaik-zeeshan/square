@@ -1,10 +1,11 @@
+import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Pause, Play, X } from "lucide-solid";
 import { createSignal, onCleanup, onMount } from "solid-js";
 
 type PipControlsProps = {
   isPlaying: boolean;
   onTogglePlay: () => Promise<void>;
-  onClose: () => void;
+  onClose: () => Promise<void>;
 };
 
 export default function PipControls(props: PipControlsProps) {
@@ -47,6 +48,16 @@ export default function PipControls(props: PipControlsProps) {
     }
   });
 
+  const mouseDown = (_e: MouseEvent) => {
+    const window = getCurrentWindow();
+
+    if (window.label !== "pip") {
+      return;
+    }
+
+    window.startDragging();
+  };
+
   return (
     <div
       class="absolute inset-0 flex h-full w-full items-center justify-center bg-black/20 backdrop-blur-sm transition-opacity duration-300"
@@ -54,6 +65,7 @@ export default function PipControls(props: PipControlsProps) {
         "opacity-0": !isVisible(),
         "opacity-100": isVisible(),
       }}
+      onMouseDown={mouseDown}
       onMouseEnter={showControls}
       onMouseLeave={hideControls}
       onMouseMove={showControls}
@@ -63,9 +75,9 @@ export default function PipControls(props: PipControlsProps) {
         {/* Close button - top right */}
         <button
           class="absolute top-5 right-5 rounded-full bg-black/50 p-2 text-white transition-all hover:scale-110 hover:bg-black/70"
-          onClick={(e) => {
+          onClick={async (e) => {
             e.stopPropagation();
-            props.onClose();
+            await props.onClose();
           }}
           title="Close Picture in Picture"
         >

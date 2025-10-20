@@ -13,7 +13,7 @@ import {
   Volume2,
   VolumeX,
 } from "lucide-solid";
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import type { Chapter, Track } from "~/components/video/types";
 import { formatTime } from "~/components/video/utils";
 import { commands } from "~/lib/tauri";
@@ -56,6 +56,12 @@ type VideoControlsProps = {
 };
 
 export default function VideoControls(props: VideoControlsProps) {
+  const [hoverPosition, setHoverPosition] = createSignal<number | null>(null);
+  const [isHovering, setIsHovering] = createSignal(false);
+  const [isDragging, setIsDragging] = createSignal(false);
+  const [dragPosition, setDragPosition] = createSignal<number | null>(null);
+  let progressRef: HTMLDivElement | undefined;
+
   const progressPercentage = () =>
     (Number(props.state.currentTime) / props.state.duration) * 100 || 0;
 
@@ -64,6 +70,93 @@ export default function VideoControls(props: VideoControlsProps) {
       return 0;
     }
     return (props.state.bufferedTime / props.state.duration) * 100 || 0;
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = (x / rect.width) * 100;
+    const clamped = Math.max(0, Math.min(100, percentage));
+    if (isDragging()) {
+      setDragPosition(clamped);
+    } else {
+      setHoverPosition(clamped);
+    }
+  };
+
+  const getChapterAtPosition = (position: number) => {
+    if (!props.state.chapters.length) {
+      return null;
+    }
+
+    const timeAtPosition = (position / 100) * props.state.duration;
+
+    for (let i = 0; i < props.state.chapters.length; i++) {
+      const chapter = props.state.chapters[i];
+      const chapterTime = chapter.startPositionTicks / 10_000_000;
+      const nextChapterTime = props.state.chapters[i + 1]
+        ? props.state.chapters[i + 1].startPositionTicks / 10_000_000
+        : props.state.duration;
+
+      if (timeAtPosition >= chapterTime && timeAtPosition < nextChapterTime) {
+        return { chapter, index: i };
+      }
+    }
+    return null;
+  };
+
+  const handleMouseEnter = () => {
+    setIsHovering(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovering(false);
+    setHoverPosition(null);
+  };
+
+  const getPercentageFromClientX = (clientX: number) => {
+    if (!progressRef) {
+      return 0;
+    }
+    const rect = progressRef.getBoundingClientRect();
+    const x = clientX - rect.left;
+    const percentage = (x / rect.width) * 100;
+    return Math.max(0, Math.min(100, percentage));
+  };
+
+  const beginDrag = (clientX: number) => {
+    setIsDragging(true);
+    setDragPosition(getPercentageFromClientX(clientX));
+  };
+
+  const updateDrag = (clientX: number) => {
+    if (!isDragging()) {
+      return;
+    }
+    setDragPosition(getPercentageFromClientX(clientX));
+  };
+
+  const endDrag = (clientX?: number) => {
+    if (!isDragging()) {
+      return;
+    }
+    const pct =
+      clientX !== undefined
+        ? getPercentageFromClientX(clientX)
+        : (dragPosition() ?? progressPercentage());
+    props.onProgressClick(pct);
+    setIsDragging(false);
+    setDragPosition(null);
+  };
+
+  const getProgressIndicatorClass = () => {
+    if (props.state.isBuffering) {
+      return "scale-110 bg-white/80";
+    }
+    if (props.state.isSeeking) {
+      return "scale-105 bg-white";
+    }
+    return "scale-0 bg-white group-hover:scale-100";
   };
 
   const getVolumeIcon = () => {
@@ -103,27 +196,137 @@ export default function VideoControls(props: VideoControlsProps) {
 
   return (
     <div class="rounded-xl border border-white/20 bg-black/90 p-4 shadow-2xl backdrop-blur-md">
-      {/* Progress Bar */}
+      {/* Enhanced Progress Bar */}
       <div class="mb-3 flex items-center gap-3">
         <span class="min-w-[50px] font-medium text-white text-xs sm:text-sm">
           {formatTime(Number(props.state.currentTime))}
         </span>
-        <div class="relative flex-1">
-          <div class="relative h-1.5 overflow-hidden rounded-lg bg-white/30">
+        <div
+          aria-label="Video progress bar"
+          aria-roledescription="Video progress bar"
+          aria-valuemax={100}
+          aria-valuemin={0}
+          aria-valuenow={
+            isDragging() ? (dragPosition() ?? 0) : progressPercentage()
+          }
+          aria-valuetext={`${formatTime(Number(props.state.currentTime))} of ${formatTime(props.state.duration)}`}
+          class="group relative flex-1"
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+              e.preventDefault();
+              const current = isDragging()
+                ? (dragPosition() ?? 0)
+                : progressPercentage();
+              const step = e.key === "ArrowLeft" ? -1 : 1;
+              const newValue = Math.max(0, Math.min(100, current + step));
+              props.onProgressClick(newValue);
+            }
+          }}
+          onMouseEnter={handleMouseEnter}
+          onMouseLeave={handleMouseLeave}
+          onMouseMove={handleMouseMove}
+          role="slider"
+          tabindex={0}
+        >
+          <div
+            aria-label="Video progress bar"
+            aria-valuemax={100}
+            aria-valuemin={0}
+            aria-valuenow={
+              isDragging() ? (dragPosition() ?? 0) : progressPercentage()
+            }
+            aria-valuetext={`${formatTime(Number(props.state.currentTime))} of ${formatTime(props.state.duration)}`}
+            class="relative h-2 overflow-hidden rounded-full bg-white/20 shadow-inner"
+            onKeyDown={(e) => {
+              // keyboard support
+              if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+                e.preventDefault();
+                const current = isDragging()
+                  ? (dragPosition() ?? 0)
+                  : progressPercentage();
+                const step = e.key === "ArrowLeft" ? -1 : 1;
+                const newValue = Math.max(0, Math.min(100, current + step));
+                props.onProgressClick(newValue);
+              }
+            }}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              beginDrag(e.clientX);
+            }}
+            onMouseLeave={() => endDrag()}
+            onMouseMove={(e) => updateDrag(e.clientX)}
+            onMouseUp={(e) => {
+              e.preventDefault();
+              endDrag(e.clientX);
+            }}
+            onTouchEnd={(e) => endDrag(e.changedTouches[0]?.clientX)}
+            onTouchMove={(e) => updateDrag(e.touches[0].clientX)}
+            onTouchStart={(e) => beginDrag(e.touches[0].clientX)}
+            ref={(el) => {
+              progressRef = el;
+            }}
+            role="slider"
+            tabindex={0}
+          >
+            {/* Background gradient */}
+            <div class="absolute inset-0 bg-gradient-to-r from-white/10 via-white/20 to-white/10" />
+
+            {/* Chapter segments background */}
+            <Show when={props.state.chapters.length > 0}>
+              <div class="absolute inset-0 flex">
+                <For each={props.state.chapters}>
+                  {(chapter, index) => {
+                    const startSec = chapter.startPositionTicks / 10_000_000;
+                    const endSec = props.state.chapters[index() + 1]
+                      ? props.state.chapters[index() + 1].startPositionTicks /
+                        10_000_000
+                      : props.state.duration;
+                    const widthPct = () =>
+                      Math.max(
+                        0,
+                        ((endSec - startSec) / props.state.duration) * 100
+                      );
+
+                    const isCurrent = () => {
+                      const current = Number(props.state.currentTime || 0);
+                      return current >= startSec && current < endSec;
+                    };
+
+                    return (
+                      <div
+                        class={cn(
+                          "h-full",
+                          isCurrent() ? "bg-blue-400/30" : "bg-gray-400/20"
+                        )}
+                        style={{ width: `${widthPct()}%` }}
+                      >
+                        {/* optional subtle separator */}
+                        <Show when={index() > 0}>
+                          <div class="h-full w-px bg-gray-300/40" />
+                        </Show>
+                      </div>
+                    );
+                  }}
+                </For>
+              </div>
+            </Show>
+
             {/* Buffered range */}
             <div
-              class="absolute top-0 left-0 h-full bg-white/40 transition-all duration-300"
+              class="absolute top-0 left-0 h-full bg-white/40"
               style={{ width: `${bufferedPercentage()}%` }}
             />
+
             {/* Current progress */}
             <div
-              class="relative h-full bg-white/80 transition-all duration-150"
+              class="relative h-full bg-white/80"
               style={{ width: `${progressPercentage()}%` }}
             />
-            {/* Shimmer effect for buffered sections */}
+
+            {/* Enhanced shimmer effect for buffering */}
             <Show when={props.state.isBuffering}>
               <div
-                class="absolute top-0 h-full w-8 bg-gradient-to-r from-transparent via-white/20 to-transparent"
+                class="absolute top-0 h-full w-12 bg-gradient-to-r from-transparent via-white/30 to-transparent"
                 style={{
                   left: `${bufferedPercentage()}%`,
                   animation: "shimmer 1.5s ease-in-out infinite",
@@ -131,22 +334,41 @@ export default function VideoControls(props: VideoControlsProps) {
               />
             </Show>
 
-            {/* Enhanced buffering/seeking indicator */}
+            {/* Loading state indicator */}
+            <Show when={props.state.isLoading}>
+              <div class="absolute inset-0 animate-pulse bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            </Show>
+
+            {/* Hover preview indicator */}
+            <Show when={isHovering() && hoverPosition() !== null}>
+              <div
+                class="-translate-x-1/2 -translate-y-1/2 absolute top-1/2 h-6 w-6 rounded-full border-2 border-blue-400 bg-blue-400/20 shadow-lg"
+                style={{
+                  left: `${hoverPosition()}%`,
+                  "box-shadow": "0 0 12px rgba(59, 130, 246, 0.5)",
+                }}
+              />
+            </Show>
+
+            {/* Enhanced progress indicator */}
             <Show when={props.state.isBuffering || props.state.isSeeking}>
               <div
-                class="-translate-y-1/2 absolute top-1/2 h-4 w-4 translate-x-1/2 rounded-full border-2 border-white bg-white/80 shadow-lg"
+                class={cn(
+                  "-translate-x-1/2 -translate-y-1/2 absolute top-1/2 h-5 w-5 rounded-full border-2 border-white shadow-xl transition-all duration-200",
+                  getProgressIndicatorClass()
+                )}
                 style={{
-                  left: `${props.state.isSeeking ? progressPercentage() : bufferedPercentage()}%`,
+                  left: `${props.state.isSeeking ? progressPercentage() : progressPercentage()}%`,
                   animation: props.state.isBuffering
                     ? "pulse 1.5s ease-in-out infinite"
                     : "none",
                   "box-shadow": props.state.isBuffering
-                    ? "0 0 8px rgba(255, 255, 255, 0.6)"
-                    : "none",
+                    ? "0 0 12px rgba(255, 255, 255, 0.8)"
+                    : "0 0 8px rgba(255, 255, 255, 0.6)",
                 }}
               />
             </Show>
-            {/* Chapter markers */}
+            {/* Enhanced Chapter markers */}
             <Show when={props.state.chapters.length > 0}>
               <For each={props.state.chapters}>
                 {(chapter, index) => {
@@ -182,13 +404,14 @@ export default function VideoControls(props: VideoControlsProps) {
                       class="group absolute top-0"
                       style={{ left: `${chapterPosition()}%` }}
                     >
-                      {/* Chapter marker button */}
+                      {/* Enhanced chapter marker button */}
                       <button
+                        aria-label={`Go to ${chapterName()} at ${chapterTime()}`}
                         class={cn(
                           "h-full w-2 cursor-pointer rounded-sm transition-all duration-200 hover:scale-y-110",
                           isCurrentChapter()
-                            ? "bg-blue-400 hover:bg-blue-300"
-                            : "bg-white/60 hover:bg-white/90"
+                            ? "bg-white shadow-lg shadow-white/50 hover:bg-white/90"
+                            : "bg-white/60 shadow-md hover:bg-white/90"
                         )}
                         onClick={(e) => {
                           e.stopPropagation();
@@ -196,19 +419,27 @@ export default function VideoControls(props: VideoControlsProps) {
                         }}
                       />
 
-                      {/* Enhanced tooltip */}
-                      <div class="-translate-x-1/2 pointer-events-none absolute bottom-full left-1/2 z-10 mb-2 transform whitespace-nowrap rounded-lg bg-black/90 px-3 py-2 text-sm text-white opacity-0 shadow-lg transition-opacity duration-200 group-hover:opacity-100">
+                      {/* Enhanced tooltip with detailed chapter information */}
+                      <div class="-translate-x-1/2 group-hover:-translate-y-1 pointer-events-none absolute bottom-full left-1/2 z-20 mb-3 transform rounded-xl bg-black/95 px-4 py-3 text-sm text-white opacity-0 shadow-2xl backdrop-blur-sm transition-all duration-200 group-hover:opacity-100">
                         <div class="flex items-center gap-2">
-                          <div class="font-medium">{chapterName()}</div>
+                          <div class="font-semibold">{chapterName()}</div>
                           <Show when={isCurrentChapter()}>
-                            <div class="h-2 w-2 rounded-full bg-blue-400" />
+                            <div class="h-2 w-2 animate-pulse rounded-full bg-white" />
                           </Show>
                         </div>
-                        <div class="mt-1 text-white/70 text-xs">
+                        <div class="mt-1 font-medium text-white/80 text-xs">
                           {chapterTime()}
                         </div>
-                        {/* Tooltip arrow */}
-                        <div class="-translate-x-1/2 absolute top-full left-1/2 h-0 w-0 transform border-transparent border-t-4 border-t-black/90 border-r-4 border-l-4" />
+                        <Show when={chapter.imagePath}>
+                          <div class="mt-2 text-white/60 text-xs">
+                            📸 Chapter thumbnail available
+                          </div>
+                        </Show>
+                        <div class="mt-1 text-white/60 text-xs">
+                          Chapter {index() + 1} of {props.state.chapters.length}
+                        </div>
+                        {/* Enhanced tooltip arrow */}
+                        <div class="-translate-x-1/2 absolute top-full left-1/2 h-0 w-0 transform border-transparent border-t-4 border-t-black/95 border-r-4 border-l-4" />
                       </div>
                     </div>
                   );
@@ -216,18 +447,45 @@ export default function VideoControls(props: VideoControlsProps) {
               </For>
             </Show>
           </div>
-          <input
-            class="absolute inset-0 h-full w-full cursor-pointer opacity-0"
-            max="100"
-            min="0"
-            onClick={(e) => e.stopPropagation()}
-            onInput={(e) => {
-              e.stopPropagation();
-              props.onProgressClick(Number(e.currentTarget.value));
-            }}
-            type="range"
-            value={progressPercentage()}
-          />
+
+          {/* Enhanced time preview tooltip on hover */}
+          <Show when={isHovering() && hoverPosition() !== null}>
+            {(() => {
+              const chapterInfo = getChapterAtPosition(hoverPosition() ?? 0);
+              return (
+                <div
+                  class="pointer-events-none absolute bottom-full z-10 mb-2 transform rounded-lg bg-black/95 px-3 py-2 text-sm text-white shadow-xl backdrop-blur-sm transition-all duration-200"
+                  style={{
+                    left: `${hoverPosition()}%`,
+                    transform: "translateX(-50%) translateY(-4px)",
+                  }}
+                >
+                  <div class="font-semibold">
+                    {formatTime(
+                      ((hoverPosition() ?? 0) / 100) * props.state.duration
+                    )}
+                  </div>
+                  <div class="text-white/70 text-xs">
+                    {Math.round(hoverPosition() ?? 0)}%
+                  </div>
+                  <Show when={chapterInfo}>
+                    <div class="mt-1 border-white/20 border-t pt-1">
+                      <div class="font-medium text-white/90 text-xs">
+                        {chapterInfo?.chapter.name ||
+                          `Chapter ${(chapterInfo?.index ?? 0) + 1}`}
+                      </div>
+                      <div class="text-white/60 text-xs">
+                        Chapter {(chapterInfo?.index ?? 0) + 1} of{" "}
+                        {props.state.chapters.length}
+                      </div>
+                    </div>
+                  </Show>
+                  {/* Tooltip arrow */}
+                  <div class="-translate-x-1/2 absolute top-full left-1/2 h-0 w-0 transform border-transparent border-t-4 border-t-black/95 border-r-4 border-l-4" />
+                </div>
+              );
+            })()}
+          </Show>
         </div>
         <span class="min-w-[50px] text-right font-medium text-white text-xs sm:text-sm">
           {formatTime(props.state.duration)}
@@ -390,8 +648,8 @@ export default function VideoControls(props: VideoControlsProps) {
               const pipWindow = windows.find(
                 (window) => window.label === "pip"
               );
-              if (pipWindow) {
-                await commands.closePipWindow();
+              if (await pipWindow?.isVisible()) {
+                await commands.hidePipWindow();
               } else {
                 await props.onOpenPip();
               }
