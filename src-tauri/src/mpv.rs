@@ -1,4 +1,7 @@
+// ===== DEPENDENCIES =====
+
 use std::{
+    collections::HashMap,
     sync::mpsc::{Receiver, Sender},
     time::Duration,
 };
@@ -8,7 +11,7 @@ use glutin::{
     config::{ConfigTemplateBuilder, GlConfig},
     context::{ContextApi, ContextAttributesBuilder, PossiblyCurrentContext, Version},
     display::{Display, GetGlDisplay},
-    prelude::{GlDisplay, NotCurrentGlContext},
+    prelude::{GlDisplay, NotCurrentGlContext, PossiblyCurrentGlContext},
     surface::{GlSurface, Surface, SurfaceAttributesBuilder, WindowSurface},
 };
 use libmpv2::{
@@ -19,6 +22,8 @@ use libmpv2::{
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
 use serde::{Deserialize, Serialize};
 use tauri::{Emitter, PhysicalSize, Window};
+
+// ===== OPENGL CONTEXT MANAGEMENT =====
 
 /// OpenGL context management struct
 pub struct OpenGLContext {
@@ -40,10 +45,8 @@ impl OpenGLContext {
     pub fn resize(&self, width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
         self.surface.resize(
             &self.context,
-            std::num::NonZeroU32::new(width)
-                .unwrap_or(std::num::NonZeroU32::new(1).unwrap()),
-            std::num::NonZeroU32::new(height)
-                .unwrap_or(std::num::NonZeroU32::new(1).unwrap()),
+            std::num::NonZeroU32::new(width).unwrap_or(std::num::NonZeroU32::new(1).unwrap()),
+            std::num::NonZeroU32::new(height).unwrap_or(std::num::NonZeroU32::new(1).unwrap()),
         );
         Ok(())
     }
@@ -80,22 +83,28 @@ impl OpenGLContext {
     }
 }
 
+// ===== MPV PLAYER MANAGEMENT =====
+
 /// MPV player management struct
 pub struct MpvPlayer {
     pub mpv: Mpv,
     pub render_context: RenderContext,
+    pub window: Window,
 }
 
 impl MpvPlayer {
-    pub fn new(display: &Display) -> Result<Self, Box<dyn std::error::Error>> {
+    pub fn new(display: &Display, window: &Window) -> Result<Self, Box<dyn std::error::Error>> {
         let mut mpv = Mpv::new()?;
 
         // Configure MPV properties
         mpv.set_property("vo", "libmpv")?;
         mpv.set_property("idle", "yes")?;
         mpv.set_property("pause", true)?;
-        mpv.set_property("keep-open", "yes")?;
-        mpv.set_property("input-ipc-server", "/tmp/sreal")?;
+        mpv.set_property("keep-open", "always")?;
+        mpv.set_property("keep-open-pause", "no")?; // ✅ Added this
+        mpv.set_property("video-timing-offset", "0")?;
+        // mpv.set_property("save-position-on-quit", true)?;
+        // mpv.set_property("log-file", "/tmp/mpv.log")?;
 
         // Observe properties
         mpv.observe_property("pause", libmpv2::Format::Flag, 1)?;
@@ -105,6 +114,7 @@ impl MpvPlayer {
         mpv.observe_property("aid", libmpv2::Format::String, 5)?;
         mpv.observe_property("sid", libmpv2::Format::String, 6)?;
         mpv.observe_property("speed", libmpv2::Format::Double, 7)?;
+        mpv.observe_property("eof-reached", libmpv2::Format::Flag, 11)?;
         // Cache and buffering properties
         mpv.observe_property("demuxer-cache-time", libmpv2::Format::Double, 8)?;
         mpv.observe_property("cache-buffering-state", libmpv2::Format::Int64, 9)?;
@@ -127,6 +137,7 @@ impl MpvPlayer {
         Ok(MpvPlayer {
             mpv,
             render_context,
+            window: window.clone(),
         })
     }
 
@@ -141,8 +152,15 @@ impl MpvPlayer {
             }
             PlaybackEvent::Seek(time) => {
                 if loaded_file {
-                    self.mpv.command("seek", &[&time.to_string(), "relative"]).unwrap();
+                    self.mpv
+                        .command("seek", &[&time.to_string(), "relative"])
+                        .unwrap();
                 }
+            }
+            PlaybackEvent::AbsoluteSeek(time) => {
+                self.mpv
+                    .command("seek", &[&time.to_string(), "absolute"])
+                    .unwrap();
             }
             PlaybackEvent::Volume(volume) => {
                 self.mpv.set_property("volume", volume).unwrap();
@@ -163,50 +181,122 @@ impl MpvPlayer {
                 self.mpv.set_property("aid", audio).unwrap();
             }
             PlaybackEvent::Load(url) => {
-                self.mpv.command("loadfile", &[&url, "replace"]).unwrap();  
+                self.mpv.command("loadfile", &[&url, "replace"]).unwrap();
                 self.mpv.set_property("pause", false).unwrap();
             }
             PlaybackEvent::FileLoaded => {
                 // self.mpv.set_property("time-pos", "0").unwrap();
+                let time = self.mpv.get_property::<f64>("time-pos").unwrap();
+                let duration = self.mpv.get_property::<String>("duration").unwrap();
+                self.window.emit("file-loaded", (time, duration)).unwrap();
             }
             _ => {}
         }
     }
 }
 
-/// Render manager struct
+/// Render manager struct - handles OpenGL contexts and MPV rendering
 pub struct RenderManager {
-    gl_context: OpenGLContext,
+    gl_contexts: HashMap<String, OpenGLContext>,
     mpv_player: MpvPlayer,
+    active_window: String,
 }
 
 impl RenderManager {
+    /// Create new render manager with main window context
     pub fn new(window: &Window) -> Result<Self, Box<dyn std::error::Error>> {
         let gl_context = OpenGLContext::new(window)?;
-        let mpv_player = MpvPlayer::new(&gl_context.display)?;
-        
+        let mpv_player = MpvPlayer::new(&gl_context.display, window)?;
+
+        let mut gl_contexts = HashMap::new();
+        gl_contexts.insert("main".to_string(), gl_context);
+
         Ok(RenderManager {
-            gl_context,
+            gl_contexts,
             mpv_player,
+            active_window: "main".to_string(),
         })
     }
 
+    /// Create render manager with both main and PiP contexts
+    pub fn new_with_pip(
+        main_window: &Window,
+        pip_window: &Window,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
+        let main_gl_context = OpenGLContext::new(main_window)?;
+        let mpv_player = MpvPlayer::new(&main_gl_context.display, main_window)?;
+
+        let mut gl_contexts = HashMap::new();
+
+        let pip_gl_context = create_gl_context_with_display(
+            pip_window,
+            &main_gl_context.display,
+            &main_gl_context.context,
+        )?;
+
+        gl_contexts.insert("main".to_string(), main_gl_context);
+        // Create PiP context using shared display
+        gl_contexts.insert("pip".to_string(), pip_gl_context);
+
+        let mut rm = RenderManager {
+            gl_contexts,
+            mpv_player,
+            active_window: "main".to_string(),
+        };
+
+        rm.switch_target_window("main".to_string());
+
+        Ok(rm)
+    }
+
     pub fn render(&self, window: &Window) {
+        self.render_to_window(&self.active_window, window);
+    }
+
+    pub fn switch_target_window(&mut self, window_id: String) {
+        log::info!("Switching target window to {}", window_id);
+        let gl_context = self.gl_contexts.get(&window_id).unwrap();
+
+        gl_context
+            .context
+            .make_current(&gl_context.surface)
+            .unwrap();
+
+        self.active_window = window_id.to_string();
+        log::info!("Switched to window context '{}'", window_id);
+    }
+
+    pub fn render_to_window(&self, window_id: &str, window: &Window) {
+        let gl_context = match self.gl_contexts.get(window_id) {
+            Some(ctx) => ctx,
+            None => {
+                log::error!("Window context '{}' not found, skipping render", window_id);
+                return;
+            }
+        };
+
         let (width, height): (u32, u32) = window
             .inner_size()
             .unwrap_or(PhysicalSize::new(1920, 1080))
             .into();
 
         // Try to render with timeout
-        match self.mpv_player.render_context.render::<()>(0, width as _, height as _, true) {
+        match self.mpv_player.render_context.render::<OpenGLContext>(
+            0,
+            width as _,
+            height as _,
+            true,
+        ) {
             Ok(_) => {
                 // Only swap buffers if render succeeded
-                if let Err(e) = self.gl_context.surface.swap_buffers(&self.gl_context.context) {
-                    eprintln!("Failed to swap buffers: {}", e);
+                if let Err(e) = gl_context.surface.swap_buffers(&gl_context.context) {
+                    log::error!("Failed to swap buffers for window '{}': {}", window_id, e);
                 }
+
+                self.mpv_player.render_context.report_swap();
             }
             Err(e) => {
-                eprintln!("Failed to render: {}", e);
+                log::error!("Failed to render to window '{}': {}", window_id, e);
                 return;
             }
         }
@@ -214,21 +304,35 @@ impl RenderManager {
 
     pub fn clear(&self, window: &Window) {
         self.mpv_player.mpv.set_property("pause", true).unwrap();
-        self.gl_context.clear_to_transparent(window);
+        if let Some(gl_context) = self.gl_contexts.get(&self.active_window) {
+            gl_context.clear_to_transparent(window);
+        }
     }
 
-    pub fn resize(&self, width: u32, height: u32) -> Result<(), Box<dyn std::error::Error>> {
-        self.gl_context.resize(width, height)
+    pub fn resize(
+        &self,
+        window_id: &str,
+        width: u32,
+        height: u32,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        if let Some(gl_context) = self.gl_contexts.get(window_id) {
+            gl_context.resize(width, height)
+        } else {
+            Err(format!("Window context '{}' not found", window_id).into())
+        }
     }
 
-    pub fn set_update_callback<F>(&mut self, callback: F) 
-    where 
-        F: Fn() + Send + Sync + 'static 
+    pub fn set_update_callback<F>(&mut self, callback: F)
+    where
+        F: Fn() + Send + Sync + 'static,
     {
         self.mpv_player.render_context.set_update_callback(callback);
     }
 
-    pub fn wait_event(&mut self, timeout: f64) -> Option<Result<libmpv2::events::Event, libmpv2::Error>> {
+    pub fn wait_event(
+        &mut self,
+        timeout: f64,
+    ) -> Option<Result<libmpv2::events::Event, libmpv2::Error>> {
         self.mpv_player.mpv.wait_event(timeout)
     }
 }
@@ -244,8 +348,17 @@ impl EventHandler {
     ) {
         match event {
             libmpv2::events::Event::FileLoaded => {
-            //    render_tx.send(PlaybackEvent::FileLoaded).unwrap();
-                window.emit("file-loaded", ()).unwrap();
+                //    render_tx.send(PlaybackEvent::FileLoaded).unwrap();
+                //window.emit("file-loaded", ()).unwrap();
+                render_tx.send(PlaybackEvent::FileLoaded).unwrap();
+            }
+            libmpv2::events::Event::LogMessage {
+                prefix,
+                level,
+                text,
+                log_level: _,
+            } => {
+                log::info!("{}: {} - {}", prefix, level, text);
             }
 
             libmpv2::events::Event::PropertyChange {
@@ -267,7 +380,8 @@ impl EventHandler {
                 change: PropertyData::Str(duration),
                 reply_userdata: 4,
             } => {
-                let dur = Duration::from_secs_f64(duration.parse().expect("duration failed to f64"));
+                let dur =
+                    Duration::from_secs_f64(duration.parse().expect("duration failed to f64"));
                 window.emit("duration", dur.as_secs_f64()).unwrap();
             }
             libmpv2::events::Event::PropertyChange {
@@ -356,8 +470,16 @@ impl EventHandler {
                 window.emit("paused-for-cache", paused_for_cache).unwrap();
             }
 
+            libmpv2::events::Event::PropertyChange {
+                name: "eof-reached",
+                change: PropertyData::Flag(eof_reached),
+                reply_userdata: 11,
+            } => {
+                window.emit("end-of-file", 0).unwrap();
+            }
+
             libmpv2::events::Event::EndFile(reason) => {
-                eprintln!("MPV: End of file: {:?}", reason);
+                log::info!("MPV: End of file: {:?}", reason);
                 render_tx.send(PlaybackEvent::EndOfFile).unwrap();
                 // Also emit to frontend for autoplay handling with reason code
                 window.emit("end-of-file", reason).unwrap();
@@ -378,6 +500,71 @@ fn get_proc_address_fn(ctx: &*mut std::ffi::c_void, name: &str) -> *mut std::ffi
     } else {
         std::ptr::null_mut()
     }
+}
+
+fn create_gl_context_with_display(
+    window: &Window,
+    shared_display: &Display,
+    context_sharing: &PossiblyCurrentContext,
+) -> Result<OpenGLContext, Box<dyn std::error::Error>> {
+    let raw_handle = window.window_handle().unwrap().as_raw();
+
+    // Use the same display as the main context
+    let gl_display = shared_display;
+
+    let configs = unsafe {
+        gl_display
+            .find_configs(
+                ConfigTemplateBuilder::new()
+                    .with_alpha_size(8)
+                    .with_transparency(true)
+                    .build(),
+            )
+            .unwrap()
+    };
+
+    let gl_config = configs
+        .reduce(|accum, config| {
+            let transparency_check = config.supports_transparency().unwrap_or(false)
+                & !accum.supports_transparency().unwrap_or(false);
+
+            if transparency_check || config.num_samples() < accum.num_samples() {
+                config
+            } else {
+                accum
+            }
+        })
+        .unwrap();
+
+    let context_attributes = ContextAttributesBuilder::new()
+        .with_context_api(ContextApi::OpenGl(Some(Version::new(3, 3))))
+        .with_sharing(context_sharing)
+        .build(Some(raw_handle));
+
+    let not_current_gl_context =
+        unsafe { gl_display.create_context(&gl_config, &context_attributes)? };
+
+    let (width, height): (u32, u32) = window.inner_size().unwrap().into();
+
+    let surface_attributes = SurfaceAttributesBuilder::<WindowSurface>::new().build(
+        raw_handle,
+        std::num::NonZeroU32::new(width).unwrap_or(std::num::NonZeroU32::new(1).unwrap()),
+        std::num::NonZeroU32::new(height).unwrap_or(std::num::NonZeroU32::new(1).unwrap()),
+    );
+
+    let surface = unsafe {
+        gl_config
+            .display()
+            .create_window_surface(&gl_config, &surface_attributes)?
+    };
+
+    let gl_context = not_current_gl_context.make_current(&surface)?;
+
+    Ok(OpenGLContext {
+        display: gl_display.clone(),
+        surface,
+        context: gl_context,
+    })
 }
 
 fn create_gl_context(
@@ -449,12 +636,12 @@ fn create_gl_context(
     Ok((gl_display, surface, gl_context))
 }
 
-
 #[derive(Debug, Serialize, Deserialize)]
 pub enum PlaybackEvent {
     Play,
     Pause,
     Seek(f64),
+    AbsoluteSeek(f64),
     Volume(f64),
     Speed(f64),
     EndOfFile,
@@ -466,6 +653,8 @@ pub enum PlaybackEvent {
     Clear,
     Redraw,
     FileLoaded,
+    SwitchTarget(String),
+    ResizePipWindow { width: u32, height: u32 },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -485,14 +674,18 @@ pub struct Track {
     lang: Option<String>,
 }
 
+/// Main render thread function - handles MPV events and rendering
 pub async fn run_render_thread(
     window: Window,
     render_tx: Sender<PlaybackEvent>,
     render_rx: Receiver<PlaybackEvent>,
+    pip_window: Window,
+    get_pip_window: Box<dyn Fn() -> Option<Window> + Send + Sync>,
 ) {
     // Create render manager with OpenGL context and MPV player
-    let mut render_manager = RenderManager::new(&window).unwrap();
-    eprintln!("OpenGL context and MPV player created successfully on render thread");
+
+    let mut render_manager = RenderManager::new_with_pip(&window, &pip_window).unwrap();
+    log::info!("OpenGL context and MPV player created successfully on render thread");
 
     // Set up MPV update callback to trigger rendering on this thread
     render_manager.set_update_callback({
@@ -515,15 +708,38 @@ pub async fn run_render_thread(
         if let Ok(event) = render_rx.recv() {
             match event {
                 PlaybackEvent::Redraw => {
-                    render_manager.render(&window);
+                    // Render to the active window
+                    if render_manager.active_window == "pip" {
+                        if let Some(pip_window) = get_pip_window() {
+                            render_manager.render_to_window("pip", &pip_window);
+                        } else {
+                            // PiP window no longer exists, switch back to main and render there
+                            log::info!(
+                                "PiP window no longer exists, switching back to main window"
+                            );
+                            render_manager.render_to_window("main", &window);
+                        }
+                    } else {
+                        render_manager.render_to_window("main", &window);
+                    }
                 }
                 PlaybackEvent::Resize(width, height) => {
-                    if let Err(e) = render_manager.resize(width, height) {
-                        eprintln!("Failed to resize: {}", e);
+                    if let Err(e) =
+                        render_manager.resize(&render_manager.active_window, width, height)
+                    {
+                        log::error!("Failed to resize: {}", e);
                     }
                 }
                 PlaybackEvent::Clear => {
                     render_manager.clear(&window);
+                }
+                PlaybackEvent::SwitchTarget(target) => {
+                    render_manager.switch_target_window(target);
+                }
+                PlaybackEvent::ResizePipWindow { width, height } => {
+                    if let Err(e) = render_manager.resize("pip", width, height) {
+                        log::error!("Failed to resize PiP window: {}", e);
+                    }
                 }
                 _ => render_manager.mpv_player.handle_playback_event(event),
             }
@@ -532,4 +748,3 @@ pub async fn run_render_thread(
         //std::thread::sleep(std::time::Duration::from_millis(fps.into())); // ~40 FPS
     }
 }
-

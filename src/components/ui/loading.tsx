@@ -1,6 +1,7 @@
 import { LoaderCircleIcon } from "lucide-solid";
 import { splitProps } from "solid-js";
 import { cn } from "~/lib/utils";
+import { UserDropdown } from "../user-dropdown";
 
 export interface LoadingProps {
   /** Custom loading message */
@@ -37,7 +38,7 @@ export function Loading(props: LoadingProps) {
 
   if (backdrop) {
     return (
-      <div class="fixed inset-0 z-50 flex items-center justify-center bg-background/80 backdrop-blur-sm">
+      <div class="fixed inset-0 z-10 flex items-center justify-center bg-background/80 backdrop-blur-sm">
         {content}
       </div>
     );
@@ -48,7 +49,10 @@ export function Loading(props: LoadingProps) {
 
 export function PageLoading() {
   return (
-    <div class="flex min-h-screen items-center justify-center bg-background">
+    <div class="isolate flex min-h-screen items-center justify-center bg-background">
+      <div class="absolute top-5 right-5 z-20">
+        <UserDropdown variant="light" />
+      </div>
       <Loading size="lg" />
     </div>
   );

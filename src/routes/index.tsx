@@ -191,18 +191,23 @@ export default function Home() {
                         <h2 class="mb-8 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text font-bold text-2xl text-transparent">
                           Your Libraries
                         </h2>
-                        <div class="grid grid-cols-2 gap-6 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+                        <div
+                          class="grid h-96 gap-6"
+                          style={{
+                            "grid-template-columns": `repeat(${data.length}, minmax(0, 1fr))`,
+                          }}
+                        >
                           <For each={data}>
                             {(item) => (
                               <a
-                                class="group block"
+                                class="group block h-full w-full"
                                 href={`/library/${item.Id}`}
                               >
                                 <GlassCard
-                                  class="h-full overflow-hidden shadow-[var(--glass-shadow-md)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-[var(--glass-shadow-lg)]"
+                                  class="h-full w-full overflow-hidden shadow-[var(--glass-shadow-md)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-[var(--glass-shadow-lg)]"
                                   preset="card"
                                 >
-                                  <div class="relative aspect-square overflow-hidden">
+                                  <div class="relative h-full w-full overflow-hidden">
                                     {/* Image fills entire card */}
                                     <Show
                                       fallback={
@@ -216,7 +221,7 @@ export default function Home() {
                                     >
                                       <img
                                         alt={item.Name ?? "Library"}
-                                        class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
+                                        class="absolute inset-0 h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
                                         src={item.Image}
                                       />
                                     </Show>
