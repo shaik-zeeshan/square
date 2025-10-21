@@ -140,7 +140,7 @@ lib/dylib/
 lib/mpv/
 
 # Build temporary files
-/tmp/sreal-build/
+/tmp/square-build/
 
 # Cargo registry and git cache
 .cargo/

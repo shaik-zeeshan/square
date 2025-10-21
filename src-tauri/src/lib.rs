@@ -1,3 +1,5 @@
+use keyring::Entry;
+use rand::Rng;
 use specta::specta;
 use tauri::{Manager, WebviewBuilder, WindowBuilder, Wry};
 use tauri_plugin_http;
@@ -9,6 +11,8 @@ use crate::mpv::{run_render_thread, PlaybackEvent};
 mod credentials;
 pub mod mpv;
 mod store;
+
+static VAULT_PASSWORD: std::sync::OnceLock<String> = std::sync::OnceLock::new();
 
 /// Application state shared across Tauri commands
 #[derive(Clone)]
@@ -24,6 +28,53 @@ fn send_render_event(app: &tauri::AppHandle, event: PlaybackEvent) -> Result<(),
         .render_tx
         .send(event)
         .map_err(|e| format!("Failed to send event to render thread: {}", e))
+}
+
+fn generate_password() -> Result<String, String> {
+    let password = rand::thread_rng()
+        .sample_iter(&rand::distributions::Alphanumeric)
+        .take(32)
+        .map(char::from)
+        .collect::<String>();
+    Ok(password)
+}
+
+#[specta]
+#[tauri::command]
+fn get_vault_password(app: tauri::AppHandle) -> Result<String, String> {
+    if let Some(password) = VAULT_PASSWORD.get() {
+        log::debug!("Retrieved vault password from cache");
+        return Ok(password.clone());
+    }
+
+    let app_name = app.config().product_name.as_ref().unwrap().clone();
+    let entry = Entry::new(&app_name, "square_credentials").map_err(|er| {
+        let err = format!("entry error {}", er.to_string());
+        log::error!("{}", err);
+        err
+    })?;
+
+    match entry.get_password() {
+        Ok(password) => {
+            log::debug!("Successfully retrieved vault password from keyring");
+            // Store the retrieved password in OnceLock for future calls
+            let _ = VAULT_PASSWORD.set(password.clone());
+            Ok(password)
+        }
+        Err(err) => {
+            log::error!("Failed to get vault password: {}", err);
+            log::debug!("Generating new password");
+            let password = generate_password()?;
+            entry.set_password(&password).map_err(|err| {
+                let err = format!("setting password error: {}", err);
+                log::error!("{}", err);
+                err
+            })?;
+            let _ = VAULT_PASSWORD.set(password.clone());
+            log::debug!("Successfully generated and stored new vault password");
+            Ok(password)
+        }
+    }
 }
 
 // ===== PLAYBACK CONTROL COMMANDS =====
@@ -211,35 +262,6 @@ fn toggle_fullscreen(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
-fn nearest_corner(
-    current_x: i32,
-    current_y: i32,
-    screen_width: i32,
-    screen_height: i32,
-    window_width: i32,
-    window_height: i32,
-    padding: i32,
-) -> (i32, i32) {
-    let corners = [
-        (padding, padding),                                 // TopLeft
-        (screen_width - window_width - padding, padding),   // TopRight
-        (padding, screen_height - window_height - padding), // BottomLeft
-        (
-            screen_width - window_width - padding,
-            screen_height - window_height - padding,
-        ), // BottomRight
-    ];
-
-    corners
-        .iter()
-        .min_by_key(|(cx, cy)| {
-            let dx = (current_x - cx).pow(2);
-            let dy = (current_y - cy).pow(2);
-            dx + dy
-        })
-        .copied()
-        .unwrap_or((padding, padding))
-}
 /// Helper function to create PiP window with proper configuration
 fn create_pip_window(handle: &tauri::AppHandle) -> Result<tauri::Window, String> {
     // Create PiP window
@@ -402,7 +424,8 @@ pub async fn run() {
             toggle_fullscreen,
             show_pip_window,
             hide_pip_window,
-            toggle_pip_window
+            toggle_pip_window,
+            get_vault_password
         ])
         .error_handling(tauri_specta::ErrorHandlingMode::Throw)
         .typ::<store::GeneralSettings>();
@@ -447,7 +470,7 @@ pub async fn run() {
             let handle = app.handle().clone();
 
             let window = WindowBuilder::new(&handle, "main")
-                .title("sreal")
+                .title("square")
                 .hidden_title(true)
                 .title_bar_style(tauri::TitleBarStyle::Overlay)
                 .build()

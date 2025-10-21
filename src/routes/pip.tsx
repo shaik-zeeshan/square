@@ -16,7 +16,7 @@ function nearestCorner(
   screenHeight: number,
   windowWidth: number,
   windowHeight: number,
-  padding: number
+  padding: number,
 ): [number, number] {
   const corners: [number, number][] = [
     [padding, padding], // TopLeft
@@ -47,7 +47,7 @@ function nearestCorner(
 
 function onMoveEnd(
   callback: (event: Event<PhysicalPosition>) => Promise<void>,
-  delay = 200
+  delay = 200,
 ) {
   let timeout: NodeJS.Timeout;
   return (event: Event<PhysicalPosition>) => {
@@ -103,7 +103,7 @@ export default function PipPage() {
         monitor.size.height,
         windowSize.width,
         windowSize.height,
-        16 // padding
+        16, // padding
       );
 
       window.setPosition(new PhysicalPosition(x, y));
@@ -136,6 +136,7 @@ export default function PipPage() {
     }
 
     await main.setFocus();
+    await main.show();
   };
 
   return (

@@ -1,6 +1,7 @@
 import type { RecommendedServerInfo } from "@jellyfin/sdk";
 import { appDataDir } from "@tauri-apps/api/path";
 import { type Client, Stronghold } from "@tauri-apps/plugin-stronghold";
+import { commands } from "../tauri";
 
 export type UserCredential = {
   password: string;
@@ -11,19 +12,19 @@ export interface StrongholdService {
   saveCredentials: (
     server: RecommendedServerInfo,
     username: string,
-    password: string
+    password: string,
   ) => Promise<void>;
   getCredentials: (
     server: RecommendedServerInfo,
-    username: string
+    username: string,
   ) => Promise<UserCredential>;
   deleteUser: (
     server: RecommendedServerInfo,
-    username: string
+    username: string,
   ) => Promise<void>;
   hasCredentials: (
     server: RecommendedServerInfo,
-    username: string
+    username: string,
   ) => Promise<boolean>;
   preInitialize: () => Promise<void>;
 }
@@ -32,7 +33,7 @@ let strongholdInstance: Stronghold | null = null;
 
 export const getStrongholdService = async (
   vaultPath: string,
-  vaultPassword: string
+  vaultPassword: string,
 ): Promise<Stronghold> => {
   if (!strongholdInstance) {
     strongholdInstance = await Stronghold.load(vaultPath, vaultPassword);
@@ -63,13 +64,17 @@ class StrongholdServiceImpl implements StrongholdService {
   private async _doInitialize(): Promise<void> {
     try {
       const vaultPath = `${await appDataDir()}/vault.hold`;
-      const vaultPassword = "sreal-vault-password"; // This should come from OS keyring in production
+      const vaultPassword = await commands.getVaultPassword(); // This should come from OS keyring in production
+
+      if (!vaultPassword) {
+        throw new Error("Vault password not found");
+      }
 
       this.stronghold = await getStrongholdService(vaultPath, vaultPassword);
       try {
-        this.client = await this.stronghold.loadClient("sreal_credentials");
+        this.client = await this.stronghold.loadClient("square_credentials");
       } catch {
-        this.client = await this.stronghold.createClient("sreal_credentials");
+        this.client = await this.stronghold.createClient("square_credentials");
       }
       this.initialized = true;
     } catch (error) {
@@ -89,7 +94,7 @@ class StrongholdServiceImpl implements StrongholdService {
   async saveCredentials(
     server: RecommendedServerInfo,
     username: string,
-    password: string
+    password: string,
   ): Promise<void> {
     try {
       await this.initialize();
@@ -106,7 +111,7 @@ class StrongholdServiceImpl implements StrongholdService {
       };
 
       const data = Array.from(
-        new TextEncoder().encode(JSON.stringify(credential))
+        new TextEncoder().encode(JSON.stringify(credential)),
       );
       await store.insert(key, data);
 
@@ -118,7 +123,7 @@ class StrongholdServiceImpl implements StrongholdService {
 
   async getCredentials(
     server: RecommendedServerInfo,
-    username: string
+    username: string,
   ): Promise<UserCredential> {
     try {
       await this.initialize();
@@ -134,7 +139,7 @@ class StrongholdServiceImpl implements StrongholdService {
         throw new Error("Credential not found");
       }
       const credential = JSON.parse(
-        new TextDecoder().decode(new Uint8Array(data))
+        new TextDecoder().decode(new Uint8Array(data)),
       ) as UserCredential;
       return credential;
     } catch (error) {
@@ -144,7 +149,7 @@ class StrongholdServiceImpl implements StrongholdService {
 
   async deleteUser(
     server: RecommendedServerInfo,
-    username: string
+    username: string,
   ): Promise<void> {
     try {
       await this.initialize();
@@ -165,7 +170,7 @@ class StrongholdServiceImpl implements StrongholdService {
 
   async hasCredentials(
     server: RecommendedServerInfo,
-    username: string
+    username: string,
   ): Promise<boolean> {
     try {
       await this.initialize();

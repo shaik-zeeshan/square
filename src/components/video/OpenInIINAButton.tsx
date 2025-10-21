@@ -6,10 +6,7 @@ interface OpenInIINAButtonProps {
 }
 
 export const OpenInIINAButton = (props: OpenInIINAButtonProps) => {
-  const params = [
-    `url=${encodeURIComponent(props.url).replace(/'/g, "%27")}`,
-    "mpv_input-ipc-server=/tmp/sreal",
-  ];
+  const params = [`url=${encodeURIComponent(props.url).replace(/'/g, "%27")}`];
 
   const openIninna = () => {
     if (props.beforePlaying) {

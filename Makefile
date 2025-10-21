@@ -43,7 +43,7 @@ endif
 
 # Build directories
 DYLIB_DIR := lib/dylib
-TEMP_DIR := /tmp/sreal-build
+TEMP_DIR := /tmp/square-build
 FILELIST_FILE := $(TEMP_DIR)/filelist.txt
 
 # Default target
@@ -209,7 +209,7 @@ dev: sign-dylibs
 test: build-app
 	@echo "Testing the built application..."
 ifeq ($(OS),macos)
-	@open src-tauri/target/release/bundle/macos/sreal.app
+	@open src-tauri/target/release/bundle/macos/square.app
 	@echo "✅ Application launched for testing"
 else
 	@echo "Manual testing required for $(OS)"

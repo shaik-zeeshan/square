@@ -91,6 +91,9 @@ async hidePipWindow() : Promise<null> {
  */
 async togglePipWindow() : Promise<null> {
     return await TAURI_INVOKE("toggle_pip_window");
+},
+async getVaultPassword() : Promise<string> {
+    return await TAURI_INVOKE("get_vault_password");
 }
 }
 
