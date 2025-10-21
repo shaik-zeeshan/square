@@ -1164,36 +1164,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "desktop"
-version = "0.0.3"
-dependencies = [
- "argon2",
- "chrono",
- "cidre",
- "gl",
- "glutin",
- "keyring",
- "libmpv2",
- "log",
- "objc2-app-kit",
- "rand 0.8.5",
- "raw-window-handle",
- "serde",
- "serde_json",
- "specta",
- "specta-typescript",
- "tauri",
- "tauri-build",
- "tauri-plugin-http",
- "tauri-plugin-log",
- "tauri-plugin-opener",
- "tauri-plugin-store",
- "tauri-plugin-stronghold",
- "tauri-specta",
- "tokio",
-]
-
-[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4980,6 +4950,36 @@ checksum = "d91ed6c858b01f942cd56b37a94b3e0a1798290327d1236e4d9cf4eaca44d29d"
 dependencies = [
  "base64ct",
  "der",
+]
+
+[[package]]
+name = "square"
+version = "0.0.3"
+dependencies = [
+ "argon2",
+ "chrono",
+ "cidre",
+ "gl",
+ "glutin",
+ "keyring",
+ "libmpv2",
+ "log",
+ "objc2-app-kit",
+ "rand 0.8.5",
+ "raw-window-handle",
+ "serde",
+ "serde_json",
+ "specta",
+ "specta-typescript",
+ "tauri",
+ "tauri-build",
+ "tauri-plugin-http",
+ "tauri-plugin-log",
+ "tauri-plugin-opener",
+ "tauri-plugin-store",
+ "tauri-plugin-stronghold",
+ "tauri-specta",
+ "tokio",
 ]
 
 [[package]]

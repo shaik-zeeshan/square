@@ -1,5 +1,5 @@
 {
-  "name": "sreal",
+  "name": "square",
   "type": "module",
   "scripts": {
     "localdev": "vinxi dev --port 3001",
