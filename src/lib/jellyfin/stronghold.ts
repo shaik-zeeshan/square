@@ -12,19 +12,19 @@ export interface StrongholdService {
   saveCredentials: (
     server: RecommendedServerInfo,
     username: string,
-    password: string,
+    password: string
   ) => Promise<void>;
   getCredentials: (
     server: RecommendedServerInfo,
-    username: string,
+    username: string
   ) => Promise<UserCredential>;
   deleteUser: (
     server: RecommendedServerInfo,
-    username: string,
+    username: string
   ) => Promise<void>;
   hasCredentials: (
     server: RecommendedServerInfo,
-    username: string,
+    username: string
   ) => Promise<boolean>;
   preInitialize: () => Promise<void>;
 }
@@ -33,7 +33,7 @@ let strongholdInstance: Stronghold | null = null;
 
 export const getStrongholdService = async (
   vaultPath: string,
-  vaultPassword: string,
+  vaultPassword: string
 ): Promise<Stronghold> => {
   if (!strongholdInstance) {
     strongholdInstance = await Stronghold.load(vaultPath, vaultPassword);
@@ -94,7 +94,7 @@ class StrongholdServiceImpl implements StrongholdService {
   async saveCredentials(
     server: RecommendedServerInfo,
     username: string,
-    password: string,
+    password: string
   ): Promise<void> {
     try {
       await this.initialize();
@@ -111,7 +111,7 @@ class StrongholdServiceImpl implements StrongholdService {
       };
 
       const data = Array.from(
-        new TextEncoder().encode(JSON.stringify(credential)),
+        new TextEncoder().encode(JSON.stringify(credential))
       );
       await store.insert(key, data);
 
@@ -123,7 +123,7 @@ class StrongholdServiceImpl implements StrongholdService {
 
   async getCredentials(
     server: RecommendedServerInfo,
-    username: string,
+    username: string
   ): Promise<UserCredential> {
     try {
       await this.initialize();
@@ -139,7 +139,7 @@ class StrongholdServiceImpl implements StrongholdService {
         throw new Error("Credential not found");
       }
       const credential = JSON.parse(
-        new TextDecoder().decode(new Uint8Array(data)),
+        new TextDecoder().decode(new Uint8Array(data))
       ) as UserCredential;
       return credential;
     } catch (error) {
@@ -149,7 +149,7 @@ class StrongholdServiceImpl implements StrongholdService {
 
   async deleteUser(
     server: RecommendedServerInfo,
-    username: string,
+    username: string
   ): Promise<void> {
     try {
       await this.initialize();
@@ -170,7 +170,7 @@ class StrongholdServiceImpl implements StrongholdService {
 
   async hasCredentials(
     server: RecommendedServerInfo,
-    username: string,
+    username: string
   ): Promise<boolean> {
     try {
       await this.initialize();
