@@ -10,20 +10,17 @@ import { useGeneralInfo } from "~/components/current-user-provider";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
 import { GlassCard } from "~/components/ui";
-import { user } from "~/lib/jellyfin/user";
-import { useServerStore } from "~/lib/store-hooks";
-import { createJellyFinQuery } from "~/lib/utils";
+import { useAuth } from "~/effect/services/hooks/use-auth";
 
 export default function SettingsPage() {
   const { store } = useGeneralInfo();
-  const { store: serverStore } = useServerStore();
   const [activeTab, setActiveTab] = createSignal("profile");
 
+  const { getCurrentUser, getCurrentServer } = useAuth();
+
   // Fetch user details from Jellyfin
-  const userDetails = createJellyFinQuery(() => ({
-    queryKey: [user.query.details.key],
-    queryFn: (jf) => user.query.details(jf),
-  }));
+  const userDetails = getCurrentUser();
+  const serverDetails = getCurrentServer();
 
   const formatDate = (dateString?: string) => {
     if (!dateString) {
@@ -146,8 +143,7 @@ export default function SettingsPage() {
                             Server Version:
                           </span>
                           <p class="mt-1 text-foreground">
-                            {serverStore.current?.info.systemInfo?.Version ||
-                              "N/A"}
+                            {serverDetails?.data?.systemInfo?.Version || "N/A"}
                           </p>
                         </div>
                       </div>
@@ -172,7 +168,7 @@ export default function SettingsPage() {
                       Server ID
                     </h3>
                     <p class="font-mono text-foreground text-xs">
-                      {store?.user?.ServerId?.slice(0, 8) || "N/A"}...
+                      {serverDetails.data?.systemInfo?.Id || "N/A"}...
                     </p>
                   </div>
 
@@ -181,8 +177,7 @@ export default function SettingsPage() {
                       Server Name
                     </h3>
                     <p class="text-foreground">
-                      {serverStore.current?.info.systemInfo?.ServerName ||
-                        "N/A"}
+                      {serverDetails.data?.systemInfo?.ServerName || "N/A"}
                     </p>
                   </div>
 
@@ -191,7 +186,7 @@ export default function SettingsPage() {
                       Server Response Time
                     </h3>
                     <p class="text-foreground">
-                      {serverStore.current?.info.responseTime}ms
+                      {serverDetails.data?.responseTime}ms
                     </p>
                   </div>
                 </div>

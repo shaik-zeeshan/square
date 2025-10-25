@@ -187,6 +187,13 @@
     padding: 0;
     margin: 0;
   }
+
+  /* Add this to your CSS */
+  .button-group:has([data-action="true"]) button:not([data-action="true"]) {
+    pointer-events: none;
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
 }
 
 * {
@@ -228,6 +235,7 @@
   0% {
     transform: translateX(-100%);
   }
+
   100% {
     transform: translateX(400%);
   }
@@ -239,6 +247,7 @@
     opacity: 1;
     transform: scale(1);
   }
+
   50% {
     opacity: 0.8;
     transform: scale(1.05);
@@ -250,6 +259,7 @@
   100% {
     box-shadow: 0 0 8px rgba(59, 130, 246, 0.4);
   }
+
   50% {
     box-shadow: 0 0 16px rgba(59, 130, 246, 0.8);
   }
@@ -260,11 +270,13 @@
     opacity: 0;
     transform: translateY(4px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
 .progress-glow {
   opacity: 0;
   transition: opacity 0.2s ease;
@@ -283,4 +295,8 @@
 
 .progress-bar-container:hover .progress-glow {
   opacity: 1;
+}
+
+.toaster > *:nth-child(n + 4) {
+  display: none;
 }

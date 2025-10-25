@@ -102,7 +102,6 @@ export default function Page(_props: RouteSectionProps) {
     showOSD,
     hideOSD,
     toggleHelp,
-    onEndOfFile,
   } = useVideoPlayback(
     () => routeParams.id,
     () => itemDetails.data

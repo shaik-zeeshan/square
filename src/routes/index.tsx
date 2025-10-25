@@ -1,16 +1,14 @@
-import { useNavigate } from "@solidjs/router";
-import { HouseIcon } from "lucide-solid";
-import { createEffect, createSignal, For, Match, Show, Switch } from "solid-js";
-import { useGeneralInfo } from "~/components/current-user-provider";
+import { debounce } from "@solid-primitives/scheduled";
+import { createSignal, For, Match, Show, Switch } from "solid-js";
 import { ItemActions } from "~/components/ItemActions";
 import { MainPageEpisodeCard, SeriesCard } from "~/components/media-card";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
 import { GlassCard } from "~/components/ui";
 import { InlineLoading } from "~/components/ui/loading";
-import library from "~/lib/jellyfin/library";
-import { authStore } from "~/lib/persist-store";
-import { createJellyFinQuery } from "~/lib/utils";
+import { useAuth } from "~/effect/services/hooks/use-auth";
+import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
+import HouseIcon from "~icons/lucide/house";
 
 const LoadingSection = (props: { name: string }) => (
   <div class="col-span-full grid place-items-center py-8">
@@ -22,125 +20,35 @@ const LoadingSection = (props: { name: string }) => (
 );
 
 export default function Home() {
-  const navigate = useNavigate();
-  const { store } = useGeneralInfo();
-  const { store: auth } = authStore();
+  const { getCurrentUser } = useAuth();
   const [searchTerm, setSearchTerm] = createSignal("");
-  const [debouncedSearchTerm, setDebouncedSearchTerm] = createSignal("");
 
-  // Debounce search term to prevent excessive re-renders
-  createEffect(() => {
-    const term = searchTerm();
-    const timeoutId = setTimeout(() => {
-      setDebouncedSearchTerm(term);
-    }, 300); // 300ms debounce
+  const user = getCurrentUser();
 
-    return () => clearTimeout(timeoutId);
-  });
+  const debouncedSearchCallback = debounce(
+    (value: string) => setSearchTerm(value),
+    300
+  );
 
-  // Redirect to auth if not logged in
-  createEffect(() => {
-    if (!auth.isUserLoggedIn) {
-      navigate("/auth/onboarding");
-    }
-  });
+  const libraries = JellyfinOperations.getLibraries();
 
-  const libraries = createJellyFinQuery(() => ({
-    queryKey: [library.query.getLibraries.key],
-    queryFn: (jf) => library.query.getLibraries(jf, store?.user?.Id),
-    enabled: auth.isUserLoggedIn,
-  }));
+  const resumeItems = JellyfinOperations.getResumeItems();
 
-  const resumeItems = createJellyFinQuery(() => ({
-    queryKey: [library.query.getResumeItems.key, debouncedSearchTerm()],
-    queryFn: (jf) =>
-      library.query.getResumeItems(jf, store?.user?.Id, {
-        searchTerm: debouncedSearchTerm(),
-      }),
-    enabled: auth.isUserLoggedIn,
-  }));
+  const nextupItems = JellyfinOperations.getNextupItems();
 
-  const nextupItems = createJellyFinQuery(() => ({
-    queryKey: [library.query.getNextupItems.key],
-    queryFn: (jf) =>
-      library.query.getNextupItems(jf, store?.user?.Id, { limit: 3 }),
-    enabled: auth.isUserLoggedIn,
-  }));
+  const latestMovies = JellyfinOperations.getLatestMovies(
+    searchTerm(),
+    libraries.data
+  );
 
-  const latestMovies = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getLatestItems.key,
-      "latestMovies",
-      debouncedSearchTerm(),
-      libraries.data?.length,
-    ],
-    queryFn: async (jf) => {
-      if (debouncedSearchTerm()) {
-        const parentIds = libraries.data
-          ?.filter((library) => library.CollectionType === "movies")
-          ?.map((library) => library.Id)
-          .filter((id) => id !== undefined);
-
-        const items = await library.query.getItems(jf, {
-          parentId: parentIds?.[0],
-          userId: store?.user?.Id,
-          enableImage: true,
-          includeItemTypes: ["Movie"],
-          limit: 7,
-          recursive: true,
-          searchTerm: debouncedSearchTerm(),
-        });
-        return items;
-      }
-
-      return library.query.getLatestItems(jf, store?.user?.Id, {
-        limit: 7,
-        includeItemTypes: ["Movie"],
-      });
-    },
-    enabled:
-      auth.isUserLoggedIn &&
-      libraries.data?.some((library) => library.CollectionType === "movies"),
-  }));
-
-  const latestTVShows = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getLatestItems.key,
-      "latestTVShows",
-      debouncedSearchTerm(),
-      libraries.data?.length,
-    ],
-    queryFn: async (jf) => {
-      if (debouncedSearchTerm()) {
-        const parentIds = libraries.data
-          ?.filter((library) => library.CollectionType === "tvshows")
-          ?.map((library) => library.Id)
-          .filter((id) => id !== undefined);
-        const items = await library.query.getItems(jf, {
-          parentId: parentIds?.[0],
-          userId: store?.user?.Id,
-          enableImage: true,
-          includeItemTypes: ["Series"],
-          limit: 7,
-          recursive: true,
-          searchTerm: debouncedSearchTerm(),
-        });
-        return items;
-      }
-
-      return library.query.getLatestItems(jf, store?.user?.Id, {
-        limit: 7,
-        includeItemTypes: ["Series"],
-      });
-    },
-    enabled:
-      auth.isUserLoggedIn &&
-      libraries.data?.some((library) => library.CollectionType === "tvshows"),
-  }));
+  const latestTVShows = JellyfinOperations.getLatestTVShows(
+    searchTerm(),
+    libraries.data
+  );
 
   return (
     <section class="h-full w-full">
-      <Show when={auth.isUserLoggedIn}>
+      <Show when={true}>
         <section class="relative flex flex-col p-0">
           {/* Navigation Bar */}
           <Nav
@@ -152,7 +60,7 @@ export default function Home() {
             ]}
             class="relative z-50"
             currentPage="Dashboard"
-            onSearchChange={setSearchTerm}
+            onSearchChange={debouncedSearchCallback}
             searchValue={searchTerm()}
             showSearch={true}
             variant="light"
@@ -303,18 +211,12 @@ export default function Home() {
                                             </span>
                                           </div>
                                         }
-                                        when={
-                                          item.Images?.Primary ||
-                                          item.Backdrop?.[0]
-                                        }
+                                        when={item.Image}
                                       >
                                         <img
                                           alt={item.Name ?? "Item"}
                                           class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
-                                          src={
-                                            item.Images?.Primary ||
-                                            item.Backdrop?.[0]
-                                          }
+                                          src={item.Image}
                                         />
                                       </Show>
 
@@ -348,7 +250,7 @@ export default function Home() {
                                                   cancelRefetch: true,
                                                 });
                                               }}
-                                              userId={store?.user?.Id}
+                                              userId={user.data?.Id}
                                               variant="card"
                                             />
                                           </div>

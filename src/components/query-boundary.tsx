@@ -1,7 +1,6 @@
 import type { UseQueryResult } from "@tanstack/solid-query";
 import type { JSX } from "solid-js";
 import { ErrorBoundary, Match, Suspense, Switch } from "solid-js";
-import { showErrorToast } from "~/lib/toast";
 
 export type QueryBoundaryProps<T = unknown> = {
   query: UseQueryResult<T, Error>;
@@ -69,9 +68,9 @@ export function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
           <Match when={props.query.isError}>
             {(() => {
               const error = props.query.error;
-              if (error) {
-                showErrorToast(error.message || "An error occurred");
-              }
+              //if (error) {
+              //  showErrorToast(error.message || "An error occurred");
+              //}
               return props.errorFallback ? (
                 props.errorFallback(error, props.query.refetch)
               ) : (
