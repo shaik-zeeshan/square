@@ -19,6 +19,13 @@ export function UserSelection(props: UserSelectionProps) {
   const [isDeleting, setIsDeleting] = createSignal<string | null>(null);
   const { store: serverStore, setStore: setServerStore } = useServerStore();
 
+  // // Pre-initialize Stronghold on app startup for better performance
+  // onMount(() => {
+  //   strongholdService.preInitialize().catch((_error) => {
+  //     // Do nothing
+  //   });
+  // });
+
   const handleSelectUser = async (username: string) => {
     try {
       // Get password from Stronghold and auto-login

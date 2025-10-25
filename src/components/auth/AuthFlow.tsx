@@ -1,7 +1,6 @@
 import type { RecommendedServerInfo } from "@jellyfin/sdk";
 import { createSignal, onMount, Show } from "solid-js";
 import { useAuthentication } from "~/hooks/useAuthentication";
-import { strongholdService } from "~/lib/jellyfin/stronghold";
 import { useServerStore } from "~/lib/store-hooks";
 import type { AuthCredentials } from "~/types";
 import { LoginForm } from "./LoginForm";
@@ -43,9 +42,9 @@ export function AuthFlow(props: AuthFlowProps) {
       setIsLoading(true);
 
       // Pre-initialize Stronghold in background for faster auto-login
-      strongholdService.preInitialize().catch((_error) => {
-        // Do nothing
-      });
+      // strongholdService.preInitialize().catch((_error) => {
+      //   // Do nothing
+      // });
 
       // Get users from the server store only
       const storedServer = serverStore.servers.find(

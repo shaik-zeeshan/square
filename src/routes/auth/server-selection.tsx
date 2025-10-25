@@ -1,11 +1,10 @@
 import type { RecommendedServerInfo } from "@jellyfin/sdk";
 import { useNavigate } from "@solidjs/router";
-import { createSignal, onMount, Show } from "solid-js";
+import { createSignal, Show } from "solid-js";
 import { AuthFlow } from "~/components/auth/AuthFlow";
 import { RouteProtection } from "~/components/auth/RouteProtection";
 import { ServerSelection } from "~/components/auth/ServerSelection";
 import { AuthErrorBoundary } from "~/components/error/ErrorBoundary";
-import { strongholdService } from "~/lib/jellyfin/stronghold";
 import { useServerStore } from "~/lib/store-hooks";
 
 export default function ServerSelectionPage() {
@@ -40,11 +39,11 @@ export default function ServerSelectionPage() {
     navigate("/");
   };
 
-  onMount(() => {
-    strongholdService.preInitialize().catch((_error) => {
-      // Do nothing
-    });
-  });
+  // onMount(() => {
+  //   strongholdService.preInitialize().catch((_error) => {
+  //     // Do nothing
+  //   });
+  // });
 
   return (
     <RouteProtection requireAuth={false}>

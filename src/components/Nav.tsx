@@ -1,7 +1,11 @@
 import { createEventListener } from "@solid-primitives/event-listener";
 import { useNavigate } from "@solidjs/router";
-import { ChevronRight, Home, Search, X } from "lucide-solid";
 import { createEffect, createSignal, type JSX, Show } from "solid-js";
+import { cn } from "~/lib/utils";
+import ChevronRight from "~icons/lucide/chevron-right";
+import House from "~icons/lucide/house";
+import Search from "~icons/lucide/search";
+import X from "~icons/lucide/x";
 import { UserDropdown } from "./user-dropdown";
 
 type NavProps = {
@@ -93,22 +97,29 @@ export function Nav(props: NavProps) {
 
   return (
     <nav
-      class={`relative z-50 flex-shrink-0 px-6 py-4 ${textColorClass} ${props.class ?? ""}`}
+      class={cn(
+        "relative z-50 flex-shrink-0 px-6 py-4",
+        textColorClass,
+        props.class
+      )}
     >
       <div class="flex items-center justify-between gap-4">
         {/* Left Side - Breadcrumb Navigation */}
         <div class="flex min-w-0 items-center gap-3">
           <button
             aria-label="Go home"
-            class={`rounded-md p-2 ${hoverBgClass} flex-shrink-0 transition-colors`}
+            class={cn(
+              "flex-shrink-0 rounded-md p-2 transition-colors",
+              hoverBgClass
+            )}
             onClick={() => navigate("/")}
             title="Home"
             type="button"
           >
-            <Home class="h-5 w-5" />
+            <House class="h-5 w-5" />
           </button>
 
-          <div class={`h-6 w-px ${dividerClass} flex-shrink-0`} />
+          <div class={cn("h-6 w-px flex-shrink-0", dividerClass)} />
 
           <div class="flex min-w-0 items-center gap-2 overflow-hidden text-sm">
             <Show when={props.breadcrumbs && props.breadcrumbs.length > 0}>
@@ -157,7 +168,7 @@ export function Nav(props: NavProps) {
               fallback={
                 <button
                   aria-label="Search"
-                  class={`rounded-md p-2 ${hoverBgClass} transition-colors`}
+                  class={cn("rounded-md p-2 transition-colors", hoverBgClass)}
                   onClick={handleSearchOpen}
                   title="Search (Ctrl+K)"
                   type="button"
@@ -168,11 +179,17 @@ export function Nav(props: NavProps) {
               when={isSearchOpen()}
             >
               <div
-                class={`flex items-center gap-2 ${searchBgClass} rounded-lg border px-3 py-1.5 backdrop-blur-sm`}
+                class={cn(
+                  "flex items-center gap-2 rounded-lg border px-3 py-1.5 backdrop-blur-sm",
+                  searchBgClass
+                )}
               >
                 <Search class="h-4 w-4 flex-shrink-0 opacity-60" />
                 <input
-                  class={`w-48 bg-transparent text-sm outline-none ${searchTextClass}`}
+                  class={cn(
+                    "w-48 bg-transparent text-sm outline-none",
+                    searchTextClass
+                  )}
                   onInput={(e) => props.onSearchChange?.(e.currentTarget.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
@@ -187,7 +204,7 @@ export function Nav(props: NavProps) {
                 />
                 <button
                   aria-label="Close search"
-                  class={`rounded p-1 ${hoverBgClass} transition-colors`}
+                  class={cn("rounded p-1 transition-colors", hoverBgClass)}
                   onClick={handleSearchClose}
                   type="button"
                 >
