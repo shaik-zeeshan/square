@@ -12,7 +12,7 @@ import {
   useMutation,
   useQuery,
 } from "@tanstack/solid-query";
-import { Duration, Effect } from "effect";
+import { Effect } from "effect";
 import { create, type Draft } from "mutative";
 import type { Accessor } from "solid-js";
 import { useRuntime } from "~/effect/runtime/use-runtime";
@@ -22,7 +22,6 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
-      staleTime: Duration.toMillis(Duration.minutes(5)),
     },
   },
 });
@@ -124,14 +123,14 @@ export function createQueryKey<TKey extends string, TVariables = void>(
 type QueryDataHelpers<TData, TVariables> = {
   cancelQuery: (variables: TVariables) => void;
   removeQuery: (variables: TVariables) => void;
-  removeAllQueries: () => void;
+  removeAllQueries: (variables?: TVariables) => void;
   getData: (variables: TVariables) => TData | undefined;
   setData: (
     variables: TVariables,
     updater: QueryDataUpdater<TData> | TData
   ) => TData | undefined;
   invalidateQuery: (variables: TVariables) => Promise<void>;
-  invalidateAllQueries: () => Promise<void>;
+  invalidateAllQueries: (variables?: TVariables) => Promise<void>;
   refetchQuery: (variables: TVariables) => Promise<void>;
   refetchAllQueries: () => Promise<void>;
 };
@@ -184,8 +183,12 @@ export function createQueryDataHelpers<TData, TVariables = void>(
     removeQuery: (variables: TVariables) => {
       queryClient.removeQueries({ queryKey: queryKey(variables) });
     },
-    removeAllQueries: () => {
-      queryClient.removeQueries({ queryKey: [namespaceKey], exact: false });
+    removeAllQueries: (variables) => {
+      const queryKey: QueryKey = [namespaceKey];
+      if (variables) {
+        queryKey.concat(variables);
+      }
+      queryClient.removeQueries({ queryKey, exact: false });
     },
     getData: (variables: TVariables) =>
       queryClient.getQueryData(queryKey(variables)),
@@ -206,8 +209,13 @@ export function createQueryDataHelpers<TData, TVariables = void>(
       }),
     invalidateQuery: (variables: TVariables) =>
       queryClient.invalidateQueries({ queryKey: queryKey(variables) }),
-    invalidateAllQueries: () =>
-      queryClient.invalidateQueries({ queryKey: [namespaceKey], exact: false }),
+    invalidateAllQueries: (variables) => {
+      const queryKey: QueryKey = [namespaceKey];
+      if (variables) {
+        queryKey.concat(variables);
+      }
+      return queryClient.invalidateQueries({ queryKey, exact: false });
+    },
     refetchQuery: (variables: TVariables) =>
       queryClient.refetchQueries({ queryKey: queryKey(variables) }),
     refetchAllQueries: () =>

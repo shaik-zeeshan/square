@@ -37,12 +37,12 @@ export default function Home() {
   const nextupItems = JellyfinOperations.getNextupItems();
 
   const latestMovies = JellyfinOperations.getLatestMovies(
-    searchTerm(),
+    () => searchTerm(),
     libraries.data
   );
 
   const latestTVShows = JellyfinOperations.getLatestTVShows(
-    searchTerm(),
+    () => searchTerm(),
     libraries.data
   );
 

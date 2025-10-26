@@ -1,6 +1,5 @@
 /** biome-ignore-all lint/correctness/noNestedComponentDefinitions: No Nested */
 import type { RecommendedServerInfo } from "@jellyfin/sdk";
-import { useNavigate } from "@solidjs/router";
 import { useQueryClient } from "@tanstack/solid-query";
 import { Effect } from "effect";
 import {
@@ -26,13 +25,16 @@ import { showErrorToast, showSuccessToast } from "~/lib/toast";
 import { cn } from "~/lib/utils";
 import ArrowSmallLeft from "~icons/heroicons/arrow-small-left";
 import ArrowSmallRight from "~icons/heroicons/arrow-small-right";
-import LockClosed from "~icons/heroicons/lock-closed";
 import Finder from "~icons/heroicons/magnifying-glass";
 import Server from "~icons/heroicons/server";
 import ServerStack from "~icons/heroicons/server-stack";
 import Trash from "~icons/heroicons/trash";
-import User from "~icons/heroicons/user";
-import UserGroup from "~icons/heroicons/user-group";
+//import LockClosed from "~icons/heroicons/lock-closed";
+import LockClosed from "~icons/lucide/lock-keyhole";
+// import User from "~icons/heroicons/user";
+import User from "~icons/lucide/user";
+// import UserGroup from "~icons/heroicons/user-group";
+import UserGroup from "~icons/lucide/users";
 
 type AuthStage =
   | "server-selection"
@@ -182,7 +184,7 @@ const Input = (
   const Icon = props.icon;
   return (
     <div class="flex h-12 w-full items-center gap-4 rounded bg-border px-4">
-      <Icon class="h-6 w-6 text-muted-foreground" />
+      <Icon class="h-5 w-5 text-muted-foreground" />
       <input
         class="flex-1 text-muted-foreground caret-muted-foreground outline-none"
         {...props}
@@ -284,8 +286,6 @@ const UserLogin = (props: {
   server: RecommendedServerInfo;
   setStage?: SetStoreFunction<AuthSteps>;
 }) => {
-  const navigate = useNavigate();
-  const qc = useQueryClient();
   const { login } = useAuth();
   const [loginStore, setLoginStore] = createStore({
     username: "",
@@ -304,59 +304,6 @@ const UserLogin = (props: {
         Effect.flatMap((client) => client.getUsers(props.server))
       ),
   }));
-
-  // const login = createEffectMutation(() => ({
-  //   mutationKey: ["login"],
-  //   mutationFn: (variables: { username: string; password: string }) =>
-  //     AuthService.pipe(
-  //       Effect.flatMap((auth) =>
-  //         Effect.gen(function* () {
-  //           yield* auth.login(
-  //             props.server,
-  //             variables.username,
-  //             variables.password
-  //           );
-  //
-  //           yield* auth.setPassword(
-  //             props.server,
-  //             variables.username,
-  //             variables.password
-  //           );
-  //         })
-  //       ),
-  //       Effect.catchAll((e) => {
-  //         showErrorToast(e.message || e._tag || "Error while Loggin");
-  //         return Effect.fail(e);
-  //       }),
-  //       Effect.flatMap(() =>
-  //         JellyfinClientService.pipe(
-  //           Effect.flatMap((client) =>
-  //             client.addUser(props.server, variables.username)
-  //           )
-  //         )
-  //       ),
-  //       Effect.catchTag("NoFieldFound", (e) => {
-  //         showErrorToast(e.message || e._tag || "Error while Loggin");
-  //         return Effect.fail(e);
-  //       }),
-  //       Effect.tap(() =>
-  //         Effect.promise(async () => {
-  //           await qc.invalidateQueries({
-  //             queryKey: ["currentUser", "currentServer"],
-  //           });
-  //           await qc.invalidateQueries({
-  //             predicate: (query) => query.queryKey.includes(variables.username),
-  //           });
-  //         })
-  //       ),
-  //       Effect.tap(() =>
-  //         Effect.sync(() => {
-  //           showSuccessToast(`Successfully Logged in, ${variables.username}`);
-  //           navigate("/");
-  //         })
-  //       )
-  //     ),
-  // }));
 
   return (
     <div class="flex flex-col items-center justify-center space-y-10">

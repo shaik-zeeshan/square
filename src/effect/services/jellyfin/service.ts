@@ -293,6 +293,7 @@ export class JellyfinService extends Effect.Service<JellyfinService>()(
             enableUserData: true,
             ...params,
             fields: [
+              "ParentId",
               "ChildCount",
               "Path",
               "MediaStreams",

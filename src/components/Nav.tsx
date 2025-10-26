@@ -98,12 +98,12 @@ export function Nav(props: NavProps) {
   return (
     <nav
       class={cn(
-        "relative z-50 flex-shrink-0 px-6 py-4",
+        "relative z-50 h-16 flex-shrink-0 px-6 py-4",
         textColorClass,
         props.class
       )}
     >
-      <div class="flex items-center justify-between gap-4">
+      <div class="flex h-full items-center justify-between gap-4">
         {/* Left Side - Breadcrumb Navigation */}
         <div class="flex min-w-0 items-center gap-3">
           <button
@@ -162,7 +162,7 @@ export function Nav(props: NavProps) {
         </div>
 
         {/* Right Side - Actions & Search */}
-        <div class="flex flex-shrink-0 items-center gap-2">
+        <div class="flex h-full flex-shrink-0 items-center gap-2">
           <Show when={props.showSearch}>
             <Show
               fallback={
@@ -180,7 +180,7 @@ export function Nav(props: NavProps) {
             >
               <div
                 class={cn(
-                  "flex items-center gap-2 rounded-lg border px-3 py-1.5 backdrop-blur-sm",
+                  "flex h-10 items-center gap-2 rounded-lg border px-3 py-1.5 backdrop-blur-sm",
                   searchBgClass
                 )}
               >

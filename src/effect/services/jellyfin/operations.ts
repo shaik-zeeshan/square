@@ -56,11 +56,11 @@ class Jellyfin {
     this.latestMoviesQueryKey
   );
   getLatestMovies = (
-    searchTerm: string,
+    searchTerm: () => string,
     libraries: BaseItemDto[] | undefined
   ) =>
     createEffectQuery(() => ({
-      queryKey: this.latestMoviesQueryKey({ search: searchTerm }),
+      queryKey: this.latestMoviesQueryKey({ search: searchTerm() }),
       queryFn: () =>
         Effect.if(Boolean(searchTerm), {
           onTrue: () =>
@@ -78,10 +78,11 @@ class Jellyfin {
                 jf.getItems({
                   parentId: jf.parentId,
                   enableImages: true,
+                  fields: ["ParentId"],
                   includeItemTypes: ["Movie"],
                   limit: 7,
                   recursive: true,
-                  searchTerm,
+                  searchTerm: searchTerm(),
                 })
               ),
               Effect.catchTag("HttpError", (e) => {
@@ -115,11 +116,11 @@ class Jellyfin {
     this.latestTVShowsQueryKey
   );
   getLatestTVShows = (
-    searchTerm: string,
+    searchTerm: () => string,
     libraries: BaseItemDto[] | undefined
   ) =>
     createEffectQuery(() => ({
-      queryKey: this.latestTVShowsQueryKey({ search: searchTerm }),
+      queryKey: this.latestTVShowsQueryKey({ search: searchTerm() }),
       queryFn: () =>
         Effect.if(Boolean(searchTerm), {
           onTrue: () =>
@@ -137,10 +138,11 @@ class Jellyfin {
                 jf.getItems({
                   parentId: jf.parentId,
                   enableImages: true,
+                  fields: ["ParentId"],
                   includeItemTypes: ["Series"],
                   limit: 7,
                   recursive: true,
-                  searchTerm,
+                  searchTerm: searchTerm(),
                 })
               ),
               Effect.catchTag("HttpError", (e) => {
@@ -199,7 +201,7 @@ class Jellyfin {
             })
           )
         ),
-      ...(queryOptions ? queryOptions : {}),
+      ...(queryOptions ? queryOptions() : {}),
     }));
 
   itemsQueryKey = createQueryKey<

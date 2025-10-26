@@ -31,7 +31,6 @@ class AuthOperationsClass {
         AuthService.pipe(
           Effect.flatMap((auth) => auth.getUser()),
           Effect.catchTag("NoUserFound", (e) => {
-            // this.navigate()("/auth/new");
             navigate("/auth/new");
             return Effect.fail(e);
           })
@@ -187,8 +186,8 @@ class AuthOperationsClass {
               await this.currentServerDataHelpers.invalidateAllQueries();
               qc.clear();
 
-              navigate("/auth/new");
               showSuccessToast("Logged Out");
+              navigate("/auth/new");
             })
           )
         ),

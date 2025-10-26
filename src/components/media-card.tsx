@@ -24,7 +24,9 @@ export function SeriesCard(props: SeriesCardProps) {
   ]);
 
   const item = createEffectQuery(() => ({
-    queryKey: JellyfinOperations.itemQueryKey({ id: initialItem.Id as string }),
+    queryKey: JellyfinOperations.itemQueryKey({
+      id: initialItem.Id as string,
+    }),
     queryFn: () =>
       JellyfinService.pipe(
         Effect.flatMap((jf) =>

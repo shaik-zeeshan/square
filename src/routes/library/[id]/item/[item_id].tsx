@@ -31,6 +31,8 @@ import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
 import { GlassButton } from "~/components/ui";
 import { InlineLoading } from "~/components/ui/loading";
+import { useRuntime } from "~/effect/runtime/use-runtime";
+import { AuthService } from "~/effect/services/auth";
 import {
   JellyfinOperations,
   type JellyfinOperationsType,
@@ -43,6 +45,14 @@ import {
 
 export default function Page(props: RouteSectionProps) {
   const [{ params }] = splitProps(props, ["params"]);
+  const runtime = useRuntime();
+  const jf = runtime.runSync(
+    Effect.gen(function* () {
+      const auth = yield* AuthService;
+      const api = yield* auth.getApi();
+      return { api };
+    })
+  );
 
   const navigate = useNavigate();
 
@@ -53,9 +63,15 @@ export default function Page(props: RouteSectionProps) {
     "all" | "unplayed" | "played" | "resumable"
   >("all");
 
-  const itemDetails = JellyfinOperations.getItem(() => params.item_id, {
-    fields: ["Overview", "Studios", "People"],
-  });
+  const itemDetails = JellyfinOperations.getItem(
+    () => params.item_id,
+    {
+      fields: ["Overview", "Studios", "People"],
+    },
+    () => ({
+      staleTime: 0,
+    })
+  );
 
   const parentLibrary = JellyfinOperations.getItem(() => params.id, {
     fields: ["ParentId"],
@@ -105,10 +121,7 @@ export default function Page(props: RouteSectionProps) {
         items.forEach((item) =>
           JellyfinOperations.itemQueryDataHelpers.setData(
             { id: item.Id as string },
-            (data) => {
-              // biome-ignore lint: mutative works
-              data = item;
-            }
+            item
           )
         );
 
@@ -152,7 +165,7 @@ export default function Page(props: RouteSectionProps) {
   });
 
   const getImage = (id: string) =>
-    `http://192.168.0.3:8096/Items/${id}/Images/Backdrop`;
+    `${jf.api.basePath}/Items/${id}/Images/Backdrop?quality=10`;
   return (
     <section class="relative flex min-h-screen flex-col">
       <div class="fixed top-0 left-0 h-screen w-full">
