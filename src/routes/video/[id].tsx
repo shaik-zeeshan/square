@@ -17,12 +17,12 @@ import {
   VideoInfoOverlay,
   VideoSettingsPanels,
 } from "~/components/video";
+import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
 import { useAutoplay } from "~/hooks/useAutoplay";
 import { useVideoKeyboardShortcuts } from "~/hooks/useVideoKeyboardShortcuts";
 import { useVideoPlayback } from "~/hooks/useVideoPlayback";
-import library from "~/lib/jellyfin/library";
+import type library from "~/lib/jellyfin/library";
 import { commands } from "~/lib/tauri";
-import { createJellyFinQuery } from "~/lib/utils";
 
 export default function Page(_props: RouteSectionProps) {
   // let [{ params }] = splitProps(props, ['params']);
@@ -31,56 +31,83 @@ export default function Page(_props: RouteSectionProps) {
   const { store: userStore } = useGeneralInfo();
 
   // Fetch item details with UserData to get playback position
-  const itemDetails = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getItem.key,
-      library.query.getItem.keyFor(routeParams.id, userStore?.user?.Id),
-    ],
-    queryFn: (jf) => {
-      if (!routeParams.id) {
-        throw new Error("Route parameter ID not found");
-      }
-      return library.query.getItem(jf, routeParams.id, userStore?.user?.Id, [
-        "Overview",
-        "ParentId",
-      ]);
+  // const itemDetails = createJellyFinQuery(() => ({
+  //   queryKey: [
+  //     library.query.getItem.key,
+  //     library.query.getItem.keyFor(routeParams.id, userStore?.user?.Id),
+  //   ],
+  //   queryFn: (jf) => {
+  //     if (!routeParams.id) {
+  //       throw new Error("Route parameter ID not found");
+  //     }
+  //     return library.query.getItem(jf, routeParams.id, userStore?.user?.Id, [
+  //       "Overview",
+  //       "ParentId",
+  //     ]);
+  //   },
+  //   enabled: !!routeParams.id && !!userStore?.user?.Id,
+  //   refetchOnWindowFocus: false,
+  //   refetchOnMount: false,
+  //   refetchOnReconnect: false,
+  // }));
+
+  const itemDetails = JellyfinOperations.getItem(
+    () => routeParams.id,
+    {
+      fields: ["Overview", "ParentId"],
     },
-    enabled: !!routeParams.id && !!userStore?.user?.Id,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    staleTime: Number.POSITIVE_INFINITY, // 5 minutes
-  }));
+    () => ({
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+    })
+  );
 
-  const parentDetails = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getItem.key,
-      library.query.getItem.keyFor(
-        itemDetails.data?.ParentId || "",
-        userStore?.user?.Id
-      ),
-      itemDetails.data?.ParentId,
-    ],
-    queryFn: (jf) => {
-      const parentId = itemDetails.data?.ParentId;
-      if (!parentId) {
-        throw new Error("Parent ID not found");
-      }
-      return library.query.getItem(jf, parentId, userStore?.user?.Id, [
-        "Overview",
-        "ParentId",
-      ]);
+  const parentDetails = JellyfinOperations.getItem(
+    () => itemDetails.data?.ParentId as string,
+    {
+      fields: ["Overview", "ParentId"],
     },
+    () => ({
+      enabled:
+        !!itemDetails.data?.ParentId &&
+        itemDetails.data?.Type !== "Movie" &&
+        !!userStore?.user?.Id,
+      refetchOnWindowFocus: false,
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      retry: 3,
+    })
+  );
 
-    enabled:
-      !!itemDetails.data?.ParentId &&
-      itemDetails.data?.Type !== "Movie" &&
-      !!userStore?.user?.Id,
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 3,
-  }));
-
+  // const parentDetails = createJellyFinQuery(() => ({
+  //   queryKey: [
+  //     library.query.getItem.key,
+  //     library.query.getItem.keyFor(
+  //       itemDetails.data?.ParentId || "",
+  //       userStore?.user?.Id
+  //     ),
+  //     itemDetails.data?.ParentId,
+  //   ],
+  //   queryFn: (jf) => {
+  //     const parentId = itemDetails.data?.ParentId;
+  //     if (!parentId) {
+  //       throw new Error("Parent ID not found");
+  //     }
+  //     return library.query.getItem(jf, parentId, userStore?.user?.Id, [
+  //       "Overview",
+  //       "ParentId",
+  //     ]);
+  //   },
+  //
+  //   enabled:
+  //     !!itemDetails.data?.ParentId &&
+  //     itemDetails.data?.Type !== "Movie" &&
+  //     !!userStore?.user?.Id,
+  //   refetchOnWindowFocus: false,
+  //   staleTime: 1000 * 60 * 5, // 5 minutes
+  //   retry: 3,
+  // }));
+  //
   // Use the custom hook for playback state management
   const {
     state,

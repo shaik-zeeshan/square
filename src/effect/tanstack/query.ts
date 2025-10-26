@@ -6,12 +6,13 @@ import {
   type QueryFunctionContext,
   type SolidMutationOptions,
   type SolidQueryOptions,
+  type skipToken,
   type UseMutationResult,
   type UseQueryResult,
   useMutation,
   useQuery,
 } from "@tanstack/solid-query";
-import { Effect } from "effect";
+import { Duration, Effect } from "effect";
 import { create, type Draft } from "mutative";
 import type { Accessor } from "solid-js";
 import { useRuntime } from "~/effect/runtime/use-runtime";
@@ -21,6 +22,7 @@ export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       retry: false,
+      staleTime: Duration.toMillis(Duration.minutes(5)),
     },
   },
 });
@@ -51,10 +53,33 @@ const createRunner = () => {
       );
 };
 
+export type ExtractQueryData<T> = T extends UseQueryResult<infer D, unknown>
+  ? D
+  : never;
+
 type QueryKey = readonly [string, Record<string, unknown>?];
 type DeepMutable<T> = {
   -readonly [P in keyof T]: T[P] extends object ? DeepMutable<T[P]> : T[P];
 };
+
+type DeepRemoveUndefined<T> = T extends Record<string, unknown>
+  ? {
+      [K in keyof T]: T[K] extends undefined
+        ? never
+        : T[K] extends Record<string, unknown>
+          ? DeepRemoveUndefined<T[K]>
+          : T[K] extends (infer U)[]
+            ? DeepRemoveUndefined<U>[]
+            : Exclude<T[K], undefined>;
+    }
+  : Exclude<T, undefined>;
+
+// Remove keys that have never type
+type OmitNever<T> = {
+  [K in keyof T as T[K] extends never ? never : K]: T[K];
+};
+
+export type DeepClean<T> = OmitNever<DeepRemoveUndefined<T>>;
 
 export type QueryDataUpdater<TData> = (
   draft: Draft<DeepMutable<TData>>
@@ -97,11 +122,13 @@ export function createQueryKey<TKey extends string, TVariables = void>(
 }
 
 type QueryDataHelpers<TData, TVariables> = {
+  cancelQuery: (variables: TVariables) => void;
   removeQuery: (variables: TVariables) => void;
   removeAllQueries: () => void;
+  getData: (variables: TVariables) => TData | undefined;
   setData: (
     variables: TVariables,
-    updater: QueryDataUpdater<TData>
+    updater: QueryDataUpdater<TData> | TData
   ) => TData | undefined;
   invalidateQuery: (variables: TVariables) => Promise<void>;
   invalidateAllQueries: () => Promise<void>;
@@ -151,19 +178,30 @@ export function createQueryDataHelpers<TData, TVariables = void>(
   const [namespaceKey] = queryKey(undefined as TVariables);
 
   return {
+    cancelQuery: (variables: TVariables) => {
+      queryClient.cancelQueries({ queryKey: queryKey(variables) });
+    },
     removeQuery: (variables: TVariables) => {
       queryClient.removeQueries({ queryKey: queryKey(variables) });
     },
     removeAllQueries: () => {
       queryClient.removeQueries({ queryKey: [namespaceKey], exact: false });
     },
-    setData: (variables: TVariables, updater: QueryDataUpdater<TData>) =>
+    getData: (variables: TVariables) =>
+      queryClient.getQueryData(queryKey(variables)),
+    setData: (
+      variables: TVariables,
+      updater: QueryDataUpdater<TData> | TData
+    ) =>
       queryClient.setQueryData<TData>(queryKey(variables), (oldData) => {
         if (oldData === undefined) {
           return oldData;
         }
-        return create(oldData, (data) => {
-          updater(data);
+        if (typeof updater !== "function") {
+          return updater;
+        }
+        return create(oldData as TData, (data) => {
+          (updater as QueryDataUpdater<TData>)(data);
         });
       }),
     invalidateQuery: (variables: TVariables) =>
@@ -189,6 +227,13 @@ export function createQueryDataHelpers<TData, TVariables = void>(
  *
  */
 
+type EffectQueryFn<
+  A,
+  E,
+  R extends RuntimeContext,
+  QueryKeyType extends QueryKey = QueryKey,
+> = (context?: QueryFunctionContext<QueryKeyType>) => Effect.Effect<A, E, R>;
+
 export function createEffectQuery<
   A,
   E,
@@ -203,9 +248,7 @@ export function createEffectQuery<
       },
       "queryFn"
     > & {
-      queryFn: (
-        context?: QueryFunctionContext<QueryKeyType>
-      ) => Effect.Effect<A, E, R>;
+      queryFn: EffectQueryFn<A, E, R, QueryKeyType> | typeof skipToken;
     }
   >
 ): UseQueryResult<A, E> {
@@ -214,7 +257,9 @@ export function createEffectQuery<
   const [spanName] = opts().queryKey;
 
   const queryFn: QueryFunction<A, QueryKeyType> = (context) => {
-    const effect = opts().queryFn(context);
+    const effect = (opts().queryFn as EffectQueryFn<A, E, R, QueryKeyType>)(
+      context
+    );
     return effect.pipe(effectRunner(spanName as string));
   };
 

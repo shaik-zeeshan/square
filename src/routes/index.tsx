@@ -48,7 +48,7 @@ export default function Home() {
 
   return (
     <section class="h-full w-full">
-      <Show when={true}>
+      <Show when={user.data?.Id}>
         <section class="relative flex flex-col p-0">
           {/* Navigation Bar */}
           <Nav
@@ -100,10 +100,12 @@ export default function Home() {
                           Your Libraries
                         </h2>
                         <div
-                          class="grid h-96 gap-6"
-                          style={{
-                            "grid-template-columns": `repeat(${data.length}, minmax(0, 1fr))`,
-                          }}
+                          class="grid h-96 grid-cols-4 gap-6"
+                          style={
+                            {
+                              // "grid-template-columns": `repeat(${data.length}, minmax(0, 1fr))`,
+                            }
+                          }
                         >
                           <For each={data}>
                             {(item) => (
@@ -245,12 +247,6 @@ export default function Home() {
                                             <ItemActions
                                               item={item}
                                               itemId={itemId()}
-                                              onDone={() => {
-                                                resumeItems.refetch({
-                                                  cancelRefetch: true,
-                                                });
-                                              }}
-                                              userId={user.data?.Id}
                                               variant="card"
                                             />
                                           </div>

@@ -1,5 +1,6 @@
 import type { Api } from "@jellyfin/sdk";
 import type {
+  ImageType,
   ItemFields,
   ItemsApiGetItemsRequest,
   ItemsApiGetResumeItemsRequest,
@@ -10,7 +11,7 @@ import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models/base
 import { ImageUrlsApi } from "@jellyfin/sdk/lib/utils/api/image-urls-api";
 import { Effect } from "effect";
 import { isArray, isEmptyArray } from "effect/Array";
-import { HttpError } from "../../error";
+import { HttpError, MutationError } from "../../error";
 import { AuthService, AuthServiceLayer } from "../auth";
 
 /*
@@ -51,22 +52,27 @@ const getImageFromTag = (
   value: string
 ) => `${basePath}/Items/${itemId}/Images/${keyTag}?tag=${value}`;
 
+const getImageByKey = (jf: Api, item: BaseItemDto, keyTag: ImageType) =>
+  new ImageUrlsApi(jf.configuration).getItemImageUrl(item, keyTag, {
+    quality: 75,
+  });
+
 const getImagesFromTags = (
   tags: BaseItemDto["ImageTags"],
-  basePath: string,
-  id: string
+  jf: Api,
+  item: BaseItemDto
 ) => {
   if (!tags) {
     return {};
   }
   const images = Object.entries(tags).map(
-    ([k, v]) => [k, getImageFromTag(basePath, id, k, v)] as const
+    ([k, _v]) => [k, getImageByKey(jf, item, k as ImageType)] as const
   );
 
   return arrayToObjectWithDuplicates(images);
 };
 
-type WithImage<T> = T extends Array<infer U>
+export type WithImage<T> = T extends Array<infer U>
   ? Array<U & { Image: string; Images: ReturnType<typeof getImagesFromTags> }>
   : T extends undefined
     ? undefined
@@ -86,8 +92,10 @@ export const getImages =
         return items.map((item) => {
           const imageTags = getImagesFromTags(
             item.ImageTags,
-            jf.basePath,
-            item.Id as string
+            // jf.basePath,
+            jf,
+            // item.Id as string
+            item
           );
 
           return {
@@ -95,24 +103,36 @@ export const getImages =
             Image: new ImageUrlsApi(jf.configuration).getItemImageUrlById(
               item?.Id || ""
             ),
-            Images: imageTags,
+            Images: Object.assign(imageTags, {
+              Backdrop: new ImageUrlsApi(
+                jf.configuration
+              ).getItemBackdropImageUrls(item),
+            }),
           };
-        }) as WithImage<T>;
+        }) as unknown as WithImage<T>;
       }
 
       const imageTags = getImagesFromTags(
         items.ImageTags,
-        jf.basePath,
-        items.Id as string
+        jf,
+        // jf.basePath,
+        // items.Id as string
+        items
       );
 
       return {
         ...items,
         Image: new ImageUrlsApi(jf.configuration).getItemImageUrlById(
-          items?.Id || ""
+          items?.Id || "",
+          undefined,
+          { quality: 40 }
         ),
-        Images: imageTags,
-      } as WithImage<T>;
+        Images: Object.assign(imageTags, {
+          Backdrop: new ImageUrlsApi(jf.configuration).getItemBackdropImageUrls(
+            items
+          ),
+        }),
+      } as unknown as WithImage<T>;
     });
   };
 
@@ -261,14 +281,14 @@ export class JellyfinService extends Effect.Service<JellyfinService>()(
        *
        *
        */
-      const getItem = (id: number, params?: ItemsApiGetItemsRequest) =>
+      const getItem = (id: string, params?: ItemsApiGetItemsRequest) =>
         Effect.gen(function* () {
           const jf = yield* auth.getApi();
           const user = yield* auth.getUser();
 
           const res = yield* fetchItems(jf, {
             userId: user.Id,
-            ids: [id.toString()],
+            ids: [id],
             enableImages: true,
             enableUserData: true,
             ...params,
@@ -472,6 +492,129 @@ export class JellyfinService extends Effect.Service<JellyfinService>()(
           return yield* getImages(jf)(items);
         });
 
+      /*
+       *
+       *
+       *
+       *
+       *
+       * Mutations
+       *
+       *
+       *
+       *
+       *
+       */
+      // Effect.tryPromise({
+      //           try: async () => {
+      //             const { getPlaystateApi } = await import(
+      //               "@jellyfin/sdk/lib/utils/api/playstate-api"
+      //             );
+      //             await getPlaystateApi(jf).markPlayedItem({ userId, itemId });
+      //           },
+      //           catch: (e: Error) =>
+      //             new HttpError({ status: 401, message: e.message }),
+      //         })
+      const markItemPlayed = (id: string) =>
+        Effect.gen(function* () {
+          const jf = yield* auth.getApi();
+          const user = yield* auth.getUser();
+          yield* Effect.tryPromise({
+            try: async (signal) => {
+              const { getPlaystateApi } = await import(
+                "@jellyfin/sdk/lib/utils/api/playstate-api"
+              );
+              await getPlaystateApi(jf).markPlayedItem(
+                {
+                  userId: user.Id,
+                  itemId: id,
+                },
+                { signal }
+              );
+            },
+            catch: (e) =>
+              new MutationError({
+                mutation: "MarkPlayedItem",
+                message: (e as Error).message,
+              }),
+          });
+        });
+
+      const markItemUnPlayed = (id: string) =>
+        Effect.gen(function* () {
+          const jf = yield* auth.getApi();
+          const user = yield* auth.getUser();
+          yield* Effect.tryPromise({
+            try: async (signal) => {
+              const { getPlaystateApi } = await import(
+                "@jellyfin/sdk/lib/utils/api/playstate-api"
+              );
+              await getPlaystateApi(jf).markUnplayedItem(
+                {
+                  userId: user.Id,
+                  itemId: id,
+                },
+                { signal }
+              );
+            },
+            catch: (e) =>
+              new MutationError({
+                mutation: "MarkUnPlayedItem",
+                message: (e as Error).message,
+              }),
+          });
+        });
+
+      const markItemFavorite = (id: string) =>
+        Effect.gen(function* () {
+          const jf = yield* auth.getApi();
+          const user = yield* auth.getUser();
+          yield* Effect.tryPromise({
+            try: async (signal) => {
+              const { getUserLibraryApi } = await import(
+                "@jellyfin/sdk/lib/utils/api/user-library-api"
+              );
+              await getUserLibraryApi(jf).markFavoriteItem(
+                {
+                  userId: user.Id,
+                  itemId: id,
+                },
+                { signal }
+              );
+            },
+            catch: (e) =>
+              new MutationError({
+                mutation: "MarkItemFavorite",
+                message: (e as Error).message,
+              }),
+          });
+        });
+
+      const markItemUnFavorite = (id: string) =>
+        Effect.gen(function* () {
+          const jf = yield* auth.getApi();
+          const user = yield* auth.getUser();
+          yield* Effect.tryPromise({
+            try: async (signal) => {
+              const { getUserLibraryApi } = await import(
+                "@jellyfin/sdk/lib/utils/api/user-library-api"
+              );
+              await getUserLibraryApi(jf).unmarkFavoriteItem(
+                {
+                  userId: user.Id,
+                  itemId: id,
+                },
+                { signal }
+              );
+            },
+            catch: (e) =>
+              new MutationError({
+                mutation: "MarkItemUnFavorite",
+                message: (e as Error).message,
+              }),
+          });
+        });
+
       return {
         getLibraries,
         getItem,
@@ -479,6 +622,17 @@ export class JellyfinService extends Effect.Service<JellyfinService>()(
         getResumeItems,
         getNextupItems,
         getLatestMedia,
+
+        /*
+         *
+         * Mutations
+         *
+         */
+
+        markItemPlayed,
+        markItemUnPlayed,
+        markItemFavorite,
+        markItemUnFavorite,
       };
     }),
   }

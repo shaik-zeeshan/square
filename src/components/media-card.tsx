@@ -1,28 +1,35 @@
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 import type { ItemFields } from "@jellyfin/sdk/lib/generated-client/models/item-fields";
-import { useQueryClient } from "@tanstack/solid-query";
 import { Effect } from "effect";
 import { Check, Play } from "lucide-solid";
-import { createMemo, Show } from "solid-js";
-import { JellyfinService } from "~/effect/services/jellyfin/service";
+import { createMemo, Show, splitProps } from "solid-js";
+import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
+import {
+  JellyfinService,
+  type WithImage,
+} from "~/effect/services/jellyfin/service";
 import { createEffectQuery } from "~/effect/tanstack/query";
-import library from "~/lib/jellyfin/library";
-import { useGeneralInfo } from "./current-user-provider";
 import { ItemActions } from "./ItemActions";
 import { GlassCard } from "./ui";
 
 type SeriesCardProps = {
-  item: BaseItemDto & { Image: string };
+  item: WithImage<BaseItemDto>;
   parentId?: string;
 };
 
-export function SeriesCard({ item: initialItem, parentId }: SeriesCardProps) {
-  const { store } = useGeneralInfo();
+export function SeriesCard(props: SeriesCardProps) {
+  const [{ item: initialItem, parentId }] = splitProps(props, [
+    "item",
+    "parentId",
+  ]);
+
   const item = createEffectQuery(() => ({
-    queryKey: ["getItem", { itemId: initialItem.Id }],
+    queryKey: JellyfinOperations.itemQueryKey({ id: initialItem.Id as string }),
     queryFn: () =>
       JellyfinService.pipe(
-        Effect.flatMap((jf) => jf.getItem(Number(initialItem?.Id)))
+        Effect.flatMap((jf) =>
+          jf.getItem(initialItem?.Id as string, { fields: ["ParentId"] })
+        )
       ),
     initialData: initialItem,
     staleTime: Number.POSITIVE_INFINITY,
@@ -42,7 +49,12 @@ export function SeriesCard({ item: initialItem, parentId }: SeriesCardProps) {
           <img
             alt={item.data?.Name ?? "Media item"}
             class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
-            src={item.data?.Image}
+            src={
+              item.data &&
+              ("Primary" in item.data.Images
+                ? (item.data?.Images.Primary as string)
+                : item.data?.Image)
+            }
           />
 
           {/* Gradient overlay - always visible, darkens on hover */}
@@ -76,16 +88,11 @@ export function SeriesCard({ item: initialItem, parentId }: SeriesCardProps) {
           </Show>
 
           {/* Item Actions - Show on hover */}
-          <Show when={item.data?.UserData}>
+          <Show when={item.data}>
             <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
               <ItemActions
-                item={
-                  item.data as {
-                    UserData?: { Played?: boolean; IsFavorite?: boolean };
-                  }
-                }
+                item={item.data as WithImage<BaseItemDto>}
                 itemId={item.data?.Id as string}
-                userId={store?.user?.Id}
                 variant="card"
               />
             </div>
@@ -109,18 +116,20 @@ export function SeriesCard({ item: initialItem, parentId }: SeriesCardProps) {
 }
 
 type EpisodeCardProps = {
-  item: (BaseItemDto & { Image: string }) | undefined;
+  item: WithImage<BaseItemDto> | undefined;
 };
 
-export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
-  const { store } = useGeneralInfo();
+export function EpisodeCard(props: EpisodeCardProps) {
+  const [{ item: initialItem }] = splitProps(props, ["item"]);
 
   const item = createEffectQuery(() => ({
-    queryKey: ["getItem", { itemId: initialItem?.Id }],
+    queryKey: JellyfinOperations.itemQueryKey({
+      id: initialItem?.Id as string,
+    }),
     queryFn: () =>
       JellyfinService.pipe(
         Effect.flatMap((jf) =>
-          jf.getItem(Number(initialItem?.Id), {
+          jf.getItem(initialItem?.Id as string, {
             fields: [
               "ParentId",
               "Overview",
@@ -240,9 +249,8 @@ export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
           {/* Item Actions - Show on hover */}
           <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
             <ItemActions
-              item={item.data}
+              item={item.data as WithImage<BaseItemDto>}
               itemId={item.data?.Id as string}
-              userId={store?.user?.Id}
               variant="card"
             />
           </div>
@@ -332,15 +340,14 @@ export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
 }
 
 // New compact episode card for main page
-export function MainPageEpisodeCard({ item: initialItem }: EpisodeCardProps) {
-  const { store } = useGeneralInfo();
-  const queryClient = useQueryClient();
+export function MainPageEpisodeCard(props: EpisodeCardProps) {
+  const [{ item: initialItem }] = splitProps(props, ["item"]);
 
   const item = createEffectQuery(() => ({
     queryKey: ["getItem", { itemId: initialItem?.Id }],
     queryFn: () =>
       JellyfinService.pipe(
-        Effect.flatMap((jf) => jf.getItem(Number(initialItem?.Id)))
+        Effect.flatMap((jf) => jf.getItem(initialItem?.Id as string))
       ),
     initialData: initialItem,
     staleTime: Number.POSITIVE_INFINITY,
@@ -398,6 +405,7 @@ export function MainPageEpisodeCard({ item: initialItem }: EpisodeCardProps) {
             <img
               alt={item.data.Name ?? "Episode"}
               class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
+              loading="lazy"
               src={item.data.Image}
             />
           </Show>
@@ -440,14 +448,8 @@ export function MainPageEpisodeCard({ item: initialItem }: EpisodeCardProps) {
           {/* Item Actions - Show on hover */}
           <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
             <ItemActions
-              item={item.data}
+              item={item.data as WithImage<BaseItemDto>}
               itemId={item.data.Id as string}
-              onDone={() => {
-                queryClient.invalidateQueries({
-                  queryKey: [library.query.getNextupItems.key],
-                });
-              }}
-              userId={store?.user?.Id}
               variant="card"
             />
           </div>

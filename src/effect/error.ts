@@ -25,3 +25,8 @@ export class NoPasswordFound extends Data.TaggedError("NoPasswordFound")<{}> {}
 
 // biome-ignore lint/complexity/noBannedTypes: Tagged Error
 export class NoFieldFound extends Data.TaggedError("NoFieldFound")<{}> {}
+
+export class MutationError extends Data.TaggedError("MutationError")<{
+  mutation: string;
+  message: string;
+}> {}

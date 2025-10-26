@@ -1,5 +1,6 @@
 import type { RecommendedServerInfo } from "@jellyfin/sdk";
 import { useNavigate } from "@solidjs/router";
+import { useQueryClient } from "@tanstack/solid-query";
 import { Effect } from "effect";
 import { createSignal } from "solid-js";
 import {
@@ -175,6 +176,7 @@ class AuthOperationsClass {
 
   logout = () => {
     const navigate = useNavigate();
+    const qc = useQueryClient();
     return createEffectMutation(() => ({
       mutationFn: () =>
         AuthService.pipe(
@@ -183,6 +185,7 @@ class AuthOperationsClass {
             Effect.promise(async () => {
               await this.currentUserDataHelpers.invalidateAllQueries();
               await this.currentServerDataHelpers.invalidateAllQueries();
+              qc.clear();
 
               navigate("/auth/new");
               showSuccessToast("Logged Out");

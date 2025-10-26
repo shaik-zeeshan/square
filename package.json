@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.2.6",
+    "@effect/language-service": "^0.48.0",
     "@iconify-icon/solid": "^3.0.1",
     "@iconify/json": "^2.2.400",
     "@jellyfin/sdk": "^0.11.0",

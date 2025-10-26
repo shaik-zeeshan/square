@@ -1,46 +1,66 @@
-import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
+import type {
+  BaseItemDto,
+  ItemsApiGetItemsRequest,
+} from "@jellyfin/sdk/lib/generated-client";
+import type { SolidQueryOptions } from "@tanstack/solid-query";
 import { Effect } from "effect";
-import { createEffectQuery, createQueryKey } from "~/effect/tanstack/query";
+import type { Accessor } from "solid-js";
+import {
+  createEffectMutation,
+  createEffectQuery,
+  createQueryDataHelpers,
+  createQueryKey,
+  type ExtractQueryData,
+} from "~/effect/tanstack/query";
+import { safeAssign } from "~/lib/utils";
 import { JellyfinService } from "./service";
 
 class Jellyfin {
-  librariesKey = createQueryKey("getLibraries");
-
+  librariesQueryKey = createQueryKey("getLibraries");
+  librariesQueryDataHelpers = createQueryDataHelpers(this.librariesQueryKey);
   getLibraries = () =>
     createEffectQuery(() => ({
-      queryKey: this.librariesKey(),
+      queryKey: this.librariesQueryKey(),
       queryFn: () =>
         JellyfinService.pipe(Effect.flatMap((jf) => jf.getLibraries())),
     }));
 
-  resumeItemsKey = createQueryKey("getResumeItems");
-
+  resumeItemsQueryKey = createQueryKey("getResumeItems");
+  resumeItemsQueryDataHelpers = createQueryDataHelpers(
+    this.resumeItemsQueryKey
+  );
   getResumeItems = () =>
     createEffectQuery(() => ({
-      queryKey: this.resumeItemsKey(),
+      queryKey: this.resumeItemsQueryKey(),
       queryFn: () =>
         JellyfinService.pipe(Effect.flatMap((jf) => jf.getResumeItems())),
     }));
 
-  nextupItemsKey = createQueryKey("getNextupItems");
+  nextupItemsQueryKey = createQueryKey("getNextupItems");
+  nextupItemsQueryDataHelpers = createQueryDataHelpers(
+    this.resumeItemsQueryKey
+  );
   getNextupItems = () =>
     createEffectQuery(() => ({
-      queryKey: this.nextupItemsKey(),
+      queryKey: this.nextupItemsQueryKey(),
       queryFn: () =>
         JellyfinService.pipe(
           Effect.flatMap((jf) => jf.getNextupItems({ limit: 4 }))
         ),
     }));
 
-  latestMoviesKey = createQueryKey<"getLatestMovies", { search: string }>(
+  latestMoviesQueryKey = createQueryKey<"getLatestMovies", { search: string }>(
     "getLatestMovies"
+  );
+  latestMoviesQueryDataHelpers = createQueryDataHelpers(
+    this.latestMoviesQueryKey
   );
   getLatestMovies = (
     searchTerm: string,
     libraries: BaseItemDto[] | undefined
   ) =>
     createEffectQuery(() => ({
-      queryKey: this.latestMoviesKey({ search: searchTerm }),
+      queryKey: this.latestMoviesQueryKey({ search: searchTerm }),
       queryFn: () =>
         Effect.if(Boolean(searchTerm), {
           onTrue: () =>
@@ -87,15 +107,19 @@ class Jellyfin {
       ),
     }));
 
-  latestTVShowsKey = createQueryKey<"getLatestTVShows", { search: string }>(
-    "getLatestTVShows"
+  latestTVShowsQueryKey = createQueryKey<
+    "getLatestTVShows",
+    { search: string }
+  >("getLatestTVShows");
+  latestTVShowsQueryDataHelpers = createQueryDataHelpers(
+    this.latestTVShowsQueryKey
   );
   getLatestTVShows = (
     searchTerm: string,
     libraries: BaseItemDto[] | undefined
   ) =>
     createEffectQuery(() => ({
-      queryKey: this.latestMoviesKey({ search: searchTerm }),
+      queryKey: this.latestTVShowsQueryKey({ search: searchTerm }),
       queryFn: () =>
         Effect.if(Boolean(searchTerm), {
           onTrue: () =>
@@ -141,6 +165,211 @@ class Jellyfin {
         (library) => library.CollectionType === "tvshows"
       ),
     }));
+
+  itemQueryKey = createQueryKey<"getItem", { id: string }>("getItem");
+
+  itemQueryDataHelpers = createQueryDataHelpers<
+    ExtractQueryData<ReturnType<typeof this.getItem>>,
+    { id: string }
+  >(this.itemQueryKey);
+
+  getItem = (
+    id: () => string,
+    params?: ItemsApiGetItemsRequest,
+    queryOptions?: Accessor<
+      Omit<
+        SolidQueryOptions<
+          Effect.Effect.Success<ReturnType<JellyfinService["getItem"]>>, // TQueryFnData
+          Effect.Effect.Error<ReturnType<JellyfinService["getItem"]>>, // TError
+          Effect.Effect.Success<ReturnType<JellyfinService["getItem"]>>, // TQueryFnData
+          ReturnType<typeof this.itemQueryKey> // TQueryKey
+        >,
+        "queryFn" | "queryKey"
+      >
+    >
+  ) =>
+    createEffectQuery(() => ({
+      queryKey: this.itemQueryKey({ id: id() }),
+      queryFn: () =>
+        JellyfinService.pipe(
+          Effect.flatMap((jf) =>
+            jf.getItem(id(), {
+              enableImages: true,
+              ...params,
+            })
+          )
+        ),
+      ...(queryOptions ? queryOptions : {}),
+    }));
+
+  itemsQueryKey = createQueryKey<
+    "getItems",
+    { parentId?: string; ids?: string[]; searchItem?: string[] }
+  >("getItems");
+  itemsQueryDataHelpers = createQueryDataHelpers(this.itemsQueryKey);
+  getItems = (params?: ItemsApiGetItemsRequest) =>
+    createEffectQuery(() => ({
+      queryKey: this.itemsQueryKey({
+        parentId: params?.parentId,
+        ids: params?.ids,
+      }),
+      queryFn: () =>
+        JellyfinService.pipe(
+          Effect.flatMap((jf) =>
+            jf.getItems({
+              enableImages: true,
+              ...params,
+            })
+          )
+        ),
+    }));
+
+  /*
+   *
+   *
+   * Mutations
+   *
+   *
+   */
+  markItemPlayed = (id: string) =>
+    createEffectMutation(() => ({
+      mutationKey: ["markItemPlayed"],
+      mutationFn: () =>
+        Effect.gen(
+          function* (this: Jellyfin) {
+            this.itemQueryDataHelpers.cancelQuery({ id });
+
+            const service = yield* JellyfinService;
+            const prevData = this.itemQueryDataHelpers.getData({ id });
+
+            // Optimistic update
+            this.itemQueryDataHelpers.setData({ id }, (data) => {
+              safeAssign(data, "UserData", {
+                Played: true,
+                LastPlayedDate: new Date().toISOString(),
+              });
+            });
+
+            yield* service.markItemPlayed(id).pipe(
+              Effect.catchTag("MutationError", (e) => {
+                if (!prevData) {
+                  return Effect.fail(e);
+                }
+                this.itemQueryDataHelpers.setData({ id }, prevData);
+                return Effect.fail(e);
+              })
+            );
+
+            yield* Effect.promise(() =>
+              this.itemQueryDataHelpers.invalidateQuery({ id })
+            );
+          }.bind(this)
+        ),
+    }));
+
+  markItemUnPlayed = (id: string) =>
+    createEffectMutation(() => ({
+      mutationKey: ["markItemUnPlayed"],
+      mutationFn: () =>
+        Effect.gen(
+          function* (this: Jellyfin) {
+            this.itemQueryDataHelpers.cancelQuery({ id });
+
+            const service = yield* JellyfinService;
+            const prevData = this.itemQueryDataHelpers.getData({ id });
+
+            // Optimistic update
+            this.itemQueryDataHelpers.setData({ id }, (data) => {
+              safeAssign(data, "UserData", {
+                Played: false,
+                PlaybackPositionTicks: 0,
+              });
+            });
+
+            yield* service.markItemUnPlayed(id).pipe(
+              Effect.catchTag("MutationError", (e) => {
+                if (!prevData) {
+                  return Effect.fail(e);
+                }
+                this.itemQueryDataHelpers.setData({ id }, prevData);
+                return Effect.fail(e);
+              })
+            );
+
+            yield* Effect.promise(() =>
+              this.itemQueryDataHelpers.invalidateQuery({ id })
+            );
+          }.bind(this)
+        ),
+    }));
+
+  markItemFavorite = (id: string) =>
+    createEffectMutation(() => ({
+      mutationKey: ["markItemFavorite"],
+      mutationFn: () =>
+        Effect.gen(
+          function* (this: Jellyfin) {
+            this.itemQueryDataHelpers.cancelQuery({ id });
+
+            const service = yield* JellyfinService;
+            const prevData = this.itemQueryDataHelpers.getData({ id });
+
+            // Optimistic update
+            this.itemQueryDataHelpers.setData({ id }, (data) => {
+              safeAssign(data, "UserData", { IsFavorite: true });
+            });
+
+            yield* service.markItemFavorite(id).pipe(
+              Effect.catchTag("MutationError", (e) => {
+                if (!prevData) {
+                  return Effect.fail(e);
+                }
+                this.itemQueryDataHelpers.setData({ id }, prevData);
+                return Effect.fail(e);
+              })
+            );
+
+            yield* Effect.promise(() =>
+              this.itemQueryDataHelpers.invalidateQuery({ id })
+            );
+          }.bind(this)
+        ),
+    }));
+
+  markItemUnFavorite = (id: string) =>
+    createEffectMutation(() => ({
+      mutationKey: ["markItemUnFavorite"],
+      mutationFn: () =>
+        Effect.gen(
+          function* (this: Jellyfin) {
+            this.itemQueryDataHelpers.cancelQuery({ id });
+
+            const service = yield* JellyfinService;
+            const prevData = this.itemQueryDataHelpers.getData({ id });
+
+            // Optimistic update
+            this.itemQueryDataHelpers.setData({ id }, (data) => {
+              safeAssign(data, "UserData", { IsFavorite: false });
+            });
+
+            yield* service.markItemUnFavorite(id).pipe(
+              Effect.catchTag("MutationError", (e) => {
+                if (!prevData) {
+                  return Effect.fail(e);
+                }
+                this.itemQueryDataHelpers.setData({ id }, prevData);
+                return Effect.fail(e);
+              })
+            );
+
+            yield* Effect.promise(() =>
+              this.itemQueryDataHelpers.invalidateQuery({ id })
+            );
+          }.bind(this)
+        ),
+    }));
 }
+
+export type JellyfinOperationsType = Jellyfin;
 
 export const JellyfinOperations = new Jellyfin();

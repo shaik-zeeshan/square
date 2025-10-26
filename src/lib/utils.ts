@@ -20,6 +20,16 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function safeAssign<
+  T extends Record<string, unknown>,
+  K extends keyof T,
+>(obj: T, path: K, updates: Partial<NonNullable<T[K]>>): void {
+  if (!obj[path]) {
+    obj[path] = {} as NonNullable<T[K]>;
+  }
+  Object.assign(obj[path] as NonNullable<T[K]>, updates);
+}
+
 export function safeJsonParse<T>(
   json: string | null | undefined,
   fallback: T

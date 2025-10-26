@@ -1,12 +1,15 @@
-import { PlayMethod } from "@jellyfin/sdk/lib/generated-client";
+import {
+  type BaseItemDto,
+  PlayMethod,
+} from "@jellyfin/sdk/lib/generated-client";
 import { getPlaystateApi } from "@jellyfin/sdk/lib/utils/api/playstate-api";
 import { useQueryClient } from "@tanstack/solid-query";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { getCurrentWindow } from "@tauri-apps/api/window";
+import { Effect } from "effect";
 import { createEffect, createSignal, onCleanup } from "solid-js";
 import { createStore } from "solid-js/store";
 import { useGeneralInfo } from "~/components/current-user-provider";
-import { useJellyfin } from "~/components/jellyfin-provider";
 import type {
   BufferHealth,
   Chapter,
@@ -20,18 +23,27 @@ import {
   DEFAULT_AUDIO_LANG,
   DEFAULT_SUBTITLE_LANG,
 } from "~/components/video/types";
+import { useRuntime } from "~/effect/runtime/use-runtime";
+import { AuthService } from "~/effect/services/auth";
+import type { WithImage } from "~/effect/services/jellyfin/service";
 import library from "~/lib/jellyfin/library";
 import { commands } from "~/lib/tauri";
 
-type ItemDetails =
-  | Awaited<ReturnType<typeof library.query.getItem>>
-  | undefined;
+type ItemDetails = WithImage<BaseItemDto> | undefined;
 
 export function useVideoPlayback(
   itemId: () => string,
   itemDetails: () => ItemDetails
 ) {
-  const jf = useJellyfin();
+  const runtime = useRuntime();
+  const jf = runtime.runSync(
+    Effect.gen(function* () {
+      const auth = yield* AuthService;
+      const api = yield* auth.getApi();
+      return { api };
+    })
+  );
+
   const queryClient = useQueryClient();
   const { store: userStore } = useGeneralInfo();
   const [state, setState] = createStore({

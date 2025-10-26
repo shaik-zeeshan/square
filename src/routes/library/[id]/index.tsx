@@ -1,41 +1,26 @@
 import type { RouteSectionProps } from "@solidjs/router";
-import { Library as LibraryIcon } from "lucide-solid";
 import { createSignal, For, splitProps } from "solid-js";
-import { useGeneralInfo } from "~/components/current-user-provider";
 import { SeriesCard } from "~/components/media-card";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
-import library from "~/lib/jellyfin/library";
-import { itemQueryOptions } from "~/lib/tanstack/query-options";
-import { createJellyFinQuery } from "~/lib/utils";
+import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
+import LibraryIcon from "~icons/lucide/library";
 
 export default function Page(props: RouteSectionProps) {
   const [{ params }] = splitProps(props, ["params"]);
 
-  const { store } = useGeneralInfo();
   const [searchTerm, setSearchTerm] = createSignal("");
 
-  const libraryDetails = createJellyFinQuery(() =>
-    itemQueryOptions(params.id, store?.user?.Id)
-  );
+  const libraryDetails = JellyfinOperations.getItem(() => params.id);
 
-  const itemsDetails = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getItems.key,
-      library.query.getItems.keyFor(params.id),
-      searchTerm(),
-    ],
-    queryFn: async (jf) =>
-      library.query.getItems(jf, {
-        parentId: params.id,
-        userId: store?.user?.Id,
-        fields: [],
-        enableImage: true,
-        includeItemTypes: ["Series", "Movie"],
-        searchTerm: searchTerm(),
-        recursive: true,
-      }),
-  }));
+  const itemsDetails = JellyfinOperations.getItems({
+    parentId: params.id,
+    fields: [],
+    enableImages: true,
+    includeItemTypes: ["Series", "Movie"],
+    searchTerm: searchTerm(),
+    recursive: true,
+  });
 
   return (
     <section class="relative flex min-h-screen flex-col">
@@ -52,7 +37,7 @@ export default function Page(props: RouteSectionProps) {
               },
             ]}
             class="relative z-50"
-            currentPage="Loading..."
+            currentPage={"Loading..."}
             onSearchChange={setSearchTerm}
             searchValue={searchTerm()}
             showSearch={true}
