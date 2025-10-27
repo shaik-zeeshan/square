@@ -1,6 +1,6 @@
 import { createEventListener } from "@solid-primitives/event-listener";
 import { useNavigate } from "@solidjs/router";
-import { createEffect, createSignal, type JSX, Show } from "solid-js";
+import { createEffect, createSignal, For, type JSX, Show } from "solid-js";
 import { cn } from "~/lib/utils";
 import ChevronRight from "~icons/lucide/chevron-right";
 import House from "~icons/lucide/house";
@@ -98,7 +98,7 @@ export function Nav(props: NavProps) {
   return (
     <nav
       class={cn(
-        "relative z-50 h-16 flex-shrink-0 px-6 py-4",
+        "relative z-50 h-16 shrink-0 px-6 py-4",
         textColorClass,
         props.class
       )}
@@ -109,7 +109,7 @@ export function Nav(props: NavProps) {
           <button
             aria-label="Go home"
             class={cn(
-              "flex-shrink-0 rounded-md p-2 transition-colors",
+              "shrink-0 rounded-md p-2 transition-colors",
               hoverBgClass
             )}
             onClick={() => navigate("/")}
@@ -119,40 +119,42 @@ export function Nav(props: NavProps) {
             <House class="h-5 w-5" />
           </button>
 
-          <div class={cn("h-6 w-px flex-shrink-0", dividerClass)} />
+          <div class={cn("h-6 w-px shrink-0", dividerClass)} />
 
           <div class="flex min-w-0 items-center gap-2 overflow-hidden text-sm">
             <Show when={props.breadcrumbs && props.breadcrumbs.length > 0}>
-              {props.breadcrumbs?.map((breadcrumb, index) => (
-                <>
-                  <Show when={breadcrumb.icon}>{breadcrumb.icon}</Show>
-                  <Show
-                    fallback={
-                      <span class="truncate opacity-70">
-                        {breadcrumb.label}
-                      </span>
-                    }
-                    when={breadcrumb.onClick}
-                  >
-                    <button
-                      aria-label={`Navigate to ${breadcrumb.label}`}
-                      class="truncate opacity-70 transition-opacity hover:opacity-100"
-                      onClick={breadcrumb.onClick}
-                      type="button"
+              <For each={props.breadcrumbs}>
+                {(breadcrumb, index) => (
+                  <>
+                    <Show when={breadcrumb.icon}>{breadcrumb.icon}</Show>
+                    <Show
+                      fallback={
+                        <span class="truncate opacity-70">
+                          {breadcrumb.label}
+                        </span>
+                      }
+                      when={breadcrumb.onClick}
                     >
-                      {breadcrumb.label}
-                    </button>
-                  </Show>
-                  <Show
-                    when={
-                      index < (props.breadcrumbs?.length ?? 0) - 1 ||
-                      props.currentPage
-                    }
-                  >
-                    <ChevronRight class="h-4 w-4 flex-shrink-0 opacity-50" />
-                  </Show>
-                </>
-              ))}
+                      <button
+                        aria-label={`Navigate to ${breadcrumb.label}`}
+                        class="truncate opacity-70 transition-opacity hover:opacity-100"
+                        onClick={breadcrumb.onClick}
+                        type="button"
+                      >
+                        {breadcrumb.label}
+                      </button>
+                    </Show>
+                    <Show
+                      when={
+                        index() < (props.breadcrumbs?.length ?? 0) - 1 ||
+                        props.currentPage
+                      }
+                    >
+                      <ChevronRight class="h-4 w-4 shrink-0 opacity-50" />
+                    </Show>
+                  </>
+                )}
+              </For>
             </Show>
 
             <Show when={props.currentPage}>
@@ -162,7 +164,7 @@ export function Nav(props: NavProps) {
         </div>
 
         {/* Right Side - Actions & Search */}
-        <div class="flex h-full flex-shrink-0 items-center gap-2">
+        <div class="flex h-full shrink-0 items-center gap-2">
           <Show when={props.showSearch}>
             <Show
               fallback={
@@ -184,7 +186,7 @@ export function Nav(props: NavProps) {
                   searchBgClass
                 )}
               >
-                <Search class="h-4 w-4 flex-shrink-0 opacity-60" />
+                <Search class="h-4 w-4 shrink-0 opacity-60" />
                 <input
                   class={cn(
                     "w-48 bg-transparent text-sm outline-none",

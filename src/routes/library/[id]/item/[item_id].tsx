@@ -63,19 +63,19 @@ export default function Page(props: RouteSectionProps) {
     "all" | "unplayed" | "played" | "resumable"
   >("all");
 
+  const parentLibrary = JellyfinOperations.getItem(() => params.id, {
+    fields: ["ParentId"],
+  });
+
   const itemDetails = JellyfinOperations.getItem(
     () => params.item_id,
     {
       fields: ["Overview", "Studios", "People"],
     },
     () => ({
-      staleTime: 0,
+      enabled: !!parentLibrary.data?.Id,
     })
   );
-
-  const parentLibrary = JellyfinOperations.getItem(() => params.id, {
-    fields: ["ParentId"],
-  });
 
   const childrens = createEffectQuery(() => ({
     queryKey: JellyfinOperations.itemsQueryKey({
@@ -127,8 +127,7 @@ export default function Page(props: RouteSectionProps) {
 
         return items;
       }),
-    enabled:
-      !!parentLibrary.data?.ChildCount && parentLibrary.data.ChildCount > 0, // Will be enabled conditionally in QueryBoundary
+    enabled: !!itemDetails.data?.ChildCount && itemDetails.data.ChildCount > 0, // Will be enabled conditionally in QueryBoundary
   }));
   //
 
@@ -160,12 +159,14 @@ export default function Page(props: RouteSectionProps) {
   onMount(() => {
     document.body.style.setProperty("--item-color", "white");
   });
+
   onCleanup(() => {
     document.body.style.removeProperty("--item-color");
   });
 
   const getImage = (id: string) =>
     `${jf.api.basePath}/Items/${id}/Images/Backdrop?quality=10`;
+
   return (
     <section class="relative flex min-h-screen flex-col">
       <div class="fixed top-0 left-0 h-screen w-full">
@@ -177,12 +178,12 @@ export default function Page(props: RouteSectionProps) {
           }}
           src={getImage(params.item_id)}
         />
-        <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90" />
+        <div class="absolute inset-0 bg-linear-to-b from-black/60 via-black/70 to-black/90" />
         <div class="absolute inset-0 backdrop-blur-sm" />
       </div>
       <QueryBoundary
         errorFallback={(err, retry) => (
-          <div class="flex h-full w-full items-center justify-center">
+          <div class="z-10 flex h-full w-full items-center justify-center">
             <div class="text-center">
               <div class="mb-4 text-red-400">
                 Error loading item: {err?.message}
@@ -197,29 +198,14 @@ export default function Page(props: RouteSectionProps) {
           </div>
         )}
         loadingFallback={
-          <div class="flex h-full w-full items-center justify-center">
+          <div class="z-10 flex h-full w-full items-center justify-center">
             <div class="text-white">Loading item details...</div>
           </div>
         }
         query={itemDetails}
       >
         {(item) => (
-          <>
-            {/* Background with enhanced overlay */}
-            {/* <div class="fixed top-0 left-0 h-screen w-full"> */}
-            {/*   <img */}
-            {/*     alt={item?.Name ?? ""} */}
-            {/*     class="h-full w-full object-cover" */}
-            {/*     src={ */}
-            {/*       ["Movie", "Series"].includes(item?.Type as string) */}
-            {/*         ? item?.Image */}
-            {/*         : parentLibrary.data?.Image */}
-            {/*     } */}
-            {/*   /> */}
-            {/*   <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90" /> */}
-            {/*   <div class="absolute inset-0 backdrop-blur-sm" /> */}
-            {/* </div> */}
-            {/**/}
+          <div>
             {/* Navigation Bar */}
             <Nav
               breadcrumbs={[
@@ -234,12 +220,13 @@ export default function Page(props: RouteSectionProps) {
                     }
                     return parentLibrary.data?.Name || "Library";
                   })(),
-                  icon: (
-                    <LibraryIcon class="h-4 w-4 flex-shrink-0 opacity-70" />
-                  ),
+                  icon: <LibraryIcon class="h-4 w-4 shrink-0 opacity-70" />,
                   onClick: () => {
-                    const parentId = parentLibrary.data?.ParentId;
                     const itemType = item?.Type;
+                    const parentId =
+                      itemType === "Movie"
+                        ? item.ParentId
+                        : parentLibrary.data?.ParentId;
 
                     if (!parentId) {
                       return;
@@ -330,6 +317,9 @@ export default function Page(props: RouteSectionProps) {
                     <ItemActions
                       item={item}
                       itemId={item.Id || ""}
+                      onDone={() => {
+                        JellyfinOperations.itemsQueryDataHelpers.invalidateAllQueries();
+                      }}
                       variant="detail"
                     />
                   </div>
@@ -337,11 +327,13 @@ export default function Page(props: RouteSectionProps) {
                   {/* Genres - Compact pills */}
                   <Show when={item?.Genres?.length}>
                     <div class="flex flex-wrap gap-1.5">
-                      {item?.Genres?.slice(0, 4).map((genre) => (
-                        <span class="rounded-full bg-white/10 px-2.5 py-0.5 font-medium text-xs transition-colors hover:bg-white/15">
-                          {genre}
-                        </span>
-                      ))}
+                      <For each={item.Genres?.slice(0, 4)}>
+                        {(genre) => (
+                          <span class="rounded-full bg-white/10 px-2.5 py-0.5 font-medium text-xs transition-colors hover:bg-white/15">
+                            {genre}
+                          </span>
+                        )}
+                      </For>
                     </div>
                   </Show>
 
@@ -400,18 +392,20 @@ export default function Page(props: RouteSectionProps) {
                             Cast
                           </h4>
                           <div class="space-y-1.5">
-                            {item?.People?.slice(0, 4).map((person) => (
-                              <div class="flex items-baseline gap-2 text-sm">
-                                <span class="truncate font-medium">
-                                  {person.Name}
-                                </span>
-                                <Show when={person.Role}>
-                                  <span class="truncate text-xs opacity-50">
-                                    {person.Role}
+                            <For each={item.People?.slice(0, 4)}>
+                              {(person) => (
+                                <div class="flex items-baseline gap-2 text-sm">
+                                  <span class="truncate font-medium">
+                                    {person.Name}
                                   </span>
-                                </Show>
-                              </div>
-                            ))}
+                                  <Show when={person.Role}>
+                                    <span class="truncate text-xs opacity-50">
+                                      {person.Role}
+                                    </span>
+                                  </Show>
+                                </div>
+                              )}
+                            </For>
                           </div>
                         </div>
                       </Show>
@@ -456,7 +450,7 @@ export default function Page(props: RouteSectionProps) {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </QueryBoundary>
 

@@ -10,6 +10,7 @@ type ItemActionsProps = {
   itemId: string;
   variant: "card" | "detail"; // card = icon-only, detail = with tooltips
   class?: string;
+  onDone?: () => Promise<void> | void;
 } & ComponentProps<"div">;
 
 export function ItemActions(props: ItemActionsProps) {
@@ -18,9 +19,10 @@ export function ItemActions(props: ItemActionsProps) {
     "itemId",
     "variant",
     "class",
+    "onDone",
   ]);
 
-  const actions = useItemActions(local.itemId);
+  const actions = useItemActions(local.itemId, local.onDone);
 
   const isPlayed = () => local.item.UserData?.Played ?? false;
   const isFavorite = () => local.item.UserData?.IsFavorite ?? false;

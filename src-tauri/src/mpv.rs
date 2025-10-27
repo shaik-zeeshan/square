@@ -472,7 +472,7 @@ impl EventHandler {
 
             libmpv2::events::Event::PropertyChange {
                 name: "eof-reached",
-                change: PropertyData::Flag(eof_reached),
+                change: PropertyData::Flag(_eof_reached),
                 reply_userdata: 11,
             } => {
                 window.emit("end-of-file", 0).unwrap();

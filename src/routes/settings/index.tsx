@@ -6,14 +6,12 @@ import {
   User as UserIcon,
 } from "lucide-solid";
 import { createSignal, Show } from "solid-js";
-import { useGeneralInfo } from "~/components/current-user-provider";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
 import { GlassCard } from "~/components/ui";
 import { useAuth } from "~/effect/services/hooks/use-auth";
 
 export default function SettingsPage() {
-  const { store } = useGeneralInfo();
   const [activeTab, setActiveTab] = createSignal("profile");
 
   const { getCurrentUser, getCurrentServer } = useAuth();
@@ -40,7 +38,7 @@ export default function SettingsPage() {
         breadcrumbs={[
           {
             label: "Settings",
-            icon: <SettingsIcon class="h-4 w-4 flex-shrink-0 opacity-70" />,
+            icon: <SettingsIcon class="h-4 w-4 shrink-0 opacity-70" />,
           },
         ]}
         currentPage={activeTab() === "profile" ? "Profile" : "Server"}
@@ -99,7 +97,7 @@ export default function SettingsPage() {
                           Username
                         </h3>
                         <p class="text-foreground">
-                          {data?.Name || store?.user?.Name || "N/A"}
+                          {data?.Name || userDetails.data?.Name || "N/A"}
                         </p>
                       </div>
 
@@ -135,7 +133,7 @@ export default function SettingsPage() {
                         <div>
                           <span class="text-muted-foreground">User ID:</span>
                           <p class="mt-1 font-mono text-foreground text-xs">
-                            {data?.Id || store?.user?.Id || "N/A"}
+                            {data?.Id || userDetails?.data?.Id || "N/A"}
                           </p>
                         </div>
                         <div>

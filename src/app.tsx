@@ -4,15 +4,12 @@ import { QueryClientProvider } from "@tanstack/solid-query";
 import { SolidQueryDevtools } from "@tanstack/solid-query-devtools";
 import { ManagedRuntime } from "effect";
 import { createEffect, ErrorBoundary, type JSX, Suspense } from "solid-js";
-import { GeneralInfoProvider } from "./components/current-user-provider";
 import { ErrorBoundary as AppErrorBoundary } from "./components/error/ErrorBoundary";
-import { JellyFinProvider } from "./components/jellyfin-provider";
 import { PageLoading } from "./components/ui/loading";
 import { Toaster } from "./components/ui/sonner";
 import { RuntimeProvider } from "./effect/runtime/runtime-provider";
 import { LiveLayer } from "./effect/services/layer";
 import { useOverlayScrollbars } from "./hooks/useOverlayScrollbars";
-import { ServerStoreProvider } from "./lib/store-hooks";
 import { commands } from "./lib/tauri";
 
 import "./app.css";
@@ -53,22 +50,13 @@ export default function App() {
           >
             <RuntimeProvider runtime={runtime}>
               <QueryClientProvider client={queryClient}>
-                <ServerStoreProvider>
-                  <JellyFinProvider>
-                    <GeneralInfoProvider>
-                      <AppContainer>
-                        <Suspense fallback={<PageLoading />}>
-                          {props.children}
-                        </Suspense>
-                      </AppContainer>
-                      <Toaster />
-                      <SolidQueryDevtools
-                        initialIsOpen={false}
-                        position="top"
-                      />
-                    </GeneralInfoProvider>
-                  </JellyFinProvider>
-                </ServerStoreProvider>
+                <AppContainer>
+                  <Suspense fallback={<PageLoading />}>
+                    {props.children}
+                  </Suspense>
+                </AppContainer>
+                <Toaster />
+                <SolidQueryDevtools initialIsOpen={false} position="top" />
               </QueryClientProvider>
             </RuntimeProvider>
           </ErrorBoundary>

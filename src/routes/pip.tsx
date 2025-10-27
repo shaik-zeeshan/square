@@ -59,7 +59,6 @@ function onMoveEnd(
 export default function PipPage() {
   const [isPlaying, setIsPlaying] = createSignal(true);
 
-  // biome-ignore lint/nursery/noMisusedPromises: we need to return a promise to listen to the event
   onMount(async () => {
     // Listen for playback state changes
     // const handlePlaybackState = (playing: boolean) => {
@@ -80,7 +79,6 @@ export default function PipPage() {
     });
   });
 
-  // biome-ignore lint/nursery/noMisusedPromises: we need to return a promise to listen to the event
   onMount(async () => {
     const window = getCurrentWindow();
 

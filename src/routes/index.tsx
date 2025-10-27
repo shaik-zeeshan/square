@@ -96,7 +96,7 @@ export default function Home() {
 
                     <Match when={data.length > 0}>
                       <div>
-                        <h2 class="mb-8 bg-gradient-to-r from-foreground to-foreground/60 bg-clip-text font-bold text-2xl text-transparent">
+                        <h2 class="mb-8 bg-linear-to-r from-foreground to-foreground/60 bg-clip-text font-bold text-2xl text-transparent">
                           Your Libraries
                         </h2>
                         <div
@@ -247,6 +247,9 @@ export default function Home() {
                                             <ItemActions
                                               item={item}
                                               itemId={itemId()}
+                                              onDone={() =>
+                                                JellyfinOperations.resumeItemsQueryDataHelpers.invalidateQuery()
+                                              }
                                               variant="card"
                                             />
                                           </div>

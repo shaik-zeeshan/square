@@ -33,7 +33,17 @@ class Jellyfin {
     createEffectQuery(() => ({
       queryKey: this.resumeItemsQueryKey(),
       queryFn: () =>
-        JellyfinService.pipe(Effect.flatMap((jf) => jf.getResumeItems())),
+        JellyfinService.pipe(
+          Effect.flatMap((jf) => jf.getResumeItems()),
+          Effect.catchTag("HttpError", (e) =>
+            Effect.sync(() => {
+              if (e.status === 404) {
+                return Effect.succeed([]);
+              }
+              return Effect.fail(e);
+            })
+          )
+        ),
     }));
 
   nextupItemsQueryKey = createQueryKey("getNextupItems");
@@ -233,7 +243,7 @@ class Jellyfin {
    *
    *
    */
-  markItemPlayed = (id: string) =>
+  markItemPlayed = (id: string, onDone?: () => Promise<void> | void) =>
     createEffectMutation(() => ({
       mutationKey: ["markItemPlayed"],
       mutationFn: () =>
@@ -262,14 +272,18 @@ class Jellyfin {
               })
             );
 
-            yield* Effect.promise(() =>
-              this.itemQueryDataHelpers.invalidateQuery({ id })
-            );
+            yield* Effect.promise(async () => {
+              await this.itemQueryDataHelpers.invalidateQuery({ id });
+
+              if (onDone) {
+                await onDone();
+              }
+            });
           }.bind(this)
         ),
     }));
 
-  markItemUnPlayed = (id: string) =>
+  markItemUnPlayed = (id: string, onDone?: () => Promise<void> | void) =>
     createEffectMutation(() => ({
       mutationKey: ["markItemUnPlayed"],
       mutationFn: () =>
@@ -298,14 +312,17 @@ class Jellyfin {
               })
             );
 
-            yield* Effect.promise(() =>
-              this.itemQueryDataHelpers.invalidateQuery({ id })
-            );
+            yield* Effect.promise(async () => {
+              await this.itemQueryDataHelpers.invalidateQuery({ id });
+              if (onDone) {
+                await onDone();
+              }
+            });
           }.bind(this)
         ),
     }));
 
-  markItemFavorite = (id: string) =>
+  markItemFavorite = (id: string, onDone?: () => Promise<void> | void) =>
     createEffectMutation(() => ({
       mutationKey: ["markItemFavorite"],
       mutationFn: () =>
@@ -331,14 +348,17 @@ class Jellyfin {
               })
             );
 
-            yield* Effect.promise(() =>
-              this.itemQueryDataHelpers.invalidateQuery({ id })
-            );
+            yield* Effect.promise(async () => {
+              await this.itemQueryDataHelpers.invalidateQuery({ id });
+              if (onDone) {
+                await onDone();
+              }
+            });
           }.bind(this)
         ),
     }));
 
-  markItemUnFavorite = (id: string) =>
+  markItemUnFavorite = (id: string, onDone?: () => Promise<void> | void) =>
     createEffectMutation(() => ({
       mutationKey: ["markItemUnFavorite"],
       mutationFn: () =>
@@ -364,9 +384,12 @@ class Jellyfin {
               })
             );
 
-            yield* Effect.promise(() =>
-              this.itemQueryDataHelpers.invalidateQuery({ id })
-            );
+            yield* Effect.promise(async () => {
+              await this.itemQueryDataHelpers.invalidateQuery({ id });
+              if (onDone) {
+                await onDone();
+              }
+            });
           }.bind(this)
         ),
     }));

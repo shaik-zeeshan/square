@@ -2,8 +2,8 @@ import type { UseQueryResult } from "@tanstack/solid-query";
 import type { JSX } from "solid-js";
 import { ErrorBoundary, Match, Suspense, Switch } from "solid-js";
 
-export type QueryBoundaryProps<T = unknown> = {
-  query: UseQueryResult<T, Error>;
+export type QueryBoundaryProps<E, T = unknown> = {
+  query: UseQueryResult<T, E>;
 
   /**
    * Triggered when the data is initially loading.
@@ -23,7 +23,7 @@ export type QueryBoundaryProps<T = unknown> = {
   /**
    * Triggered when the query results in an error.
    */
-  errorFallback?: (err: Error | null, retry: () => void) => JSX.Element;
+  errorFallback?: (err: E | null, retry: () => void) => JSX.Element;
 
   /**
    * Triggered when fetching is complete, and the returned data is not falsey.
@@ -35,11 +35,11 @@ export type QueryBoundaryProps<T = unknown> = {
  * Convenience wrapper that handles suspense and errors for queries. Makes the results of query.data available to
  * children (as a render prop) in a type-safe way.
  */
-export function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
+export function QueryBoundary<T, E>(props: QueryBoundaryProps<E, T>) {
   return (
     <Suspense fallback={props.loadingFallback}>
       <ErrorBoundary
-        fallback={(err: Error, reset) =>
+        fallback={(err: E, reset) =>
           props.errorFallback ? (
             props.errorFallback(err, async () => {
               await props.query.refetch();
@@ -47,7 +47,9 @@ export function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
             })
           ) : (
             <div>
-              <div class="error">{err.message}</div>
+              <div class="error">
+                {(err as { _tag: string })._tag ?? "Error Occured"}
+              </div>
               <button
                 onClick={async () => {
                   await props.query.refetch();
@@ -60,9 +62,17 @@ export function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
           )
         }
       >
-        <Switch>
-          <Match when={props.query.isPending || props.query.isLoading}>
-            {props.loadingFallback}
+        <Switch fallback={<div class="z-50">switch fallback</div>}>
+          {/* <Match when={props.query.isPending || props.query.isLoading}> */}
+          {/*   {props.loadingFallback} */}
+          {/* </Match> */}
+
+          <Match when={props.query.isFetched && !props.query.data}>
+            {props.notFoundFallback ? (
+              props.notFoundFallback
+            ) : (
+              <div>not found</div>
+            )}
           </Match>
 
           <Match when={props.query.isError}>
@@ -72,7 +82,7 @@ export function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
               //  showErrorToast(error.message || "An error occurred");
               //}
               return props.errorFallback ? (
-                props.errorFallback(error, props.query.refetch)
+                props.errorFallback(error as E, props.query.refetch)
               ) : (
                 <div class="p-4 text-center">
                   <div class="mb-2 text-red-500">
@@ -91,16 +101,8 @@ export function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
             })()}
           </Match>
 
-          <Match when={props.query.isFetched && !props.query.data}>
-            {props.notFoundFallback ? (
-              props.notFoundFallback
-            ) : (
-              <div>not found</div>
-            )}
-          </Match>
-
-          <Match when={!(props.query.isFetched || props.query.data)}>
-            {props.notStartedFallback ? props.notStartedFallback : null}
+          <Match when={!(props.query.isFetched || Boolean(props.query.data))}>
+            {props.notStartedFallback ? props.notStartedFallback : <div />}
           </Match>
 
           <Match when={props.query.data}>
@@ -108,6 +110,11 @@ export function QueryBoundary<T>(props: QueryBoundaryProps<T>) {
               props.query.data as Exclude<T, null | false | undefined>
             )}
           </Match>
+          {/* <Show when={props.query.data}> */}
+          {/*   {props.children( */}
+          {/*     props.query.data as Exclude<T, null | false | undefined> */}
+          {/*   )} */}
+          {/* </Show> */}
         </Switch>
       </ErrorBoundary>
     </Suspense>

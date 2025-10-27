@@ -45,12 +45,12 @@ function arrayToObjectWithDuplicates<K extends PropertyKey, V>(
   );
 }
 
-const getImageFromTag = (
-  basePath: string,
-  itemId: string,
-  keyTag: string,
-  value: string
-) => `${basePath}/Items/${itemId}/Images/${keyTag}?tag=${value}`;
+// const getImageFromTag = (
+//   basePath: string,
+//   itemId: string,
+//   keyTag: string,
+//   value: string
+// ) => `${basePath}/Items/${itemId}/Images/${keyTag}?tag=${value}`;
 
 const getImageByKey = (jf: Api, item: BaseItemDto, keyTag: ImageType) =>
   new ImageUrlsApi(jf.configuration).getItemImageUrl(item, keyTag, {
