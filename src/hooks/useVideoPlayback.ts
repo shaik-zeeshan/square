@@ -9,7 +9,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { Effect } from "effect";
 import { createEffect, createSignal, onCleanup } from "solid-js";
 import { createStore } from "solid-js/store";
-import { useGeneralInfo } from "~/components/current-user-provider";
 import type {
   BufferHealth,
   Chapter,
@@ -25,6 +24,7 @@ import {
 } from "~/components/video/types";
 import { useRuntime } from "~/effect/runtime/use-runtime";
 import { AuthService } from "~/effect/services/auth";
+import { AuthOperations } from "~/effect/services/auth/operations";
 import type { WithImage } from "~/effect/services/jellyfin/service";
 import library from "~/lib/jellyfin/library";
 import { commands } from "~/lib/tauri";
@@ -45,7 +45,8 @@ export function useVideoPlayback(
   );
 
   const queryClient = useQueryClient();
-  const { store: userStore } = useGeneralInfo();
+  const currentUser = AuthOperations.currentUser();
+
   const [state, setState] = createStore({
     audioIndex: -1,
     subtitleIndex: -1,
@@ -602,7 +603,7 @@ export function useVideoPlayback(
         });
         const queryKey = [
           library.query.getItem.key,
-          library.query.getItem.keyFor(itemId, userStore?.user?.Id),
+          library.query.getItem.keyFor(itemId, currentUser.data?.Id),
         ];
         await queryClient.invalidateQueries({
           queryKey,
@@ -616,7 +617,7 @@ export function useVideoPlayback(
   const onEndOfFile = async () => {
     const queryKey = [
       library.query.getItem.key,
-      library.query.getItem.keyFor(itemId(), userStore?.user?.Id),
+      library.query.getItem.keyFor(itemId(), currentUser.data?.Id),
     ];
     await queryClient.invalidateQueries({
       queryKey,

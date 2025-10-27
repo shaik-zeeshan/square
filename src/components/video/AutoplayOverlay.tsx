@@ -1,9 +1,10 @@
+import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 import { ChevronDown, ChevronUp, Play, SkipForward, X } from "lucide-solid";
 import { Show } from "solid-js";
-import type library from "~/lib/jellyfin/library";
+import type { WithImage } from "~/effect/services/jellyfin/service";
 
 type AutoplayOverlayProps = {
-  nextEpisode: Awaited<ReturnType<typeof library.query.getNextEpisode>>;
+  nextEpisode: WithImage<BaseItemDto>;
   onPlayNext: () => void;
   onCancel: () => void;
   isVisible: boolean;

@@ -11,7 +11,7 @@ import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models/base
 import { ImageUrlsApi } from "@jellyfin/sdk/lib/utils/api/image-urls-api";
 import { Effect } from "effect";
 import { isArray, isEmptyArray } from "effect/Array";
-import { HttpError, MutationError } from "../../error";
+import { HttpError, MutationError, NoEpisodeFound } from "../../error";
 import { AuthService, AuthServiceLayer } from "../auth";
 
 /*
@@ -493,6 +493,37 @@ export class JellyfinService extends Effect.Service<JellyfinService>()(
           return yield* getImages(jf)(items);
         });
 
+      const getNextEpisode = (item: BaseItemDto) =>
+        Effect.gen(function* () {
+          const jf = yield* auth.getApi();
+          const user = yield* auth.getUser();
+
+          if (!item.IndexNumber) {
+            return yield* new NoEpisodeFound();
+          }
+
+          // Current Episode Details
+          const seasonId = item.ParentId ?? undefined;
+          const currentIndex = item.IndexNumber;
+
+          const res = yield* getItems({
+            userId: user.Id,
+            parentId: seasonId,
+            fields: ["ParentId", "MediaStreams", "ParentId"],
+            startIndex: currentIndex + 1,
+            enableUserData: true,
+            includeItemTypes: ["Episode"],
+            sortBy: ["IndexNumber"],
+            sortOrder: ["Ascending"],
+            limit: 1,
+            enableImages: true,
+          });
+
+          const items = res[0];
+
+          return yield* getImages(jf)(items);
+        });
+
       /*
        *
        *
@@ -623,6 +654,7 @@ export class JellyfinService extends Effect.Service<JellyfinService>()(
         getResumeItems,
         getNextupItems,
         getLatestMedia,
+        getNextEpisode,
 
         /*
          *

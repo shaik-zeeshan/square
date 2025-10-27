@@ -3,7 +3,7 @@ import type {
   ItemsApiGetItemsRequest,
 } from "@jellyfin/sdk/lib/generated-client";
 import type { SolidQueryOptions } from "@tanstack/solid-query";
-import { Effect } from "effect";
+import { Effect, pipe } from "effect";
 import type { Accessor } from "solid-js";
 import {
   createEffectMutation,
@@ -13,7 +13,7 @@ import {
   type ExtractQueryData,
 } from "~/effect/tanstack/query";
 import { safeAssign } from "~/lib/utils";
-import { JellyfinService } from "./service";
+import { JellyfinService, type WithImage } from "./service";
 
 class Jellyfin {
   librariesQueryKey = createQueryKey("getLibraries");
@@ -35,14 +35,12 @@ class Jellyfin {
       queryFn: () =>
         JellyfinService.pipe(
           Effect.flatMap((jf) => jf.getResumeItems()),
-          Effect.catchTag("HttpError", (e) =>
-            Effect.sync(() => {
-              if (e.status === 404) {
-                return Effect.succeed([]);
-              }
-              return Effect.fail(e);
-            })
-          )
+          Effect.catchTag("HttpError", (e) => {
+            if (e.status === 404) {
+              return Effect.succeed([]);
+            }
+            return Effect.fail(e);
+          })
         ),
     }));
 
@@ -232,6 +230,18 @@ class Jellyfin {
               enableImages: true,
               ...params,
             })
+          )
+        ),
+    }));
+
+  getNextEpisode = (item: WithImage<BaseItemDto> | undefined) =>
+    createEffectQuery(() => ({
+      queryKey: ["getNextEpisode", { id: item?.Id }],
+      queryFn: () =>
+        pipe(
+          Effect.fromNullable(item),
+          Effect.flatMap((i) =>
+            JellyfinService.pipe(Effect.flatMap((jf) => jf.getNextEpisode(i)))
           )
         ),
     }));

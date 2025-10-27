@@ -1,3 +1,4 @@
+import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 import {
   type RouteSectionProps,
   useNavigate,
@@ -5,7 +6,6 @@ import {
 } from "@solidjs/router";
 import { ArrowLeft, Eye, EyeOff } from "lucide-solid";
 import { createEffect, onCleanup, onMount, Show } from "solid-js";
-import { useGeneralInfo } from "~/components/current-user-provider";
 import {
   AutoplayOverlay,
   BufferingIndicator,
@@ -17,18 +17,19 @@ import {
   VideoInfoOverlay,
   VideoSettingsPanels,
 } from "~/components/video";
+import { AuthOperations } from "~/effect/services/auth/operations";
 import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
+import type { WithImage } from "~/effect/services/jellyfin/service";
 import { useAutoplay } from "~/hooks/useAutoplay";
 import { useVideoKeyboardShortcuts } from "~/hooks/useVideoKeyboardShortcuts";
 import { useVideoPlayback } from "~/hooks/useVideoPlayback";
-import type library from "~/lib/jellyfin/library";
 import { commands } from "~/lib/tauri";
 
 export default function Page(_props: RouteSectionProps) {
   // let [{ params }] = splitProps(props, ['params']);
   const navigate = useNavigate();
   const routeParams = useParams();
-  const { store: userStore } = useGeneralInfo();
+  const currentUser = AuthOperations.currentUser();
 
   // Fetch item details with UserData to get playback position
   // const itemDetails = createJellyFinQuery(() => ({
@@ -72,7 +73,7 @@ export default function Page(_props: RouteSectionProps) {
       enabled:
         !!itemDetails.data?.ParentId &&
         itemDetails.data?.Type !== "Movie" &&
-        !!userStore?.user?.Id,
+        !!currentUser.data?.Id,
       refetchOnWindowFocus: false,
       staleTime: 1000 * 60 * 5, // 5 minutes
       retry: 3,
@@ -136,8 +137,7 @@ export default function Page(_props: RouteSectionProps) {
 
   // Use autoplay hook - don't destructure to maintain reactivity
   const autoplayHook = useAutoplay({
-    currentItemId: () => routeParams.id,
-    currentItemDetails: itemDetails,
+    currentItem: () => itemDetails.data,
     onLoadNewVideo: loadNewVideo,
     playbackState: {
       currentTime: () => state.currentTime,
@@ -416,28 +416,26 @@ export default function Page(_props: RouteSectionProps) {
       </Show>
 
       {/* Autoplay Overlay */}
-      <div
-        class="control-element"
-        onClick={(e) => e.stopPropagation()}
-        role="button"
-      >
-        <AutoplayOverlay
-          isCollapsed={autoplayHook().isCollapsed()}
-          isVisible={autoplayHook().showAutoplay()}
-          nextEpisode={
-            autoplayHook().nextEpisode as Awaited<
-              ReturnType<typeof library.query.getNextEpisode>
-            >
-          }
-          onCancel={autoplayHook().cancelAutoplay}
-          onPlayNext={() => {
-            // before playing the next episode, clear the current video
-            commands.playbackPause();
-            autoplayHook().playNextEpisode();
-          }}
-          setIsCollapsed={autoplayHook().setIsCollapsed}
-        />
-      </div>
+      <Show when={autoplayHook().nextEpisode}>
+        <div
+          class="control-element"
+          onClick={(e) => e.stopPropagation()}
+          role="button"
+        >
+          <AutoplayOverlay
+            isCollapsed={autoplayHook().isCollapsed()}
+            isVisible={autoplayHook().showAutoplay()}
+            nextEpisode={autoplayHook().nextEpisode as WithImage<BaseItemDto>}
+            onCancel={autoplayHook().cancelAutoplay}
+            onPlayNext={() => {
+              // before playing the next episode, clear the current video
+              commands.playbackPause();
+              autoplayHook().playNextEpisode();
+            }}
+            setIsCollapsed={autoplayHook().setIsCollapsed}
+          />
+        </div>
+      </Show>
 
       {/* OSD (On-Screen Display) */}
       <OSD onHide={hideOSD} state={state.osd} />
