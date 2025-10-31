@@ -24,7 +24,7 @@ tokio = "1.47.1"
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
-tauri = { version = "2.7.0", features = ["macos-private-api", "specta", "unstable", "devtools"] }
+tauri = { version = "2.9.1", features = ["macos-private-api", "specta", "unstable", "devtools"] }
 tauri-plugin-log = "2"
 tauri-plugin-store = "2"
 specta = { version = "=2.0.0-rc.20", features = [
@@ -36,6 +36,7 @@ tauri-specta = { version = "=2.0.0-rc.20", features = ["derive", "typescript"] }
 specta-typescript = "0.0.7"
 
 libmpv2 = { git = "https://github.com/kohsine/libmpv2-rs" }
+# libmpv2 = { path = "/Volumes/zeeshan/Developer/personal/libmpv2-rs"  }
 
 raw-window-handle = "0.6.2"
 tauri-plugin-http = { version = "2" ,features = ["default"] }

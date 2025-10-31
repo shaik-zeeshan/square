@@ -296,7 +296,6 @@ const queries = {
 
       const episode = currentEpisode.data.Items[0];
       const seasonId = episode.ParentId;
-      const _seriesId = episode.SeriesId || "";
       const currentIndex = episode.IndexNumber || 0;
 
       if (!seasonId) {

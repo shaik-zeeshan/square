@@ -1,28 +1,38 @@
+import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 import type { ItemFields } from "@jellyfin/sdk/lib/generated-client/models/item-fields";
-import { useQueryClient } from "@tanstack/solid-query";
+import { Effect } from "effect";
 import { Check, Play } from "lucide-solid";
-import { createMemo, Show } from "solid-js";
-import library from "~/lib/jellyfin/library";
-import { createJellyFinQuery } from "~/lib/utils";
-import { useGeneralInfo } from "./current-user-provider";
+import { createMemo, For, Show, splitProps } from "solid-js";
+import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
+import {
+  JellyfinService,
+  type WithImage,
+} from "~/effect/services/jellyfin/service";
+import { createEffectQuery } from "~/effect/tanstack/query";
 import { ItemActions } from "./ItemActions";
 import { GlassCard } from "./ui";
 
 type SeriesCardProps = {
-  item: Awaited<ReturnType<typeof library.query.getItem>>;
+  item: WithImage<BaseItemDto>;
   parentId?: string;
 };
 
-export function SeriesCard({ item: initialItem, parentId }: SeriesCardProps) {
-  const { store } = useGeneralInfo();
+export function SeriesCard(props: SeriesCardProps) {
+  const [{ item: initialItem, parentId }] = splitProps(props, [
+    "item",
+    "parentId",
+  ]);
 
-  const item = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getItem.key,
-      library.query.getItem.keyFor(initialItem?.Id, store?.user?.Id),
-    ],
-    queryFn: async (jf) =>
-      library.query.getItem(jf, initialItem?.Id as string, store?.user?.Id),
+  const item = createEffectQuery(() => ({
+    queryKey: JellyfinOperations.itemQueryKey({
+      id: initialItem.Id as string,
+    }),
+    queryFn: () =>
+      JellyfinService.pipe(
+        Effect.flatMap((jf) =>
+          jf.getItem(initialItem?.Id as string, { fields: ["ParentId"] })
+        )
+      ),
     initialData: initialItem,
     staleTime: Number.POSITIVE_INFINITY,
   }));
@@ -33,23 +43,24 @@ export function SeriesCard({ item: initialItem, parentId }: SeriesCardProps) {
       href={`/library/${parentId || item.data?.ParentId}/item/${item.data?.Id}`}
     >
       <GlassCard
-        class="h-full overflow-hidden transition-all duration-300 group-hover:scale-[1.03] group-hover:shadow-[var(--glass-shadow-xl)]"
+        class="h-full overflow-hidden transition-all duration-300 group-hover:scale-[1.03] group-hover:shadow-(--glass-shadow-xl)"
         preset="card"
       >
-        <div class="relative aspect-[2/3] overflow-hidden">
+        <div class="relative aspect-2/3 overflow-hidden">
           {/* Image fills entire card */}
           <img
             alt={item.data?.Name ?? "Media item"}
             class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
             src={
-              item.data?.Images && "Primary" in item.data.Images
-                ? item.data?.Images.Primary
-                : "https://placehold.co/300x442?text=No+Image"
+              item.data &&
+              ("Primary" in item.data.Images
+                ? (item.data?.Images.Primary as string)
+                : item.data?.Image)
             }
           />
 
           {/* Gradient overlay - always visible, darkens on hover */}
-          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-all duration-300 group-hover:from-black/90 group-hover:via-black/50" />
+          <div class="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent transition-all duration-300 group-hover:from-black/90 group-hover:via-black/50" />
 
           {/* Play Icon Overlay */}
           <div class="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -62,7 +73,7 @@ export function SeriesCard({ item: initialItem, parentId }: SeriesCardProps) {
           <Show
             when={
               item.data?.UserData?.UnplayedItemCount &&
-              item.data?.UserData.UnplayedItemCount > 0
+              item.data?.UserData?.UnplayedItemCount > 0
             }
           >
             <div class="absolute top-3 right-3 z-10 rounded-full border-2 border-white/30 bg-blue-500 px-2.5 py-1.5 font-bold text-white text-xs shadow-lg">
@@ -79,18 +90,15 @@ export function SeriesCard({ item: initialItem, parentId }: SeriesCardProps) {
           </Show>
 
           {/* Item Actions - Show on hover */}
-          <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-            <ItemActions
-              item={
-                item.data as {
-                  UserData?: { Played?: boolean; IsFavorite?: boolean };
-                }
-              }
-              itemId={item.data?.Id as string}
-              userId={store?.user?.Id}
-              variant="card"
-            />
-          </div>
+          <Show when={item.data}>
+            <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+              <ItemActions
+                item={item.data as WithImage<BaseItemDto>}
+                itemId={item.data?.Id as string}
+                variant="card"
+              />
+            </div>
+          </Show>
 
           {/* Title Info - always visible at bottom */}
           <div class="absolute right-0 bottom-0 left-0 p-4">
@@ -110,26 +118,31 @@ export function SeriesCard({ item: initialItem, parentId }: SeriesCardProps) {
 }
 
 type EpisodeCardProps = {
-  item: Awaited<ReturnType<typeof library.query.getItem>> | undefined;
+  item: WithImage<BaseItemDto> | undefined;
 };
 
-export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
-  const { store } = useGeneralInfo();
+export function EpisodeCard(props: EpisodeCardProps) {
+  const [{ item: initialItem }] = splitProps(props, ["item"]);
 
-  const item = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getItem.key,
-      library.query.getItem.keyFor(initialItem?.Id, store?.user?.Id),
-    ],
-    queryFn: async (jf) =>
-      library.query.getItem(jf, initialItem?.Id as string, store?.user?.Id, [
-        "ParentId",
-        "Overview",
-        "MediaStreams",
-        ...((initialItem?.Type === "Movie"
-          ? ["Studios", "People"]
-          : []) as ItemFields[]),
-      ]),
+  const item = createEffectQuery(() => ({
+    queryKey: JellyfinOperations.itemQueryKey({
+      id: initialItem?.Id as string,
+    }),
+    queryFn: () =>
+      JellyfinService.pipe(
+        Effect.flatMap((jf) =>
+          jf.getItem(initialItem?.Id as string, {
+            fields: [
+              "ParentId",
+              "Overview",
+              "MediaStreams",
+              ...((initialItem?.Type === "Movie"
+                ? ["Studios", "People"]
+                : []) as ItemFields[]),
+            ],
+          })
+        )
+      ),
     initialData: initialItem,
     enabled: initialItem?.Type === "Episode",
     staleTime: Number.POSITIVE_INFINITY,
@@ -193,7 +206,7 @@ export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
       class="group block"
       href={
         item.data?.LocationType === "FileSystem"
-          ? `/video/${item.data?.Id}`
+          ? `/video/${item.data?.Id}/new`
           : ""
       }
       role={item.data?.LocationType === "FileSystem" ? "link" : "button"}
@@ -202,7 +215,7 @@ export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
       <div class="flex gap-4 overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-4 transition-all duration-300 hover:border-white/20 hover:bg-white/10">
         {/* Episode Number Badge */}
         <Show when={item.data?.IndexNumber}>
-          <div class="relative flex w-12 flex-shrink-0 items-center justify-center">
+          <div class="relative flex w-12 shrink-0 items-center justify-center">
             <div class="font-bold text-4xl opacity-30 transition-opacity group-hover:opacity-50">
               {item.data?.IndexNumber}
             </div>
@@ -210,13 +223,13 @@ export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
         </Show>
 
         {/* Thumbnail */}
-        <div class="relative aspect-video w-64 flex-shrink-0 overflow-hidden rounded-xl">
+        <div class="relative aspect-video w-64 shrink-0 overflow-hidden rounded-xl">
           <img
             alt={item.data?.Name ?? "Episode"}
             class="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
-            src={item.data?.Images.Primary}
+            src={item.data?.Image}
           />
-          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+          <div class="absolute inset-0 bg-linear-to-t from-black/80 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
           {/* Play button overlay */}
           <div class="absolute inset-0 z-10 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -238,9 +251,8 @@ export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
           {/* Item Actions - Show on hover */}
           <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
             <ItemActions
-              item={item.data}
+              item={item.data as WithImage<BaseItemDto>}
               itemId={item.data?.Id as string}
-              userId={store?.user?.Id}
               variant="card"
             />
           </div>
@@ -281,17 +293,17 @@ export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
           <div class="mt-0.5 flex flex-wrap items-start gap-2">
             <Show when={audioLangs?.length}>
               <div class="flex min-w-0 items-start gap-1.5">
-                <span class="flex-shrink-0 pt-0.5 font-semibold text-xs uppercase tracking-wider opacity-50">
+                <span class="shrink-0 pt-0.5 font-semibold text-xs uppercase tracking-wider opacity-50">
                   Audio
                 </span>
                 <div class="flex min-w-0 flex-wrap gap-1">
-                  {audioLangs()
-                    .slice(0, 4)
-                    .map((lang: string | null | undefined) => (
+                  <For each={audioLangs()}>
+                    {(lang) => (
                       <span class="whitespace-nowrap rounded-md border border-blue-500/30 bg-blue-500/20 px-2 py-0.5 font-medium text-blue-300 text-xs">
                         {lang?.toUpperCase() || "Unknown"}
                       </span>
-                    ))}
+                    )}
+                  </For>
                   <Show when={audioLangs().length > 4}>
                     <span class="rounded-md border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 font-medium text-blue-400 text-xs">
                       +{audioLangs().length - 4}
@@ -303,17 +315,17 @@ export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
 
             <Show when={subtitleLangs?.length}>
               <div class="flex min-w-0 items-start gap-1.5">
-                <span class="flex-shrink-0 pt-0.5 font-semibold text-xs uppercase tracking-wider opacity-50">
+                <span class="shrink-0 pt-0.5 font-semibold text-xs uppercase tracking-wider opacity-50">
                   Subs
                 </span>
                 <div class="flex min-w-0 flex-wrap gap-1">
-                  {subtitleLangs()
-                    .slice(0, 4)
-                    .map((lang: string | null | undefined) => (
+                  <For each={subtitleLangs()}>
+                    {(lang) => (
                       <span class="whitespace-nowrap rounded-md border border-purple-500/30 bg-purple-500/20 px-2 py-0.5 font-medium text-purple-300 text-xs">
                         {lang?.toUpperCase() || "Unknown"}
                       </span>
-                    ))}
+                    )}
+                  </For>
                   <Show when={subtitleLangs().length > 4}>
                     <span class="rounded-md border border-purple-500/20 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-400 text-xs">
                       +{subtitleLangs().length - 4}
@@ -330,17 +342,15 @@ export function EpisodeCard({ item: initialItem }: EpisodeCardProps) {
 }
 
 // New compact episode card for main page
-export function MainPageEpisodeCard({ item: initialItem }: EpisodeCardProps) {
-  const { store } = useGeneralInfo();
-  const queryClient = useQueryClient();
+export function MainPageEpisodeCard(props: EpisodeCardProps) {
+  const [{ item: initialItem }] = splitProps(props, ["item"]);
 
-  const item = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getItem.key,
-      library.query.getItem.keyFor(initialItem?.Id, store?.user?.Id),
-    ],
-    queryFn: async (jf) =>
-      library.query.getItem(jf, initialItem?.Id as string, store?.user?.Id),
+  const item = createEffectQuery(() => ({
+    queryKey: ["getItem", { itemId: initialItem?.Id }],
+    queryFn: () =>
+      JellyfinService.pipe(
+        Effect.flatMap((jf) => jf.getItem(initialItem?.Id as string))
+      ),
     initialData: initialItem,
     staleTime: Number.POSITIVE_INFINITY,
   }));
@@ -377,32 +387,33 @@ export function MainPageEpisodeCard({ item: initialItem }: EpisodeCardProps) {
   const isInProgress = () => playbackProgress() > 0 && playbackProgress() < 95;
 
   return (
-    <a class="group block" href={`/video/${item.data.Id}`}>
+    <a class="group block" href={`/video/${item.data.Id}/new`}>
       <GlassCard
-        class="h-full overflow-hidden shadow-[var(--glass-shadow-md)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-[var(--glass-shadow-lg)]"
+        class="h-full overflow-hidden shadow-(--glass-shadow-md) transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-(--glass-shadow-lg)"
         preset="card"
       >
-        <div class="relative aspect-[16/9] overflow-hidden">
+        <div class="relative aspect-video overflow-hidden">
           {/* Episode Image */}
           <Show
             fallback={
-              <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--glass-bg-medium)] to-[var(--glass-bg-subtle)]">
+              <div class="flex h-full w-full items-center justify-center bg-linear-to-br from-(--glass-bg-medium) to-(--glass-bg-subtle)">
                 <span class="text-4xl opacity-30">
                   {item.data.Name?.charAt(0)}
                 </span>
               </div>
             }
-            when={item.data.Images?.Primary}
+            when={item.data.Image}
           >
             <img
               alt={item.data.Name ?? "Episode"}
               class="h-full w-full scale-110 object-cover transition-transform duration-700 ease-out group-hover:scale-100"
-              src={item.data.Images.Primary}
+              loading="lazy"
+              src={item.data.Image}
             />
           </Show>
 
           {/* Gradient overlay */}
-          <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent transition-all duration-300 group-hover:from-black/90 group-hover:via-black/50" />
+          <div class="absolute inset-0 bg-linear-to-t from-black/80 via-black/20 to-transparent transition-all duration-300 group-hover:from-black/90 group-hover:via-black/50" />
 
           {/* Play Icon Overlay */}
           <div class="absolute inset-0 flex items-center justify-center opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -439,14 +450,8 @@ export function MainPageEpisodeCard({ item: initialItem }: EpisodeCardProps) {
           {/* Item Actions - Show on hover */}
           <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
             <ItemActions
-              item={item.data}
+              item={item.data as WithImage<BaseItemDto>}
               itemId={item.data.Id as string}
-              onDone={() => {
-                queryClient.invalidateQueries({
-                  queryKey: [library.query.getNextupItems.key],
-                });
-              }}
-              userId={store?.user?.Id}
               variant="card"
             />
           </div>

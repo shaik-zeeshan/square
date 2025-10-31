@@ -6,24 +6,19 @@ import {
   User as UserIcon,
 } from "lucide-solid";
 import { createSignal, Show } from "solid-js";
-import { useGeneralInfo } from "~/components/current-user-provider";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
 import { GlassCard } from "~/components/ui";
-import { user } from "~/lib/jellyfin/user";
-import { useServerStore } from "~/lib/store-hooks";
-import { createJellyFinQuery } from "~/lib/utils";
+import { useAuth } from "~/effect/services/hooks/use-auth";
 
 export default function SettingsPage() {
-  const { store } = useGeneralInfo();
-  const { store: serverStore } = useServerStore();
   const [activeTab, setActiveTab] = createSignal("profile");
 
+  const { getCurrentUser, getCurrentServer } = useAuth();
+
   // Fetch user details from Jellyfin
-  const userDetails = createJellyFinQuery(() => ({
-    queryKey: [user.query.details.key],
-    queryFn: (jf) => user.query.details(jf),
-  }));
+  const userDetails = getCurrentUser();
+  const serverDetails = getCurrentServer();
 
   const formatDate = (dateString?: string) => {
     if (!dateString) {
@@ -43,7 +38,7 @@ export default function SettingsPage() {
         breadcrumbs={[
           {
             label: "Settings",
-            icon: <SettingsIcon class="h-4 w-4 flex-shrink-0 opacity-70" />,
+            icon: <SettingsIcon class="h-4 w-4 shrink-0 opacity-70" />,
           },
         ]}
         currentPage={activeTab() === "profile" ? "Profile" : "Server"}
@@ -102,7 +97,7 @@ export default function SettingsPage() {
                           Username
                         </h3>
                         <p class="text-foreground">
-                          {data?.Name || store?.user?.Name || "N/A"}
+                          {data?.Name || userDetails.data?.Name || "N/A"}
                         </p>
                       </div>
 
@@ -112,9 +107,16 @@ export default function SettingsPage() {
                           Policy
                         </h3>
                         <p class="text-foreground">
-                          {data?.Policy?.IsAdministrator
-                            ? "Administrator"
-                            : "User"}
+                          <Show
+                            when={userDetails.data?.Policy?.IsAdministrator}
+                          >
+                            Administrator
+                          </Show>
+                          <Show
+                            when={!userDetails.data?.Policy?.IsAdministrator}
+                          >
+                            User
+                          </Show>
                         </p>
                       </div>
 
@@ -138,7 +140,7 @@ export default function SettingsPage() {
                         <div>
                           <span class="text-muted-foreground">User ID:</span>
                           <p class="mt-1 font-mono text-foreground text-xs">
-                            {data?.Id || store?.user?.Id || "N/A"}
+                            {data?.Id || userDetails?.data?.Id || "N/A"}
                           </p>
                         </div>
                         <div>
@@ -146,8 +148,7 @@ export default function SettingsPage() {
                             Server Version:
                           </span>
                           <p class="mt-1 text-foreground">
-                            {serverStore.current?.info.systemInfo?.Version ||
-                              "N/A"}
+                            {serverDetails?.data?.systemInfo?.Version || "N/A"}
                           </p>
                         </div>
                       </div>
@@ -172,7 +173,7 @@ export default function SettingsPage() {
                       Server ID
                     </h3>
                     <p class="font-mono text-foreground text-xs">
-                      {store?.user?.ServerId?.slice(0, 8) || "N/A"}...
+                      {serverDetails.data?.systemInfo?.Id || "N/A"}...
                     </p>
                   </div>
 
@@ -181,8 +182,7 @@ export default function SettingsPage() {
                       Server Name
                     </h3>
                     <p class="text-foreground">
-                      {serverStore.current?.info.systemInfo?.ServerName ||
-                        "N/A"}
+                      {serverDetails.data?.systemInfo?.ServerName || "N/A"}
                     </p>
                   </div>
 
@@ -191,7 +191,7 @@ export default function SettingsPage() {
                       Server Response Time
                     </h3>
                     <p class="text-foreground">
-                      {serverStore.current?.info.responseTime}ms
+                      {serverDetails.data?.responseTime}ms
                     </p>
                   </div>
                 </div>

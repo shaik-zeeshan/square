@@ -1,9 +1,10 @@
 import { useNavigate } from "@solidjs/router";
-import { useMutation } from "@tanstack/solid-query";
-import { LogOut, Settings, User } from "lucide-solid";
 import { createEffect, createSignal, onCleanup, Show } from "solid-js";
-import { user } from "~/lib/jellyfin/user";
-import { useGeneralInfo } from "./current-user-provider";
+import { AuthOperations } from "~/effect/services/auth/operations";
+import { useAuth } from "~/effect/services/hooks/use-auth";
+import LogOut from "~icons/lucide/log-out";
+import Settings from "~icons/lucide/settings";
+import User from "~icons/lucide/user";
 
 type UserDropdownProps = {
   /** Color variant for the button */
@@ -14,16 +15,13 @@ type UserDropdownProps = {
 
 export function UserDropdown(props: UserDropdownProps) {
   const navigate = useNavigate();
-  const generalInfo = useGeneralInfo();
+  const { getCurrentUser } = useAuth();
   const [isUserDropdownOpen, setIsUserDropdownOpen] = createSignal(false);
   let userDropdownRef!: HTMLDivElement;
 
-  const logout = useMutation(() => ({
-    mutationFn: async () => user.mutation.logout(),
-    onSuccess: () => {
-      navigate("/");
-    },
-  }));
+  const user = getCurrentUser();
+
+  const logout = AuthOperations.logout();
 
   // Handle click outside dropdown
   createEffect(() => {
@@ -65,7 +63,7 @@ export function UserDropdown(props: UserDropdownProps) {
         </button>
 
         <Show when={isUserDropdownOpen()}>
-          <div class="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-popover shadow-[var(--glass-shadow-lg)] backdrop-blur-sm">
+          <div class="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-popover shadow-(--glass-shadow-lg) backdrop-blur-sm">
             {/* User Info Section */}
             <div class="border-border border-b px-4 py-3">
               <Show
@@ -74,15 +72,18 @@ export function UserDropdown(props: UserDropdownProps) {
                     Guest User
                   </div>
                 }
-                when={generalInfo.store?.user}
+                when={user}
               >
                 <div class="font-medium text-foreground text-sm">
-                  {generalInfo.store?.user?.Name}
+                  {user.data?.Name}
                 </div>
-                <Show when={generalInfo.store?.user?.ServerId}>
+                <Show when={user.data?.Policy?.IsAdministrator}>
                   <div class="mt-1 text-muted-foreground text-xs">
-                    Server: {generalInfo.store?.user?.ServerId?.slice(0, 8)}...
+                    Administrator
                   </div>
+                </Show>
+                <Show when={!user.data?.Policy?.IsAdministrator}>
+                  <div class="mt-1 text-muted-foreground text-xs">User</div>
                 </Show>
               </Show>
             </div>

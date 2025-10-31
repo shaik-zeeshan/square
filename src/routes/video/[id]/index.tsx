@@ -1,11 +1,7 @@
-import {
-  type RouteSectionProps,
-  useNavigate,
-  useParams,
-} from "@solidjs/router";
+import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
+import { type RouteSectionProps, useNavigate } from "@solidjs/router";
 import { ArrowLeft, Eye, EyeOff } from "lucide-solid";
-import { createEffect, onCleanup, onMount, Show } from "solid-js";
-import { useGeneralInfo } from "~/components/current-user-provider";
+import { createEffect, onCleanup, onMount, Show, splitProps } from "solid-js";
 import {
   AutoplayOverlay,
   BufferingIndicator,
@@ -17,69 +13,45 @@ import {
   VideoInfoOverlay,
   VideoSettingsPanels,
 } from "~/components/video";
+import { AuthOperations } from "~/effect/services/auth/operations";
+import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
+import type { WithImage } from "~/effect/services/jellyfin/service";
 import { useAutoplay } from "~/hooks/useAutoplay";
 import { useVideoKeyboardShortcuts } from "~/hooks/useVideoKeyboardShortcuts";
 import { useVideoPlayback } from "~/hooks/useVideoPlayback";
-import library from "~/lib/jellyfin/library";
 import { commands } from "~/lib/tauri";
-import { createJellyFinQuery } from "~/lib/utils";
 
-export default function Page(_props: RouteSectionProps) {
-  // let [{ params }] = splitProps(props, ['params']);
+export default function Page(props: RouteSectionProps) {
+  const [{ params: routeParams }] = splitProps(props, ["params"]);
   const navigate = useNavigate();
-  const routeParams = useParams();
-  const { store: userStore } = useGeneralInfo();
+  // const routeParams = useParams();
+  const currentUser = AuthOperations.currentUser();
 
-  // Fetch item details with UserData to get playback position
-  const itemDetails = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getItem.key,
-      library.query.getItem.keyFor(routeParams.id, userStore?.user?.Id),
-    ],
-    queryFn: (jf) => {
-      if (!routeParams.id) {
-        throw new Error("Route parameter ID not found");
-      }
-      return library.query.getItem(jf, routeParams.id, userStore?.user?.Id, [
-        "Overview",
-        "ParentId",
-      ]);
+  const itemDetails = JellyfinOperations.getItem(
+    () => routeParams.id,
+    {
+      fields: ["Overview", "ParentId"],
     },
-    enabled: !!routeParams.id && !!userStore?.user?.Id,
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: false,
-    staleTime: Number.POSITIVE_INFINITY, // 5 minutes
-  }));
+    () => ({
+      refetchOnWindowFocus: false,
+      refetchOnMount: false,
+      refetchOnReconnect: false,
+    })
+  );
 
-  const parentDetails = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getItem.key,
-      library.query.getItem.keyFor(
-        itemDetails.data?.ParentId || "",
-        userStore?.user?.Id
-      ),
-      itemDetails.data?.ParentId,
-    ],
-    queryFn: (jf) => {
-      const parentId = itemDetails.data?.ParentId;
-      if (!parentId) {
-        throw new Error("Parent ID not found");
-      }
-      return library.query.getItem(jf, parentId, userStore?.user?.Id, [
-        "Overview",
-        "ParentId",
-      ]);
+  const parentDetails = JellyfinOperations.getItem(
+    () => itemDetails.data?.ParentId as string,
+    {
+      fields: ["Overview", "ParentId"],
     },
-
-    enabled:
-      !!itemDetails.data?.ParentId &&
-      itemDetails.data?.Type !== "Movie" &&
-      !!userStore?.user?.Id,
-    refetchOnWindowFocus: false,
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    retry: 3,
-  }));
+    () => ({
+      enabled:
+        !!itemDetails.data?.ParentId &&
+        itemDetails.data?.Type !== "Movie" &&
+        !!currentUser.data?.Id,
+      refetchOnWindowFocus: false,
+    })
+  );
 
   // Use the custom hook for playback state management
   const {
@@ -102,7 +74,6 @@ export default function Page(_props: RouteSectionProps) {
     showOSD,
     hideOSD,
     toggleHelp,
-    onEndOfFile,
   } = useVideoPlayback(
     () => routeParams.id,
     () => itemDetails.data
@@ -110,8 +81,7 @@ export default function Page(_props: RouteSectionProps) {
 
   // Use autoplay hook - don't destructure to maintain reactivity
   const autoplayHook = useAutoplay({
-    currentItemId: () => routeParams.id,
-    currentItemDetails: itemDetails,
+    currentItem: () => itemDetails.data,
     onLoadNewVideo: loadNewVideo,
     playbackState: {
       currentTime: () => state.currentTime,
@@ -390,28 +360,26 @@ export default function Page(_props: RouteSectionProps) {
       </Show>
 
       {/* Autoplay Overlay */}
-      <div
-        class="control-element"
-        onClick={(e) => e.stopPropagation()}
-        role="button"
-      >
-        <AutoplayOverlay
-          isCollapsed={autoplayHook().isCollapsed()}
-          isVisible={autoplayHook().showAutoplay()}
-          nextEpisode={
-            autoplayHook().nextEpisode as Awaited<
-              ReturnType<typeof library.query.getNextEpisode>
-            >
-          }
-          onCancel={autoplayHook().cancelAutoplay}
-          onPlayNext={() => {
-            // before playing the next episode, clear the current video
-            commands.playbackPause();
-            autoplayHook().playNextEpisode();
-          }}
-          setIsCollapsed={autoplayHook().setIsCollapsed}
-        />
-      </div>
+      <Show when={autoplayHook().nextEpisode}>
+        <div
+          class="control-element"
+          onClick={(e) => e.stopPropagation()}
+          role="button"
+        >
+          <AutoplayOverlay
+            isCollapsed={autoplayHook().isCollapsed()}
+            isVisible={autoplayHook().showAutoplay()}
+            nextEpisode={autoplayHook().nextEpisode as WithImage<BaseItemDto>}
+            onCancel={autoplayHook().cancelAutoplay}
+            onPlayNext={() => {
+              // before playing the next episode, clear the current video
+              commands.playbackPause();
+              autoplayHook().playNextEpisode();
+            }}
+            setIsCollapsed={autoplayHook().setIsCollapsed}
+          />
+        </div>
+      </Show>
 
       {/* OSD (On-Screen Display) */}
       <OSD onHide={hideOSD} state={state.osd} />

@@ -1,4 +1,5 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
   "include": ["src/**/*.ts", "src/**/*.tsx"],
   "compilerOptions": {
     "target": "ESNext",
@@ -11,11 +12,20 @@
     "allowJs": true,
     "noEmit": true,
     "strict": true,
-    "types": ["vinxi/types/client"],
+    "types": [
+      "vinxi/types/client",
+      "vite/client",
+      "unplugin-icons/types/solid"
+    ],
     "isolatedModules": true,
     "paths": {
       "~/*": ["./src/*"]
     },
-    "strictNullChecks": true
+    "strictNullChecks": true,
+    "plugins": [
+      {
+        "name": "@effect/language-service"
+      }
+    ]
   }
 }

@@ -41,7 +41,6 @@ export function useVideoKeyboardShortcuts(
   const navigate = useNavigate();
 
   // Use SolidJS event listener primitive attached to window
-  // biome-ignore lint/nursery/noMisusedPromises: event handler is async
   createEventListener(window, "keydown", async (e: KeyboardEvent) => {
     if (
       (e.target as HTMLElement).tagName === "INPUT" ||

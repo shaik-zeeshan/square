@@ -1,15 +1,13 @@
+import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 import { useNavigate } from "@solidjs/router";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
-import { useGeneralInfo } from "~/components/current-user-provider";
-import library from "~/lib/jellyfin/library";
+import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
+import type { WithImage } from "~/effect/services/jellyfin/service";
 import { commands } from "~/lib/tauri";
-import { createJellyFinQuery } from "~/lib/utils";
 
 type UseAutoplayProps = {
-  currentItemId: () => string;
-  // biome-ignore lint/suspicious/noExplicitAny: query data
-  currentItemDetails: any;
+  currentItem: () => WithImage<BaseItemDto> | undefined;
   onLoadNewVideo: (url: string, itemId: string) => void;
   onEndOfFile?: () => Promise<void>;
   playbackState: {
@@ -20,7 +18,6 @@ type UseAutoplayProps = {
 
 export function useAutoplay(props: UseAutoplayProps) {
   const navigate = useNavigate();
-  const { store: userStore } = useGeneralInfo();
 
   const [showAutoplay, setShowAutoplay] = createSignal(false);
   const [isCollapsed, setIsCollapsed] = createSignal(false);
@@ -30,25 +27,29 @@ export function useAutoplay(props: UseAutoplayProps) {
   let endOfFileUnlisten: UnlistenFn | undefined;
 
   // Query for next episode
-  const nextEpisode = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getNextEpisode.key,
-      library.query.getNextEpisode.keyFor(
-        props.currentItemId(),
-        userStore?.user?.Id
-      ),
-    ],
-    queryFn: async (jf) =>
-      library.query.getNextEpisode(
-        jf,
-        props.currentItemId(),
-        userStore?.user?.Id
-      ),
-    enabled:
-      !!props.currentItemId() &&
-      !!userStore?.user?.Id &&
-      props.currentItemDetails?.data?.Type === "Episode",
-  }));
+  // const nextEpisode = createJellyFinQuery(() => ({
+  //   queryKey: [
+  //     library.query.getNextEpisode.key,
+  //     library.query.getNextEpisode.keyFor(
+  //       props.currentItemId(),
+  //       userStore?.user?.Id
+  //     ),
+  //   ],
+  //   queryFn: async (jf) =>
+  //     library.query.getNextEpisode(
+  //       jf,
+  //       props.currentItemId(),
+  //       userStore?.user?.Id
+  //     ),
+  //   enabled:
+  //     !!props.currentItemId() &&
+  //     !!userStore?.user?.Id &&
+  //     props.currentItemDetails?.data?.Type === "Episode",
+  // }));
+  //
+  const nextEpisode = JellyfinOperations.getNextEpisode(
+    props.currentItem() as WithImage<BaseItemDto>
+  );
 
   // Check if we should show autoplay when query completes
   createEffect(() => {
@@ -65,10 +66,7 @@ export function useAutoplay(props: UseAutoplayProps) {
       if (duration > 0 && currentTime > 0) {
         const progress = (currentTime / duration) * 100;
 
-        if (
-          progress >= 80 &&
-          props.currentItemDetails?.data?.Type === "Episode"
-        ) {
+        if (progress >= 80 && props.currentItem()?.Type === "Episode") {
           setShowAutoplay(true);
         }
       }
@@ -111,7 +109,7 @@ export function useAutoplay(props: UseAutoplayProps) {
     if (
       reason === 0 &&
       nextEpisode.data &&
-      props.currentItemDetails?.data?.Type === "Episode" &&
+      props.currentItem()?.Type === "Episode" &&
       !isCancelled()
     ) {
       const duration = props.playbackState.duration();
@@ -135,7 +133,7 @@ export function useAutoplay(props: UseAutoplayProps) {
 
         if (
           progress >= 95 &&
-          props.currentItemDetails?.data?.Type === "Episode" &&
+          props.currentItem()?.Type === "Episode" &&
           !isCancelled()
         ) {
           playNextEpisode();
@@ -160,7 +158,7 @@ export function useAutoplay(props: UseAutoplayProps) {
         !showAutoplay() &&
         !nextEpisode.isLoading &&
         nextEpisode.data &&
-        props.currentItemDetails?.data?.Type === "Episode" &&
+        props.currentItem()?.Type === "Episode" &&
         !isCancelled()
       ) {
         setShowAutoplay(true);
@@ -171,7 +169,7 @@ export function useAutoplay(props: UseAutoplayProps) {
   // Reset autoplay state when current item changes
   let lastItemId = "";
   createEffect(() => {
-    const currentId = props.currentItemId();
+    const currentId = props.currentItem()?.Id;
     if (currentId && currentId !== lastItemId) {
       resetAutoplay();
       lastItemId = currentId;
@@ -179,7 +177,7 @@ export function useAutoplay(props: UseAutoplayProps) {
   });
 
   createEffect(async () => {
-    const currentID = props.currentItemId();
+    const currentID = props.currentItem()?.Id;
 
     if (currentID) {
       // Clean up existing listeners first

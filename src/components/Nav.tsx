@@ -1,7 +1,11 @@
 import { createEventListener } from "@solid-primitives/event-listener";
 import { useNavigate } from "@solidjs/router";
-import { ChevronRight, Home, Search, X } from "lucide-solid";
-import { createEffect, createSignal, type JSX, Show } from "solid-js";
+import { createEffect, createSignal, For, type JSX, Show } from "solid-js";
+import { cn } from "~/lib/utils";
+import ChevronRight from "~icons/lucide/chevron-right";
+import House from "~icons/lucide/house";
+import Search from "~icons/lucide/search";
+import X from "~icons/lucide/x";
 import { UserDropdown } from "./user-dropdown";
 
 type NavProps = {
@@ -93,55 +97,64 @@ export function Nav(props: NavProps) {
 
   return (
     <nav
-      class={`relative z-50 flex-shrink-0 px-6 py-4 ${textColorClass} ${props.class ?? ""}`}
+      class={cn(
+        "relative z-50 h-16 shrink-0 px-6 py-4",
+        textColorClass,
+        props.class
+      )}
     >
-      <div class="flex items-center justify-between gap-4">
+      <div class="flex h-full items-center justify-between gap-4">
         {/* Left Side - Breadcrumb Navigation */}
         <div class="flex min-w-0 items-center gap-3">
           <button
             aria-label="Go home"
-            class={`rounded-md p-2 ${hoverBgClass} flex-shrink-0 transition-colors`}
+            class={cn(
+              "shrink-0 rounded-md p-2 transition-colors",
+              hoverBgClass
+            )}
             onClick={() => navigate("/")}
             title="Home"
             type="button"
           >
-            <Home class="h-5 w-5" />
+            <House class="h-5 w-5" />
           </button>
 
-          <div class={`h-6 w-px ${dividerClass} flex-shrink-0`} />
+          <div class={cn("h-6 w-px shrink-0", dividerClass)} />
 
           <div class="flex min-w-0 items-center gap-2 overflow-hidden text-sm">
             <Show when={props.breadcrumbs && props.breadcrumbs.length > 0}>
-              {props.breadcrumbs?.map((breadcrumb, index) => (
-                <>
-                  <Show when={breadcrumb.icon}>{breadcrumb.icon}</Show>
-                  <Show
-                    fallback={
-                      <span class="truncate opacity-70">
-                        {breadcrumb.label}
-                      </span>
-                    }
-                    when={breadcrumb.onClick}
-                  >
-                    <button
-                      aria-label={`Navigate to ${breadcrumb.label}`}
-                      class="truncate opacity-70 transition-opacity hover:opacity-100"
-                      onClick={breadcrumb.onClick}
-                      type="button"
+              <For each={props.breadcrumbs}>
+                {(breadcrumb, index) => (
+                  <>
+                    <Show when={breadcrumb.icon}>{breadcrumb.icon}</Show>
+                    <Show
+                      fallback={
+                        <span class="truncate opacity-70">
+                          {breadcrumb.label}
+                        </span>
+                      }
+                      when={breadcrumb.onClick}
                     >
-                      {breadcrumb.label}
-                    </button>
-                  </Show>
-                  <Show
-                    when={
-                      index < (props.breadcrumbs?.length ?? 0) - 1 ||
-                      props.currentPage
-                    }
-                  >
-                    <ChevronRight class="h-4 w-4 flex-shrink-0 opacity-50" />
-                  </Show>
-                </>
-              ))}
+                      <button
+                        aria-label={`Navigate to ${breadcrumb.label}`}
+                        class="truncate opacity-70 transition-opacity hover:opacity-100"
+                        onClick={breadcrumb.onClick}
+                        type="button"
+                      >
+                        {breadcrumb.label}
+                      </button>
+                    </Show>
+                    <Show
+                      when={
+                        index() < (props.breadcrumbs?.length ?? 0) - 1 ||
+                        props.currentPage
+                      }
+                    >
+                      <ChevronRight class="h-4 w-4 shrink-0 opacity-50" />
+                    </Show>
+                  </>
+                )}
+              </For>
             </Show>
 
             <Show when={props.currentPage}>
@@ -151,13 +164,13 @@ export function Nav(props: NavProps) {
         </div>
 
         {/* Right Side - Actions & Search */}
-        <div class="flex flex-shrink-0 items-center gap-2">
+        <div class="flex h-full shrink-0 items-center gap-2">
           <Show when={props.showSearch}>
             <Show
               fallback={
                 <button
                   aria-label="Search"
-                  class={`rounded-md p-2 ${hoverBgClass} transition-colors`}
+                  class={cn("rounded-md p-2 transition-colors", hoverBgClass)}
                   onClick={handleSearchOpen}
                   title="Search (Ctrl+K)"
                   type="button"
@@ -168,11 +181,17 @@ export function Nav(props: NavProps) {
               when={isSearchOpen()}
             >
               <div
-                class={`flex items-center gap-2 ${searchBgClass} rounded-lg border px-3 py-1.5 backdrop-blur-sm`}
+                class={cn(
+                  "flex h-10 items-center gap-2 rounded-lg border px-3 py-1.5 backdrop-blur-sm",
+                  searchBgClass
+                )}
               >
-                <Search class="h-4 w-4 flex-shrink-0 opacity-60" />
+                <Search class="h-4 w-4 shrink-0 opacity-60" />
                 <input
-                  class={`w-48 bg-transparent text-sm outline-none ${searchTextClass}`}
+                  class={cn(
+                    "w-48 bg-transparent text-sm outline-none",
+                    searchTextClass
+                  )}
                   onInput={(e) => props.onSearchChange?.(e.currentTarget.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Escape") {
@@ -187,7 +206,7 @@ export function Nav(props: NavProps) {
                 />
                 <button
                   aria-label="Close search"
-                  class={`rounded p-1 ${hoverBgClass} transition-colors`}
+                  class={cn("rounded p-1 transition-colors", hoverBgClass)}
                   onClick={handleSearchClose}
                   type="button"
                 >

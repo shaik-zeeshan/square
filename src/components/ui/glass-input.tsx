@@ -34,8 +34,10 @@ const inputVariants = cva(
 );
 
 export interface GlassInputProps
-  extends ComponentProps<"input">,
-    VariantProps<typeof inputVariants> {}
+  extends Omit<ComponentProps<"input">, "size">,
+    VariantProps<typeof inputVariants> {
+  class?: string;
+}
 
 export function GlassInput(props: GlassInputProps) {
   const [local, others] = splitProps(props, [

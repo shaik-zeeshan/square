@@ -1,6 +1,9 @@
-import { ItemFilter } from "@jellyfin/sdk/lib/generated-client";
+import {
+  ItemFilter,
+  type ItemsApiGetItemsRequest,
+} from "@jellyfin/sdk/lib/generated-client";
 import { type RouteSectionProps, useNavigate } from "@solidjs/router";
-import { useQueryClient } from "@tanstack/solid-query";
+import { Effect } from "effect";
 import {
   ArrowUp,
   Calendar,
@@ -11,6 +14,7 @@ import {
   Library as LibraryIcon,
   Star,
 } from "lucide-solid";
+import { create } from "mutative";
 import {
   createSignal,
   For,
@@ -21,22 +25,37 @@ import {
   Switch,
   splitProps,
 } from "solid-js";
-import { useGeneralInfo } from "~/components/current-user-provider";
 import { ItemActions } from "~/components/ItemActions";
 import { EpisodeCard, SeriesCard } from "~/components/media-card";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
 import { GlassButton } from "~/components/ui";
 import { InlineLoading } from "~/components/ui/loading";
-import library from "~/lib/jellyfin/library";
-import { createJellyFinQuery } from "~/lib/utils";
+import { useRuntime } from "~/effect/runtime/use-runtime";
+import { AuthService } from "~/effect/services/auth";
+import {
+  JellyfinOperations,
+  type JellyfinOperationsType,
+} from "~/effect/services/jellyfin/operations";
+import { JellyfinService } from "~/effect/services/jellyfin/service";
+import {
+  createEffectQuery,
+  type ExtractQueryData,
+} from "~/effect/tanstack/query";
 
 export default function Page(props: RouteSectionProps) {
   const [{ params }] = splitProps(props, ["params"]);
-  const navigate = useNavigate();
-  const queryClient = useQueryClient();
+  const runtime = useRuntime();
+  const jf = runtime.runSync(
+    Effect.gen(function* () {
+      const auth = yield* AuthService;
+      const api = yield* auth.getApi();
+      return { api };
+    })
+  );
 
-  const { store } = useGeneralInfo();
+  const navigate = useNavigate();
+
   const [isOverviewExpanded, setIsOverviewExpanded] = createSignal(false);
   const [showScrollTop, setShowScrollTop] = createSignal(false);
   const [searchTerm, setSearchTerm] = createSignal("");
@@ -44,85 +63,73 @@ export default function Page(props: RouteSectionProps) {
     "all" | "unplayed" | "played" | "resumable"
   >("all");
 
-  const itemDetails = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getItem.key,
-      library.query.getItem.keyFor(params.item_id, store?.user?.Id),
-    ],
-    queryFn: async (jf) =>
-      library.query.getItem(jf, params.item_id, store?.user?.Id, [
-        "Overview",
-        "Studios",
-        "People",
-      ]),
-  }));
+  const parentLibrary = JellyfinOperations.getItem(() => params.id, {
+    fields: ["ParentId"],
+  });
 
-  const parentLibrary = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getItem.key,
-      library.query.getItem.keyFor(params.id, store?.user?.Id),
-    ],
-    queryFn: async (jf) =>
-      library.query.getItem(jf, params.id, store?.user?.Id, ["ParentId"]),
-  }));
-
-  const childrens = createJellyFinQuery(() => ({
-    queryKey: [
-      library.query.getItems.key,
-      library.query.getItems.keyFor(params.item_id, store?.user?.Id),
-      searchTerm(),
-      activeFilter(),
-    ],
-    queryFn: async (jf) => {
-      const parentId = params.item_id;
-
-      // Note: We can't safely access itemDetails.data here since we're outside QueryBoundary
-      // This query will be enabled/disabled based on itemDetails data in the QueryBoundary
-
-      // Map filter state to Jellyfin filters
-      const filters: (typeof ItemFilter)[keyof typeof ItemFilter][] = [];
-      const filter = activeFilter();
-      if (filter === "unplayed") {
-        filters.push(ItemFilter.IsUnplayed);
-      } else if (filter === "played") {
-        filters.push(ItemFilter.IsPlayed);
-      } else if (filter === "resumable") {
-        filters.push(ItemFilter.IsResumable);
-      }
-
-      const seasons = await library.query.getItems(jf, {
-        parentId,
-        userId: store?.user?.Id,
-        fields: ["Overview", "MediaStreams"],
-        enableImage: true,
-        ...(searchTerm() && {
-          searchTerm: searchTerm(),
-          recursive: true,
-          includeItemTypes: ["Season", "Episode"],
-        }),
-        filters: filters.length > 0 ? filters : undefined,
-      });
-
-      if (!seasons || seasons.length === 0) {
-        return [];
-      }
-
-      seasons.forEach((season) => {
-        queryClient.setQueryData(
-          [
-            library.query.getItem.key,
-            library.query.getItem.keyFor(season.Id, store?.user?.Id),
-            store?.user?.Name,
-          ],
-          season
-        );
-      });
-
-      return seasons;
+  const itemDetails = JellyfinOperations.getItem(
+    () => params.item_id,
+    {
+      fields: ["Overview", "Studios", "People"],
     },
-    enabled:
-      !!parentLibrary.data?.ChildCount && parentLibrary.data.ChildCount > 0, // Will be enabled conditionally in QueryBoundary
+    () => ({
+      enabled: !!parentLibrary.data?.Id,
+    })
+  );
+
+  const childrens = createEffectQuery(() => ({
+    queryKey: JellyfinOperations.itemsQueryKey({
+      parentId: params.item_id,
+      searchItem: [searchTerm(), activeFilter()],
+    }),
+    queryFn: () =>
+      Effect.gen(function* () {
+        const parentId = params.item_id;
+        const client = yield* JellyfinService;
+
+        const filters: (typeof ItemFilter)[keyof typeof ItemFilter][] = [];
+        const filter = activeFilter();
+        if (filter === "unplayed") {
+          filters.push(ItemFilter.IsUnplayed);
+        } else if (filter === "played") {
+          filters.push(ItemFilter.IsPlayed);
+        } else if (filter === "resumable") {
+          filters.push(ItemFilter.IsResumable);
+        }
+
+        const itemsParams: ItemsApiGetItemsRequest = create(
+          {
+            parentId,
+            fields: ["Overview", "MediaStreams"],
+          } as ItemsApiGetItemsRequest,
+          (data) => {
+            if (searchTerm()) {
+              data.searchTerm = searchTerm();
+              data.recursive = true;
+              data.includeItemTypes = ["Season", "Episode"];
+            }
+
+            data.filters = filters.length > 0 ? filters : undefined;
+          }
+        );
+
+        const items = yield* client.getItems(itemsParams);
+        if (!items || items.length === 0) {
+          return [];
+        }
+
+        items.forEach((item) =>
+          JellyfinOperations.itemQueryDataHelpers.setData(
+            { id: item.Id as string },
+            item
+          )
+        );
+
+        return items;
+      }),
+    enabled: !!itemDetails.data?.ChildCount && itemDetails.data.ChildCount > 0, // Will be enabled conditionally in QueryBoundary
   }));
+  //
 
   // Scroll to top handler
   let contentAreaRef!: HTMLDivElement;
@@ -152,15 +159,31 @@ export default function Page(props: RouteSectionProps) {
   onMount(() => {
     document.body.style.setProperty("--item-color", "white");
   });
+
   onCleanup(() => {
     document.body.style.removeProperty("--item-color");
   });
 
+  const getImage = (id: string) =>
+    `${jf.api.basePath}/Items/${id}/Images/Backdrop?quality=10`;
+
   return (
     <section class="relative flex min-h-screen flex-col">
+      <div class="fixed top-0 left-0 h-screen w-full">
+        <img
+          alt={"Backdrop Imaage"}
+          class="h-full w-full object-cover"
+          onError={(e) => {
+            e.currentTarget.src = getImage(params.id);
+          }}
+          src={getImage(params.item_id)}
+        />
+        <div class="absolute inset-0 bg-linear-to-b from-black/60 via-black/70 to-black/90" />
+        <div class="absolute inset-0 backdrop-blur-sm" />
+      </div>
       <QueryBoundary
         errorFallback={(err, retry) => (
-          <div class="flex h-full w-full items-center justify-center">
+          <div class="z-10 flex h-full w-full items-center justify-center">
             <div class="text-center">
               <div class="mb-4 text-red-400">
                 Error loading item: {err?.message}
@@ -175,25 +198,14 @@ export default function Page(props: RouteSectionProps) {
           </div>
         )}
         loadingFallback={
-          <div class="flex h-full w-full items-center justify-center">
+          <div class="z-10 flex h-full w-full items-center justify-center">
             <div class="text-white">Loading item details...</div>
           </div>
         }
         query={itemDetails}
       >
         {(item) => (
-          <>
-            {/* Background with enhanced overlay */}
-            <div class="fixed top-0 left-0 h-screen w-full">
-              <img
-                alt={item?.Name ?? ""}
-                class="h-full w-full object-cover"
-                src={item?.Backdrop?.[0]}
-              />
-              <div class="absolute inset-0 bg-gradient-to-b from-black/60 via-black/70 to-black/90" />
-              <div class="absolute inset-0 backdrop-blur-sm" />
-            </div>
-
+          <div>
             {/* Navigation Bar */}
             <Nav
               breadcrumbs={[
@@ -208,12 +220,13 @@ export default function Page(props: RouteSectionProps) {
                     }
                     return parentLibrary.data?.Name || "Library";
                   })(),
-                  icon: (
-                    <LibraryIcon class="h-4 w-4 flex-shrink-0 opacity-70" />
-                  ),
+                  icon: <LibraryIcon class="h-4 w-4 shrink-0 opacity-70" />,
                   onClick: () => {
-                    const parentId = parentLibrary.data?.ParentId;
                     const itemType = item?.Type;
+                    const parentId =
+                      itemType === "Movie"
+                        ? item.ParentId
+                        : parentLibrary.data?.ParentId;
 
                     if (!parentId) {
                       return;
@@ -249,7 +262,7 @@ export default function Page(props: RouteSectionProps) {
                       <img
                         alt={item?.Name ?? ""}
                         class="h-auto w-full object-contain drop-shadow-xl"
-                        src={item?.Images?.Logo}
+                        src={item?.Images?.Logo as string}
                       />
                     </div>
                   </Show>
@@ -305,9 +318,8 @@ export default function Page(props: RouteSectionProps) {
                       item={item}
                       itemId={item.Id || ""}
                       onDone={() => {
-                        childrens.refetch({ cancelRefetch: true });
+                        JellyfinOperations.itemsQueryDataHelpers.invalidateAllQueries();
                       }}
-                      userId={store?.user?.Id}
                       variant="detail"
                     />
                   </div>
@@ -315,11 +327,13 @@ export default function Page(props: RouteSectionProps) {
                   {/* Genres - Compact pills */}
                   <Show when={item?.Genres?.length}>
                     <div class="flex flex-wrap gap-1.5">
-                      {item?.Genres?.slice(0, 4).map((genre) => (
-                        <span class="rounded-full bg-white/10 px-2.5 py-0.5 font-medium text-xs transition-colors hover:bg-white/15">
-                          {genre}
-                        </span>
-                      ))}
+                      <For each={item.Genres?.slice(0, 4)}>
+                        {(genre) => (
+                          <span class="rounded-full bg-white/10 px-2.5 py-0.5 font-medium text-xs transition-colors hover:bg-white/15">
+                            {genre}
+                          </span>
+                        )}
+                      </For>
                     </div>
                   </Show>
 
@@ -378,18 +392,20 @@ export default function Page(props: RouteSectionProps) {
                             Cast
                           </h4>
                           <div class="space-y-1.5">
-                            {item?.People?.slice(0, 4).map((person) => (
-                              <div class="flex items-baseline gap-2 text-sm">
-                                <span class="truncate font-medium">
-                                  {person.Name}
-                                </span>
-                                <Show when={person.Role}>
-                                  <span class="truncate text-xs opacity-50">
-                                    {person.Role}
+                            <For each={item.People?.slice(0, 4)}>
+                              {(person) => (
+                                <div class="flex items-baseline gap-2 text-sm">
+                                  <span class="truncate font-medium">
+                                    {person.Name}
                                   </span>
-                                </Show>
-                              </div>
-                            ))}
+                                  <Show when={person.Role}>
+                                    <span class="truncate text-xs opacity-50">
+                                      {person.Role}
+                                    </span>
+                                  </Show>
+                                </div>
+                              )}
+                            </For>
                           </div>
                         </div>
                       </Show>
@@ -434,7 +450,7 @@ export default function Page(props: RouteSectionProps) {
                 </div>
               </div>
             </div>
-          </>
+          </div>
         )}
       </QueryBoundary>
 
@@ -454,8 +470,10 @@ export default function Page(props: RouteSectionProps) {
 }
 
 interface ItemsRenderProsp {
-  parentItem: Awaited<ReturnType<typeof library.query.getItem>> | undefined;
-  items: Awaited<ReturnType<typeof library.query.getItems>> | undefined;
+  parentItem: ExtractQueryData<ReturnType<JellyfinOperationsType["getItem"]>>;
+  items:
+    | ExtractQueryData<ReturnType<JellyfinOperationsType["getItems"]>>
+    | undefined;
   parentId: string;
   activeFilter: "all" | "unplayed" | "played" | "resumable";
   onFilterChange: (filter: "all" | "unplayed" | "played" | "resumable") => void;
@@ -479,15 +497,24 @@ const FilterButton = (props: {
   </button>
 );
 
-function ItemsRender({
-  parentItem,
-  items,
-  parentId,
-  activeFilter,
-  onFilterChange,
-}: ItemsRenderProsp) {
+function ItemsRender(props: ItemsRenderProsp) {
+  const [{ parentItem, items, parentId, activeFilter, onFilterChange }] =
+    splitProps(props, [
+      "parentItem",
+      "items",
+      "parentId",
+      "activeFilter",
+      "onFilterChange",
+    ]);
+
   return (
-    <Switch>
+    <Switch
+      fallback={
+        <div class="space-y-4">
+          <h2 class="font-semibold text-lg">No item</h2>
+        </div>
+      }
+    >
       <Match when={!parentItem}>
         <div class="space-y-4">
           <h2 class="font-semibold text-lg">No item</h2>

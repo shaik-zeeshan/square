@@ -100,6 +100,53 @@ async getVaultPassword() : Promise<string> {
 /** user-defined events **/
 
 
+export const events = __makeEvents__<{
+audioChangeEvent: AudioChangeEvent,
+audioTrackChange: AudioTrackChange,
+bufferingStateChange: BufferingStateChange,
+cacheTimeChange: CacheTimeChange,
+eofEventChange: EOFEventChange,
+errorEventChange: ErrorEventChange,
+fileLoadedChange: FileLoadedChange,
+pauseForCacheChange: PauseForCacheChange,
+playBackStateChange: PlayBackStateChange,
+playBackTimeChange: PlayBackTimeChange,
+requestAudioEvent: RequestAudioEvent,
+requestClearEvent: RequestClearEvent,
+requestFileLoad: RequestFileLoad,
+requestPlayBackState: RequestPlayBackState,
+requestSeekEvent: RequestSeekEvent,
+requestSpeedEvent: RequestSpeedEvent,
+requestSubtitleEvent: RequestSubtitleEvent,
+requestVolumeEvent: RequestVolumeEvent,
+speedEventChange: SpeedEventChange,
+subtitleChangeEvent: SubtitleChangeEvent,
+subtitleTrackChange: SubtitleTrackChange,
+volumeEventChange: VolumeEventChange
+}>({
+audioChangeEvent: "audio-change-event",
+audioTrackChange: "audio-track-change",
+bufferingStateChange: "buffering-state-change",
+cacheTimeChange: "cache-time-change",
+eofEventChange: "eof-event-change",
+errorEventChange: "error-event-change",
+fileLoadedChange: "file-loaded-change",
+pauseForCacheChange: "pause-for-cache-change",
+playBackStateChange: "play-back-state-change",
+playBackTimeChange: "play-back-time-change",
+requestAudioEvent: "request-audio-event",
+requestClearEvent: "request-clear-event",
+requestFileLoad: "request-file-load",
+requestPlayBackState: "request-play-back-state",
+requestSeekEvent: "request-seek-event",
+requestSpeedEvent: "request-speed-event",
+requestSubtitleEvent: "request-subtitle-event",
+requestVolumeEvent: "request-volume-event",
+speedEventChange: "speed-event-change",
+subtitleChangeEvent: "subtitle-change-event",
+subtitleTrackChange: "subtitle-track-change",
+volumeEventChange: "volume-event-change"
+})
 
 /** user-defined constants **/
 
@@ -107,7 +154,30 @@ async getVaultPassword() : Promise<string> {
 
 /** user-defined types **/
 
+export type AudioChangeEvent = { index: string }
+export type AudioTrackChange = { tracks: Track[] }
+export type BufferingStateChange = { buffered: number }
+export type CacheTimeChange = { time: number }
+export type EOFEventChange = null
+export type ErrorEventChange = { message: string }
+export type FileLoadedChange = { duration: number; current_time: number }
 export type GeneralSettings = { volume: number; playbackSpeed: number; subtitleLanguage: string | null; audioLanguage: string | null; autoPlayNext: boolean; resumePlayback: boolean }
+export type PauseForCacheChange = { pause: boolean }
+export type PlayBackStateChange = { pause: boolean }
+export type PlayBackTimeChange = { position: string }
+export type RequestAudioEvent = { index: string }
+export type RequestClearEvent = null
+export type RequestFileLoad = { url: string; start_time: number | null }
+export type RequestPlayBackState = { pause: boolean }
+export type RequestSeekEvent = { position: number; absolute: boolean }
+export type RequestSpeedEvent = { speed: number }
+export type RequestSubtitleEvent = { index: string }
+export type RequestVolumeEvent = { percentage: number }
+export type SpeedEventChange = { speed: number }
+export type SubtitleChangeEvent = { index: string }
+export type SubtitleTrackChange = { tracks: Track[] }
+export type Track = { id: number; type: string; title?: string | null; lang?: string | null }
+export type VolumeEventChange = { percentage: number }
 
 /** tauri-specta globals **/
 

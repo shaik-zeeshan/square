@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-  "extends": ["ultracite"],
+  "extends": ["ultracite/core", "ultracite/solid"],
   "files": {
     "includes": ["!src/lib/tauri.ts"]
   },
@@ -15,10 +15,8 @@
         "recommended": false,
         "useExplicitType": "off",
         "useQwikValidLexicalScope": "off",
-        "useImageSize": "off",
         "useMaxParams": "off",
-        "noShadow": "off",
-        "useConsistentTypeDefinitions": "off"
+        "noShadow": "off"
       },
       "correctness": {
         "useImportExtensions": "off",
@@ -31,7 +29,8 @@
         "noMagicNumbers": "off",
         "useFilenamingConvention": "off",
         "useConsistentMemberAccessibility": "off",
-        "noParameterProperties": "off"
+        "noParameterProperties": "off",
+        "useConsistentTypeDefinitions": "off"
       },
       "a11y": {
         "recommended": false,
@@ -63,5 +62,10 @@
   },
   "formatter": {
     "enabled": true
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
+    }
   }
 }
