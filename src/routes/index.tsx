@@ -197,7 +197,7 @@ export default function Home() {
                               return (
                                 <a
                                   class="group block"
-                                  href={`/video/${item.Id}`}
+                                  href={`/video/${item.Id}/new`}
                                 >
                                   <GlassCard
                                     class="overflow-hidden shadow-[var(--glass-shadow-md)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-[var(--glass-shadow-lg)]"

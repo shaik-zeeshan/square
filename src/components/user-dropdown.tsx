@@ -63,7 +63,7 @@ export function UserDropdown(props: UserDropdownProps) {
         </button>
 
         <Show when={isUserDropdownOpen()}>
-          <div class="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-popover shadow-[var(--glass-shadow-lg)] backdrop-blur-sm">
+          <div class="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border border-border bg-popover shadow-(--glass-shadow-lg) backdrop-blur-sm">
             {/* User Info Section */}
             <div class="border-border border-b px-4 py-3">
               <Show
@@ -77,10 +77,13 @@ export function UserDropdown(props: UserDropdownProps) {
                 <div class="font-medium text-foreground text-sm">
                   {user.data?.Name}
                 </div>
-                <Show when={user.data?.ServerId}>
+                <Show when={user.data?.Policy?.IsAdministrator}>
                   <div class="mt-1 text-muted-foreground text-xs">
-                    Server: {user.data?.ServerId?.slice(0, 8)}...
+                    Administrator
                   </div>
+                </Show>
+                <Show when={!user.data?.Policy?.IsAdministrator}>
+                  <div class="mt-1 text-muted-foreground text-xs">User</div>
                 </Show>
               </Show>
             </div>

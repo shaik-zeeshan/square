@@ -36,6 +36,7 @@ tauri-specta = { version = "=2.0.0-rc.20", features = ["derive", "typescript"] }
 specta-typescript = "0.0.7"
 
 libmpv2 = { git = "https://github.com/kohsine/libmpv2-rs" }
+# libmpv2 = { path = "/Volumes/zeeshan/Developer/personal/libmpv2-rs"  }
 
 raw-window-handle = "0.6.2"
 tauri-plugin-http = { version = "2" ,features = ["default"] }

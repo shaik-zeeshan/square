@@ -20,8 +20,9 @@ use libmpv2::{
     Mpv,
 };
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
-use serde::{Deserialize, Serialize};
-use tauri::{Emitter, PhysicalSize, Window};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use tauri::{Emitter, Manager, PhysicalSize, Window};
+use tauri_specta::Event;
 
 // ===== OPENGL CONTEXT MANAGEMENT =====
 
@@ -101,16 +102,18 @@ impl MpvPlayer {
         mpv.set_property("idle", "yes")?;
         mpv.set_property("pause", true)?;
         mpv.set_property("keep-open", "always")?;
-        mpv.set_property("keep-open-pause", "no")?; // ✅ Added this
+        mpv.set_property("keep-open-pause", "no")?;
         mpv.set_property("video-timing-offset", "0")?;
-        // mpv.set_property("save-position-on-quit", true)?;
-        // mpv.set_property("log-file", "/tmp/mpv.log")?;
+
+        if cfg!(debug_assertions) {
+            mpv.set_property("log-file", "/tmp/mpv.log")?;
+        };
 
         // Observe properties
         mpv.observe_property("pause", libmpv2::Format::Flag, 1)?;
         mpv.observe_property("time-pos", libmpv2::Format::String, 2)?;
         mpv.observe_property("track-list", libmpv2::Format::String, 3)?;
-        mpv.observe_property("duration", libmpv2::Format::String, 4)?;
+        mpv.observe_property("volume", libmpv2::Format::Int64, 4)?;
         mpv.observe_property("aid", libmpv2::Format::String, 5)?;
         mpv.observe_property("sid", libmpv2::Format::String, 6)?;
         mpv.observe_property("speed", libmpv2::Format::Double, 7)?;
@@ -153,17 +156,17 @@ impl MpvPlayer {
             PlaybackEvent::Seek(time) => {
                 if loaded_file {
                     self.mpv
-                        .command("seek", &[&time.to_string(), "relative"])
+                        .command("seek", &[&time.to_string(), "relative+exact"])
                         .unwrap();
                 }
             }
             PlaybackEvent::AbsoluteSeek(time) => {
                 self.mpv
-                    .command("seek", &[&time.to_string(), "absolute"])
+                    .command("seek", &[&time.to_string(), "absolute+exact"])
                     .unwrap();
             }
             PlaybackEvent::Volume(volume) => {
-                self.mpv.set_property("volume", volume).unwrap();
+                self.mpv.set_property("volume", volume as i64).unwrap();
             }
             PlaybackEvent::Speed(speed) => {
                 self.mpv.set_property("speed", speed).unwrap();
@@ -180,15 +183,24 @@ impl MpvPlayer {
             PlaybackEvent::ChangeAudio(audio) => {
                 self.mpv.set_property("aid", audio).unwrap();
             }
-            PlaybackEvent::Load(url) => {
+            PlaybackEvent::Load(url, start_time) => {
                 self.mpv.command("loadfile", &[&url, "replace"]).unwrap();
+                self.mpv
+                    .set_property("start", start_time.unwrap_or(0.0).to_string())
+                    .unwrap();
                 self.mpv.set_property("pause", false).unwrap();
             }
             PlaybackEvent::FileLoaded => {
                 // self.mpv.set_property("time-pos", "0").unwrap();
                 let time = self.mpv.get_property::<f64>("time-pos").unwrap();
-                let duration = self.mpv.get_property::<String>("duration").unwrap();
-                self.window.emit("file-loaded", (time, duration)).unwrap();
+                let duration = self.mpv.get_property::<f64>("duration").unwrap();
+                FileLoadedChange {
+                    current_time: time,
+                    duration,
+                }
+                .emit(self.window.app_handle())
+                .unwrap();
+                //self.window.emit("file-loaded", (time, duration)).unwrap();
             }
             _ => {}
         }
@@ -346,12 +358,14 @@ impl EventHandler {
         window: &Window,
         render_tx: Sender<PlaybackEvent>,
     ) {
+        let app_handle = window.app_handle();
         match event {
             libmpv2::events::Event::FileLoaded => {
                 //    render_tx.send(PlaybackEvent::FileLoaded).unwrap();
                 //window.emit("file-loaded", ()).unwrap();
                 render_tx.send(PlaybackEvent::FileLoaded).unwrap();
             }
+
             libmpv2::events::Event::LogMessage {
                 prefix,
                 level,
@@ -366,23 +380,32 @@ impl EventHandler {
                 change: PropertyData::Flag(pause),
                 reply_userdata: 1,
             } => {
-                window.emit("pause", pause).unwrap();
+                PlayBackStateChange { pause }.emit(app_handle).ok();
+                //  window.emit("pause", pause).unwrap();
             }
             libmpv2::events::Event::PropertyChange {
                 name: "time-pos",
                 change: PropertyData::Str(time),
                 reply_userdata: 2,
             } => {
-                window.emit("playback-time", time).unwrap();
+                PlayBackTimeChange {
+                    position: time.to_string(),
+                }
+                .emit(app_handle)
+                .ok();
+                //window.emit("playback-time", time).unwrap();
             }
+
             libmpv2::events::Event::PropertyChange {
-                name: "duration",
-                change: PropertyData::Str(duration),
+                name: "volume",
+                change: PropertyData::Int64(volume),
                 reply_userdata: 4,
             } => {
-                let dur =
-                    Duration::from_secs_f64(duration.parse().expect("duration failed to f64"));
-                window.emit("duration", dur.as_secs_f64()).unwrap();
+                VolumeEventChange {
+                    percentage: volume as u8,
+                }
+                .emit(app_handle)
+                .ok();
             }
             libmpv2::events::Event::PropertyChange {
                 name: "track-list",
@@ -400,15 +423,25 @@ impl EventHandler {
                             };
 
                             if track.media_type == "audio" {
-                                audio_tracks.push(track);
+                                audio_tracks.push(track.clone());
                             } else if track.media_type == "sub" {
-                                subtitle_tracks.push(track);
+                                subtitle_tracks.push(track.clone());
                             }
                         });
-                        window.emit("audio-list", audio_tracks.clone()).unwrap();
-                        window
-                            .emit("subtitle-list", subtitle_tracks.clone())
-                            .unwrap();
+                        AudioTrackChange {
+                            tracks: audio_tracks,
+                        }
+                        .emit(app_handle)
+                        .ok();
+                        SubtitleTrackChange {
+                            tracks: subtitle_tracks,
+                        }
+                        .emit(app_handle)
+                        .ok();
+                        //window.emit("audio-list", audio_tracks.clone()).unwrap();
+                        //window
+                        //    .emit("subtitle-list", subtitle_tracks.clone())
+                        //    .unwrap();
                     }
 
                     Err(err) => {
@@ -424,8 +457,15 @@ impl EventHandler {
                 change: PropertyData::Str(aid),
                 reply_userdata: 5,
             } => {
-                println!("aid: {}", aid);
-                window.emit("aid", aid).unwrap();
+                log::debug!("aid: {}", aid);
+
+                let parsed = aid.parse().ok();
+
+                if let Some(id) = parsed {
+                    AudioChangeEvent { index: id }.emit(app_handle).ok();
+                }
+
+                //window.emit("aid", aid).unwrap();
             }
 
             libmpv2::events::Event::PropertyChange {
@@ -433,8 +473,13 @@ impl EventHandler {
                 change: PropertyData::Str(sid),
                 reply_userdata: 6,
             } => {
-                println!("sid: {}", sid);
-                window.emit("sid", sid).unwrap();
+                log::debug!("aid: {}", sid);
+                let parsed = sid.parse().ok();
+
+                if let Some(id) = parsed {
+                    SubtitleChangeEvent { index: id }.emit(app_handle).ok();
+                }
+                //window.emit("sid", sid).unwrap();
             }
 
             libmpv2::events::Event::PropertyChange {
@@ -442,7 +487,8 @@ impl EventHandler {
                 change: PropertyData::Double(speed),
                 reply_userdata: 7,
             } => {
-                window.emit("speed", speed).unwrap();
+                SpeedEventChange { speed: speed }.emit(app_handle).unwrap();
+                //window.emit("speed", speed).unwrap();
             }
 
             // Cache and buffering events
@@ -451,15 +497,17 @@ impl EventHandler {
                 change: PropertyData::Double(cache_time),
                 reply_userdata: 8,
             } => {
-                window.emit("cache-time", cache_time).unwrap();
+                CacheTimeChange { time: cache_time }.emit(app_handle).ok();
+                //window.emit("cache-time", cache_time).unwrap();
             }
 
             libmpv2::events::Event::PropertyChange {
                 name: "cache-buffering-state",
-                change: PropertyData::Int64(buffering_state),
+                change: PropertyData::Double(buffered),
                 reply_userdata: 9,
             } => {
-                window.emit("buffering-state", buffering_state).unwrap();
+                BufferingStateChange { buffered }.emit(app_handle).ok();
+                //window.emit("buffering-state", buffering_state).unwrap();
             }
 
             libmpv2::events::Event::PropertyChange {
@@ -467,23 +515,33 @@ impl EventHandler {
                 change: PropertyData::Flag(paused_for_cache),
                 reply_userdata: 10,
             } => {
-                window.emit("paused-for-cache", paused_for_cache).unwrap();
+                PauseForCacheChange {
+                    pause: paused_for_cache,
+                }
+                .emit(app_handle)
+                .ok();
+                //window.emit("paused-for-cache", paused_for_cache).unwrap();
             }
 
             libmpv2::events::Event::PropertyChange {
                 name: "eof-reached",
-                change: PropertyData::Flag(_eof_reached),
+                change: PropertyData::Flag(reached),
                 reply_userdata: 11,
             } => {
-                window.emit("end-of-file", 0).unwrap();
+                if reached {
+                    log::debug!("end of file is reached");
+                    EOFEventChange.emit(app_handle).ok();
+                };
+
+                //window.emit("end-of-file", 0).unwrap();
             }
 
-            libmpv2::events::Event::EndFile(reason) => {
-                log::info!("MPV: End of file: {:?}", reason);
-                render_tx.send(PlaybackEvent::EndOfFile).unwrap();
-                // Also emit to frontend for autoplay handling with reason code
-                window.emit("end-of-file", reason).unwrap();
-            }
+            //libmpv2::events::Event::EndFile(reason) => {
+            //    log::info!("MPV: End of file: {:?}", reason);
+            //    render_tx.send(PlaybackEvent::EndOfFile).unwrap();
+            //    // Also emit to frontend for autoplay handling with reason code
+            //    window.emit("end-of-file", reason).unwrap();
+            //}
             _ => {}
         }
     }
@@ -636,20 +694,138 @@ fn create_gl_context(
     Ok((gl_display, surface, gl_context))
 }
 
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct RequestPlayBackState {
+    pub pause: bool,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct PlayBackTimeChange {
+    pub position: String,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct PlayBackStateChange {
+    pub pause: bool,
+}
+
+// for frontend
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct FileLoadedChange {
+    pub duration: f64,
+    pub current_time: f64,
+    // TODO: add audio_list and subtitle_list
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct RequestFileLoad {
+    pub url: String,
+    pub start_time: Option<f64>, // TODO: add audio_list and subtitle_list
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct RequestSeekEvent {
+    pub position: f64,
+    pub absolute: bool,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct RequestVolumeEvent {
+    pub percentage: u8,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct VolumeEventChange {
+    pub percentage: u8,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct SpeedEventChange {
+    pub speed: f64,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct RequestSpeedEvent {
+    pub speed: f64,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct EOFEventChange;
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct ErrorEventChange {
+    pub message: String,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct SubtitleChangeEvent {
+    pub index: String,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct RequestSubtitleEvent {
+    pub index: String,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct AudioChangeEvent {
+    pub index: String,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct RequestAudioEvent {
+    pub index: String,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct SubtitleTrackChange {
+    pub tracks: Vec<Track>,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct AudioTrackChange {
+    pub tracks: Vec<Track>,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct RequestClearEvent;
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct CacheTimeChange {
+    pub time: f64,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct PauseForCacheChange {
+    pub pause: bool,
+}
+
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
+pub struct BufferingStateChange {
+    pub buffered: f64,
+}
+
+/*
+ *
+ *  Internal
+ *
+ *
+ */
+
 #[derive(Debug, Serialize, Deserialize)]
 pub enum PlaybackEvent {
     Play,
     Pause,
     Seek(f64),
     AbsoluteSeek(f64),
-    Volume(f64),
+    Volume(u8),
     Speed(f64),
     EndOfFile,
     Error(String),
     ChangeSubtitle(String),
     ChangeAudio(String),
     Resize(u32, u32),
-    Load(String),
+    Load(String, Option<f64>),
     Clear,
     Redraw,
     FileLoaded,
@@ -657,15 +833,9 @@ pub enum PlaybackEvent {
     ResizePipWindow { width: u32, height: u32 },
 }
 
-#[derive(Debug, Serialize, Deserialize)]
-pub struct MpvEvent {
-    event: PlaybackEvent,
-    payload: serde_json::Value,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
 pub struct Track {
-    id: i64,
+    id: u32,
     #[serde(rename = "type")]
     media_type: String,
     #[serde(skip_serializing_if = "Option::is_none")]

@@ -1,5 +1,4 @@
 @import "tailwindcss";
-/* @plugin "vidstack/tailwind.cjs"; */
 
 @plugin "@kobalte/tailwindcss";
 

@@ -1,11 +1,7 @@
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
-import {
-  type RouteSectionProps,
-  useNavigate,
-  useParams,
-} from "@solidjs/router";
+import { type RouteSectionProps, useNavigate } from "@solidjs/router";
 import { ArrowLeft, Eye, EyeOff } from "lucide-solid";
-import { createEffect, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, onCleanup, onMount, Show, splitProps } from "solid-js";
 import {
   AutoplayOverlay,
   BufferingIndicator,
@@ -25,32 +21,11 @@ import { useVideoKeyboardShortcuts } from "~/hooks/useVideoKeyboardShortcuts";
 import { useVideoPlayback } from "~/hooks/useVideoPlayback";
 import { commands } from "~/lib/tauri";
 
-export default function Page(_props: RouteSectionProps) {
-  // let [{ params }] = splitProps(props, ['params']);
+export default function Page(props: RouteSectionProps) {
+  const [{ params: routeParams }] = splitProps(props, ["params"]);
   const navigate = useNavigate();
-  const routeParams = useParams();
+  // const routeParams = useParams();
   const currentUser = AuthOperations.currentUser();
-
-  // Fetch item details with UserData to get playback position
-  // const itemDetails = createJellyFinQuery(() => ({
-  //   queryKey: [
-  //     library.query.getItem.key,
-  //     library.query.getItem.keyFor(routeParams.id, userStore?.user?.Id),
-  //   ],
-  //   queryFn: (jf) => {
-  //     if (!routeParams.id) {
-  //       throw new Error("Route parameter ID not found");
-  //     }
-  //     return library.query.getItem(jf, routeParams.id, userStore?.user?.Id, [
-  //       "Overview",
-  //       "ParentId",
-  //     ]);
-  //   },
-  //   enabled: !!routeParams.id && !!userStore?.user?.Id,
-  //   refetchOnWindowFocus: false,
-  //   refetchOnMount: false,
-  //   refetchOnReconnect: false,
-  // }));
 
   const itemDetails = JellyfinOperations.getItem(
     () => routeParams.id,
@@ -75,40 +50,9 @@ export default function Page(_props: RouteSectionProps) {
         itemDetails.data?.Type !== "Movie" &&
         !!currentUser.data?.Id,
       refetchOnWindowFocus: false,
-      staleTime: 1000 * 60 * 5, // 5 minutes
-      retry: 3,
     })
   );
 
-  // const parentDetails = createJellyFinQuery(() => ({
-  //   queryKey: [
-  //     library.query.getItem.key,
-  //     library.query.getItem.keyFor(
-  //       itemDetails.data?.ParentId || "",
-  //       userStore?.user?.Id
-  //     ),
-  //     itemDetails.data?.ParentId,
-  //   ],
-  //   queryFn: (jf) => {
-  //     const parentId = itemDetails.data?.ParentId;
-  //     if (!parentId) {
-  //       throw new Error("Parent ID not found");
-  //     }
-  //     return library.query.getItem(jf, parentId, userStore?.user?.Id, [
-  //       "Overview",
-  //       "ParentId",
-  //     ]);
-  //   },
-  //
-  //   enabled:
-  //     !!itemDetails.data?.ParentId &&
-  //     itemDetails.data?.Type !== "Movie" &&
-  //     !!userStore?.user?.Id,
-  //   refetchOnWindowFocus: false,
-  //   staleTime: 1000 * 60 * 5, // 5 minutes
-  //   retry: 3,
-  // }));
-  //
   // Use the custom hook for playback state management
   const {
     state,

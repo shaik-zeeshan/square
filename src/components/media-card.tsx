@@ -206,7 +206,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
       class="group block"
       href={
         item.data?.LocationType === "FileSystem"
-          ? `/video/${item.data?.Id}`
+          ? `/video/${item.data?.Id}/new`
           : ""
       }
       role={item.data?.LocationType === "FileSystem" ? "link" : "button"}
@@ -387,7 +387,7 @@ export function MainPageEpisodeCard(props: EpisodeCardProps) {
   const isInProgress = () => playbackProgress() > 0 && playbackProgress() < 95;
 
   return (
-    <a class="group block" href={`/video/${item.data.Id}`}>
+    <a class="group block" href={`/video/${item.data.Id}/new`}>
       <GlassCard
         class="h-full overflow-hidden shadow-(--glass-shadow-md) transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-(--glass-shadow-lg)"
         preset="card"

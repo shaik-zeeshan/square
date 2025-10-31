@@ -217,6 +217,7 @@ class Jellyfin {
     { parentId?: string; ids?: string[]; searchItem?: string[] }
   >("getItems");
   itemsQueryDataHelpers = createQueryDataHelpers(this.itemsQueryKey);
+
   getItems = (params?: ItemsApiGetItemsRequest) =>
     createEffectQuery(() => ({
       queryKey: this.itemsQueryKey({

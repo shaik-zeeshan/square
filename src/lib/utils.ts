@@ -50,3 +50,25 @@ export function createQuery<
 ): UseQueryResult<A, E> {
   return useQuery<A, E, A, QueryKeyType>(opts);
 }
+
+// export const match = <T, R>(value: T, patterns: Record<string, () => R>) =>
+//   patterns[value as string] ?? undefined;
+
+type Handler<R> = () => R;
+type Matcher<T> = (value: T) => boolean;
+
+export const match = <T extends string, R>(
+  value: T,
+  patterns:
+    | (Record<T, Handler<R>> | Record<string, Handler<R>>)
+    | Array<{
+        match: Matcher<T>;
+        handler: Handler<R>;
+      }>
+): Promise<R> | Promise<undefined> | R | undefined => {
+  if (!Array.isArray(patterns)) {
+    return patterns[value]?.();
+  }
+
+  return patterns.find((p) => p.match(value))?.handler();
+};

@@ -107,9 +107,16 @@ export default function SettingsPage() {
                           Policy
                         </h3>
                         <p class="text-foreground">
-                          {data?.Policy?.IsAdministrator
-                            ? "Administrator"
-                            : "User"}
+                          <Show
+                            when={userDetails.data?.Policy?.IsAdministrator}
+                          >
+                            Administrator
+                          </Show>
+                          <Show
+                            when={!userDetails.data?.Policy?.IsAdministrator}
+                          >
+                            User
+                          </Show>
                         </p>
                       </div>
 

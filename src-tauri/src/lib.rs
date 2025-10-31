@@ -3,8 +3,16 @@ use rand::Rng;
 use specta::specta;
 use tauri::{Manager, WebviewBuilder, WindowBuilder, Wry};
 use tauri_plugin_http;
+use tauri_specta::{collect_events, Event};
 
-use crate::mpv::{run_render_thread, PlaybackEvent};
+use crate::mpv::{
+    run_render_thread, AudioChangeEvent, AudioTrackChange, BufferingStateChange, CacheTimeChange,
+    EOFEventChange, ErrorEventChange, FileLoadedChange, PauseForCacheChange, PlayBackStateChange,
+    PlayBackTimeChange, PlaybackEvent, RequestAudioEvent, RequestClearEvent, RequestFileLoad,
+    RequestPlayBackState, RequestSeekEvent, RequestSpeedEvent, RequestSubtitleEvent,
+    RequestVolumeEvent, SpeedEventChange, SubtitleChangeEvent, SubtitleTrackChange, Track,
+    VolumeEventChange,
+};
 
 // Credential operations are handled by the frontend JavaScript API
 
@@ -114,7 +122,7 @@ fn playback_absolute_seek(app: tauri::AppHandle, time: f64) {
 /// Set playback volume (0.0 - 100.0)
 #[specta]
 #[tauri::command]
-fn playback_volume(app: tauri::AppHandle, volume: f64) {
+fn playback_volume(app: tauri::AppHandle, volume: u8) {
     let _ = send_render_event(&app, PlaybackEvent::Volume(volume));
 }
 
@@ -129,7 +137,7 @@ fn playback_speed(app: tauri::AppHandle, speed: f64) {
 #[specta]
 #[tauri::command]
 fn playback_load(app: tauri::AppHandle, url: String) {
-    if let Err(e) = send_render_event(&app, PlaybackEvent::Load(url)) {
+    if let Err(e) = send_render_event(&app, PlaybackEvent::Load(url, None)) {
         log::error!("{}", e);
     }
 }
@@ -427,6 +435,33 @@ pub async fn run() {
             toggle_pip_window,
             get_vault_password
         ])
+        .events(collect_events![
+            // Request Events
+            RequestPlayBackState,
+            RequestFileLoad,
+            RequestSeekEvent,
+            RequestSubtitleEvent,
+            RequestAudioEvent,
+            RequestVolumeEvent,
+            PlayBackTimeChange,
+            PlayBackStateChange,
+            RequestClearEvent,
+            RequestSpeedEvent,
+            // Change Events
+            FileLoadedChange,
+            SpeedEventChange,
+            EOFEventChange,
+            VolumeEventChange,
+            ErrorEventChange,
+            SubtitleChangeEvent,
+            AudioChangeEvent,
+            SubtitleTrackChange,
+            AudioTrackChange,
+            CacheTimeChange,
+            PauseForCacheChange,
+            BufferingStateChange
+        ])
+        .typ::<Track>()
         .error_handling(tauri_specta::ErrorHandlingMode::Throw)
         .typ::<store::GeneralSettings>();
 
@@ -443,7 +478,10 @@ pub async fn run() {
         .plugin(tauri_plugin_http::init())
         .plugin(tauri_plugin_store::Builder::new().build())
         .invoke_handler(specta_builder.invoke_handler())
-        .setup(|app| {
+        .setup(move |app| {
+            let app_clone = app.handle().clone();
+            specta_builder.mount_events(&app_clone);
+
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -508,6 +546,7 @@ pub async fn run() {
             let get_pip_window =
                 Box::new(move || app_state_clone.pip_window.lock().unwrap().clone());
 
+            let tx = render_tx.clone();
             tokio::spawn(run_render_thread(
                 window_clone,
                 render_tx,
@@ -515,6 +554,88 @@ pub async fn run() {
                 pip_window_clone,
                 get_pip_window,
             ));
+
+            let playback_tx = tx.clone();
+            RequestPlayBackState::listen_any(&app_clone, move |event| {
+                if event.payload.pause {
+                    playback_tx.send(PlaybackEvent::Pause).ok()
+                } else {
+                    playback_tx.send(PlaybackEvent::Play).ok()
+                };
+            });
+
+            let playback_tx = tx.clone();
+            RequestSeekEvent::listen_any(&app_clone, move |event| {
+                if event.payload.absolute {
+                    playback_tx
+                        .send(PlaybackEvent::AbsoluteSeek(event.payload.position))
+                        .ok()
+                } else {
+                    playback_tx
+                        .send(PlaybackEvent::Seek(event.payload.position))
+                        .ok()
+                };
+            });
+
+            let playback_tx = tx.clone();
+            RequestVolumeEvent::listen_any(&app_clone, move |event| {
+                playback_tx
+                    .send(PlaybackEvent::Volume(event.payload.percentage))
+                    .ok();
+            });
+
+            let playback_tx = tx.clone();
+            RequestSpeedEvent::listen_any(&app_clone, move |event| {
+                playback_tx
+                    .send(PlaybackEvent::Speed(event.payload.speed))
+                    .ok();
+            });
+
+            let playback_tx = tx.clone();
+            RequestSpeedEvent::listen_any(&app_clone, move |event| {
+                playback_tx
+                    .send(PlaybackEvent::Speed(event.payload.speed))
+                    .ok();
+            });
+
+            let playback_tx = tx.clone();
+            RequestFileLoad::listen_any(&app_clone, move |event| {
+                playback_tx
+                    .send(PlaybackEvent::Load(
+                        event.payload.url,
+                        event.payload.start_time,
+                    ))
+                    .ok();
+            });
+
+            let playback_tx = tx.clone();
+            RequestFileLoad::listen_any(&app_clone, move |event| {
+                playback_tx
+                    .send(PlaybackEvent::Load(
+                        event.payload.url,
+                        event.payload.start_time,
+                    ))
+                    .ok();
+            });
+
+            let playback_tx = tx.clone();
+            RequestSubtitleEvent::listen_any(&app_clone, move |event| {
+                playback_tx
+                    .send(PlaybackEvent::ChangeSubtitle(event.payload.index))
+                    .ok();
+            });
+
+            let playback_tx = tx.clone();
+            RequestAudioEvent::listen_any(&app_clone, move |event| {
+                playback_tx
+                    .send(PlaybackEvent::ChangeAudio(event.payload.index))
+                    .ok();
+            });
+
+            let playback_tx = tx.clone();
+            RequestClearEvent::listen_any(&app_clone, move |_| {
+                playback_tx.send(PlaybackEvent::Clear).ok();
+            });
 
             app.manage(app_state);
 

@@ -13,6 +13,7 @@ import { useOverlayScrollbars } from "./hooks/useOverlayScrollbars";
 import { commands } from "./lib/tauri";
 
 import "./app.css";
+import { VideoContextProvider } from "./contexts/video-context";
 import { queryClient } from "./effect/tanstack/query";
 
 const AppContainer = (props: { children: JSX.Element }) => {
@@ -50,13 +51,19 @@ export default function App() {
           >
             <RuntimeProvider runtime={runtime}>
               <QueryClientProvider client={queryClient}>
-                <AppContainer>
-                  <Suspense fallback={<PageLoading />}>
-                    {props.children}
-                  </Suspense>
-                </AppContainer>
-                <Toaster />
-                <SolidQueryDevtools initialIsOpen={false} position="top" />
+                <VideoContextProvider>
+                  <AppContainer>
+                    <Suspense fallback={<PageLoading />}>
+                      {props.children}
+                    </Suspense>
+                  </AppContainer>
+                  <Toaster />
+                  <SolidQueryDevtools
+                    buttonPosition="top-right"
+                    initialIsOpen={false}
+                    position="top"
+                  />
+                </VideoContextProvider>
               </QueryClientProvider>
             </RuntimeProvider>
           </ErrorBoundary>
