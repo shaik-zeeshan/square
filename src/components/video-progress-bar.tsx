@@ -170,28 +170,38 @@ export const VideoProgressBar = () => {
 
   let hideTimeout!: ReturnType<typeof setTimeout>;
 
+  const clearHideTimeout = () => {
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+    }
+  };
+
   createEventListener(window, "mousemove", (e) => {
     const elementAtPoint = document.elementFromPoint(e.clientX, e.clientY);
 
     if (controlsEl.contains(elementAtPoint)) {
       showControls();
-      clearTimeout(hideTimeout);
+      clearHideTimeout();
       return;
     }
 
     if (video.state.pause) {
       showControls();
-      clearTimeout(hideTimeout);
+      clearHideTimeout();
       return;
     }
 
     showControls();
 
-    clearTimeout(hideTimeout);
+    clearHideTimeout();
 
     hideTimeout = setTimeout(() => {
       hideControls();
     }, SHOW_CONTROLS_DURATION);
+  });
+
+  onCleanup(() => {
+    clearHideTimeout();
   });
 
   return (
@@ -272,6 +282,8 @@ export const VideoProgressBar = () => {
                     value.$container.offsetWidth
                   );
 
+                  video.setState("currentTime", () => newTime);
+
                   await events.requestSeekEvent.emit({
                     position: newTime,
                     absolute: true,
@@ -298,7 +310,7 @@ export const VideoProgressBar = () => {
                 <DropdownTrigger>
                   <AudioLines />
                 </DropdownTrigger>
-                <DropdownPortal class="w-max rounded bg-black p-5">
+                <DropdownPortal class="w-max rounded bg-neutral-500 p-5">
                   <div class="flex flex-col gap-2">
                     <For each={video.state.audioTracks}>
                       {(track) => (
@@ -323,7 +335,7 @@ export const VideoProgressBar = () => {
                 <DropdownTrigger>
                   <Subtitles />
                 </DropdownTrigger>
-                <DropdownPortal class="max-h-96 w-56 overflow-y-auto rounded bg-black p-5">
+                <DropdownPortal class="max-h-96 w-56 overflow-y-auto rounded bg-neutral-500 p-5">
                   <div class="flex flex-col gap-2">
                     <For each={video.state.subtitleTracks}>
                       {(track) => (

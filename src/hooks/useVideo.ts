@@ -26,7 +26,6 @@ export const createTauriListener = <K extends keyof typeof events>(
   createEffect(async () => {
     unlisten = await events[event].listen(handler);
   });
-
   onCleanup(() => unlisten?.());
 };
 

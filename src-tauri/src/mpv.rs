@@ -102,6 +102,7 @@ impl MpvPlayer {
         mpv.set_property("idle", "yes")?;
         mpv.set_property("pause", true)?;
         mpv.set_property("keep-open", "always")?;
+        mpv.set_property("force-seekable", "yes")?;
         mpv.set_property("keep-open-pause", "no")?;
         mpv.set_property("video-timing-offset", "0")?;
 
