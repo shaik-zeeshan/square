@@ -1,12 +1,13 @@
-import { type Event, listen } from "@tauri-apps/api/event";
+import type { Event } from "@tauri-apps/api/event";
 import {
   currentMonitor,
   getAllWindows,
   getCurrentWindow,
   PhysicalPosition,
 } from "@tauri-apps/api/window";
-import { createSignal, onCleanup, onMount } from "solid-js";
+import { onCleanup, onMount } from "solid-js";
 import PipControls from "~/components/video/PipControls";
+import { useVideoContext } from "~/contexts/video-context";
 import { commands } from "~/lib/tauri";
 
 function nearestCorner(
@@ -57,27 +58,7 @@ function onMoveEnd(
 }
 
 export default function PipPage() {
-  const [isPlaying, setIsPlaying] = createSignal(true);
-
-  onMount(async () => {
-    // Listen for playback state changes
-    // const handlePlaybackState = (playing: boolean) => {
-    //   setIsPlaying(playing);
-    // };
-
-    // await commands.playbackPlay();
-
-    // Set up event listeners for playback state
-    // Note: In a real implementation, you'd want to listen to the same events
-    // that the main video player listens to
-    const pause = await listen("pause", (event) => {
-      setIsPlaying(!(event.payload as boolean));
-    });
-
-    onCleanup(() => {
-      pause();
-    });
-  });
+  const [state, setState] = useVideoContext();
 
   onMount(async () => {
     const window = getCurrentWindow();
@@ -114,25 +95,15 @@ export default function PipPage() {
     });
   });
 
-  const handleTogglePlay = async () => {
-    if (isPlaying()) {
-      await commands.playbackPause();
-      setIsPlaying(false);
-    } else {
-      await commands.playbackPlay();
-      setIsPlaying(true);
-    }
-  };
-
   const handleClose = async () => {
-    commands.hidePipWindow();
+    setState("isPip", () => false);
+    await commands.hidePipWindow();
     const windows = await getAllWindows();
     const main = windows.find((win) => win.label === "main");
 
     if (!main) {
       return;
     }
-
     await main.setFocus();
     await main.show();
   };
@@ -140,9 +111,9 @@ export default function PipPage() {
   return (
     <div class="h-full w-full bg-transparent" data-tauri-drag-region>
       <PipControls
-        isPlaying={isPlaying()}
+        isPlaying={!state.pause}
         onClose={handleClose}
-        onTogglePlay={handleTogglePlay}
+        onTogglePlay={() => setState("pause", (value) => !value)}
       />
     </div>
   );

@@ -1,6 +1,6 @@
 import type { Api } from "@jellyfin/sdk";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import { getAllWindows, getCurrentWindow } from "@tauri-apps/api/window";
 import { Effect, pipe } from "effect";
 import { createEffect, on, onCleanup } from "solid-js";
 import { produce } from "solid-js/store";
@@ -66,6 +66,8 @@ export const useVideo = (id: string) => {
             enableUserData: true,
           })
         ),
+        Effect.tap(() => Effect.logInfo("fetched item, now start the video")),
+
         Effect.tap((data) =>
           Effect.promise(async () => {
             // here we will load the video
@@ -97,8 +99,17 @@ export const useVideo = (id: string) => {
     enabled: () => getPercentage(state.currentTime, state.duration) > 80,
   }));
 
-  // const currentUser = AuthOperations.currentUser();
-
+  /*
+   *
+   *
+   *
+   *
+   *  Tauri Listener
+   *
+   *
+   *
+   *
+   */
   createTauriListener("fileLoadedChange", ({ payload }) => {
     setState(
       produce((state) => {
@@ -164,6 +175,17 @@ export const useVideo = (id: string) => {
     setState("cachedTime", () => payload.time);
   });
 
+  /*
+   *
+   *
+   *
+   *
+   *  State Monitor
+   *
+   *
+   *
+   *
+   */
   createEffect(
     on(
       () => state.pause,
@@ -202,7 +224,49 @@ export const useVideo = (id: string) => {
     )
   );
 
+  /*
+   *
+   *
+   *
+   *
+   * PIP Window
+   *
+   *
+   *
+   */
+
+  const showPipWindow = async () => {
+    await commands.showPipWindow();
+
+    setState("isPip", () => true);
+  };
+
+  const hidePipWindow = async () => {
+    await commands.hidePipWindow();
+
+    setState("isPip", () => false);
+  };
+
+  const isPipShowing = async () => {
+    const windows = await getAllWindows();
+    const pip_window = windows.find((win) => win.label === "pip");
+
+    return Boolean(pip_window?.isVisible());
+  };
+
+  /*
+   *
+   *
+   *
+   * Cleanup
+   *
+   *
+   *
+   */
+
   onCleanup(async () => {
+    // Clear State
+    setState(() => DEFAULT_VIDEO_PLAYBACK());
     // clean up state
     await events.requestPlayBackState.emit({ pause: true });
     await events.requestClearEvent.emit();
@@ -214,10 +278,7 @@ export const useVideo = (id: string) => {
     }
 
     // commands pip window
-    // commands.hidePipWindow();
-
-    // Clear State
-    setState(() => DEFAULT_VIDEO_PLAYBACK());
+    await commands.hidePipWindow();
   });
 
   return {
@@ -225,5 +286,8 @@ export const useVideo = (id: string) => {
     setState,
     item: () => item.data,
     nextItem: () => nextItem.data,
+    showPipWindow,
+    hidePipWindow,
+    isPipShowing,
   };
 };

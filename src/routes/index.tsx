@@ -55,7 +55,7 @@ export default function Home() {
             breadcrumbs={[
               {
                 label: "Home",
-                icon: <HouseIcon class="h-4 w-4 flex-shrink-0 opacity-70" />,
+                icon: <HouseIcon class="h-4 w-4 shrink-0 opacity-70" />,
               },
             ]}
             class="relative z-50"

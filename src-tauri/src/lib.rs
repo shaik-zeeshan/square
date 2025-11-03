@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use keyring::Entry;
 use rand::Rng;
 use specta::specta;

@@ -8,14 +8,23 @@ import {
   type Scope,
 } from "animejs";
 import { Duration } from "effect";
-import { createEffect, For, on, onCleanup, onMount, Show } from "solid-js";
+import { PictureInPicture, PictureInPicture2 } from "lucide-solid";
+import {
+  createEffect,
+  Match,
+  on,
+  onCleanup,
+  onMount,
+  Show,
+  Switch,
+} from "solid-js";
+import { Select } from "~/components/ui/select";
 import { useVideo } from "~/hooks/useVideo";
-import { events } from "~/lib/tauri";
+import { commands, events } from "~/lib/tauri";
 import AudioLines from "~icons/lucide/audio-lines";
 import Pause from "~icons/lucide/pause";
 import Play from "~icons/lucide/play";
 import Subtitles from "~icons/lucide/subtitles";
-import { Dropdown, DropdownPortal, DropdownTrigger } from "./ui/dropdown";
 
 const ANIMATION_DURATION = Duration.toMillis("200 millis");
 const SHOW_CONTROLS_DURATION = Duration.toMillis("2 seconds");
@@ -116,6 +125,7 @@ export const VideoProgressBar = () => {
       return;
     }
     controlsAnimation.methods.showControls();
+    commands.toggleTitlebarHide(false);
   };
 
   const hideControls = () => {
@@ -127,6 +137,7 @@ export const VideoProgressBar = () => {
     }
 
     const triggerBtn = document.querySelectorAll(".dropdown-trigger");
+    commands.toggleTitlebarHide(true);
 
     triggerBtn.forEach((btn) => {
       btn.dispatchEvent(new CustomEvent("hide"));
@@ -136,6 +147,29 @@ export const VideoProgressBar = () => {
   createEffect(
     on(
       () => video.state.pause,
+      (state) => {
+        if (!controlsAnimation) {
+          return;
+        }
+
+        if (state) {
+          showControls();
+          return;
+        }
+        showControls();
+
+        const timeout = setTimeout(() => {
+          hideControls();
+        }, SHOW_CONTROLS_DURATION);
+
+        onCleanup(() => clearTimeout(timeout));
+      }
+    )
+  );
+
+  createEffect(
+    on(
+      () => video.state.isPip,
       (state) => {
         if (!controlsAnimation) {
           return;
@@ -185,7 +219,7 @@ export const VideoProgressBar = () => {
       return;
     }
 
-    if (video.state.pause) {
+    if (video.state.pause || video.state.isPip) {
       showControls();
       clearHideTimeout();
       return;
@@ -202,6 +236,7 @@ export const VideoProgressBar = () => {
 
   onCleanup(() => {
     clearHideTimeout();
+    commands.toggleTitlebarHide(false);
   });
 
   return (
@@ -306,58 +341,72 @@ export const VideoProgressBar = () => {
           </div>
           <div class="right flex items-center gap-10">
             <Show when={video.state.audioTracks.length}>
-              <Dropdown>
-                <DropdownTrigger>
-                  <AudioLines />
-                </DropdownTrigger>
-                <DropdownPortal class="w-max rounded bg-neutral-500 p-5">
-                  <div class="flex flex-col gap-2">
-                    <For each={video.state.audioTracks}>
-                      {(track) => (
-                        <button
-                          class="rounded p-2 hover:bg-white/15"
-                          onClick={() => {
-                            events.requestAudioEvent.emit({
-                              index: track.id.toString(),
-                            });
-                          }}
-                        >
-                          {track.title || track.lang}
-                        </button>
-                      )}
-                    </For>
-                  </div>
-                </DropdownPortal>
-              </Dropdown>
+              <Select
+                itemRender={(track) => (
+                  <button
+                    class="text-ellipsis rounded p-2 hover:bg-white/15"
+                    onClick={() => {
+                      events.requestAudioEvent.emit({
+                        index: track.id.toString(),
+                      });
+                    }}
+                  >
+                    {track.title || track.lang}
+                  </button>
+                )}
+                list={video.state.audioTracks}
+                trigger={<AudioLines class="h-5 w-5" />}
+              />
             </Show>
             <Show when={video.state.subtitleTracks.length}>
-              <Dropdown>
-                <DropdownTrigger>
-                  <Subtitles />
-                </DropdownTrigger>
-                <DropdownPortal class="max-h-96 w-56 overflow-y-auto rounded bg-neutral-500 p-5">
-                  <div class="flex flex-col gap-2">
-                    <For each={video.state.subtitleTracks}>
-                      {(track) => (
-                        <button
-                          class="rounded p-2 hover:bg-white/15"
-                          onClick={() => {
-                            events.requestSubtitleEvent.emit({
-                              index: track.id.toString(),
-                            });
-                          }}
-                        >
-                          {track.title || track.lang}
-                        </button>
-                      )}
-                    </For>
-                  </div>
-                </DropdownPortal>
-              </Dropdown>
+              <Select
+                itemRender={(track) => (
+                  <button
+                    class="text-ellipsis rounded p-2 hover:bg-white/15"
+                    onClick={() => {
+                      events.requestSubtitleEvent.emit({
+                        index: track.id.toString(),
+                      });
+                    }}
+                  >
+                    {track.title || track.lang}
+                  </button>
+                )}
+                list={video.state.subtitleTracks}
+                trigger={<Subtitles class="h-5 w-5" />}
+              />
             </Show>
+            <PIPButton />
           </div>
         </div>
       </div>
     </div>
+  );
+};
+
+const PIPButton = () => {
+  const params = useParams();
+  const video = useVideo(params.id);
+
+  return (
+    <button
+      onClick={() => {
+        if (video.state.isPip) {
+          video.hidePipWindow();
+        } else {
+          video.showPipWindow();
+        }
+      }}
+    >
+      <Switch>
+        <Match when={!video.state.isPip}>
+          <PictureInPicture class="h-5 w-5" />
+        </Match>
+
+        <Match when={video.state.isPip}>
+          <PictureInPicture2 class="h-5 w-5" />
+        </Match>
+      </Switch>
+    </button>
   );
 };

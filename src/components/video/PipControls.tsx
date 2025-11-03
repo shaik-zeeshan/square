@@ -4,7 +4,7 @@ import { createSignal, onCleanup, onMount } from "solid-js";
 
 type PipControlsProps = {
   isPlaying: boolean;
-  onTogglePlay: () => Promise<void>;
+  onTogglePlay: () => Promise<void> | void;
   onClose: () => Promise<void>;
 };
 

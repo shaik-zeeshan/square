@@ -50,7 +50,7 @@ export const Dropdown = (
 
   return (
     <DropdownProvider id={id} {...defaultProps}>
-      <div class="relative" id={id}>
+      <div class="relative flex h-fit items-center" id={id}>
         {defaultProps.children}
       </div>
     </DropdownProvider>
@@ -59,6 +59,7 @@ export const Dropdown = (
 
 export const DropdownTrigger = (props: ComponentProps<"button">) => {
   let ref!: HTMLButtonElement;
+  const [{ class: classNames }, other] = splitProps(props, ["class"]);
   const ctx = useDropdown();
 
   createEventListener(
@@ -69,14 +70,14 @@ export const DropdownTrigger = (props: ComponentProps<"button">) => {
 
   return (
     <button
-      class="dropdown-trigger"
+      class={cn("dropdown-trigger", classNames)}
       id={`btn-${ctx.state.id}`}
       onClick={() => {
         ctx?.onOpenChange(!ctx.state.open);
       }}
       ref={ref}
       style={`anchor-name:--pop-${ctx.state.id}`}
-      {...props}
+      {...other}
     />
   );
 };
@@ -120,9 +121,6 @@ export const DropdownPortal = (props: ComponentProps<"div">) => {
               bottom: "calc(anchor(top) + 15px)",
               right: "calc(anchor(right))",
               "--item-color": "white",
-              "--os-size": "11px",
-              "--os-padding-perpendicular": "2px",
-              "--os-padding-axis": "0px",
               ...(style as JSX.CSSProperties),
             } as JSX.CSSProperties
           }

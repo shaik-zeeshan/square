@@ -15,8 +15,8 @@ import {
 import { Effect } from "effect";
 import { create, type Draft } from "mutative";
 import type { Accessor } from "solid-js";
+import type { RuntimeContext } from "~/effect/runtime/runtime-context";
 import { useRuntime } from "~/effect/runtime/use-runtime";
-import type { RuntimeContext } from "../runtime/runtime-context";
 
 export const queryClient = new QueryClient({
   defaultOptions: {
