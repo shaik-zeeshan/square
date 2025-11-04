@@ -19,7 +19,7 @@ import {
   Switch,
 } from "solid-js";
 import { Select } from "~/components/ui/select";
-import { useVideo } from "~/hooks/useVideo";
+import { useVideoContext } from "~/contexts/video-context";
 import { commands, events } from "~/lib/tauri";
 import AudioLines from "~icons/lucide/audio-lines";
 import Pause from "~icons/lucide/pause";
@@ -59,10 +59,10 @@ export const VideoProgressBar = () => {
   let controlsEl!: HTMLDivElement;
   let controlsAnimation!: Scope;
 
-  const video = useVideo(params.id);
+  const [state, setState] = useVideoContext();
   createEffect(
     on(
-      () => video.state.currentTime,
+      () => state.currentTime,
       (value) => {
         if (!drag) {
           return;
@@ -70,7 +70,7 @@ export const VideoProgressBar = () => {
 
         const pixel = timeToPixel(
           value,
-          video.state.duration,
+          state.duration,
           containerRef.offsetWidth
         );
 
@@ -146,7 +146,7 @@ export const VideoProgressBar = () => {
 
   createEffect(
     on(
-      () => video.state.pause,
+      () => state.pause,
       (state) => {
         if (!controlsAnimation) {
           return;
@@ -169,7 +169,7 @@ export const VideoProgressBar = () => {
 
   createEffect(
     on(
-      () => video.state.isPip,
+      () => state.isPip,
       (state) => {
         if (!controlsAnimation) {
           return;
@@ -219,7 +219,7 @@ export const VideoProgressBar = () => {
       return;
     }
 
-    if (video.state.pause || video.state.isPip) {
+    if (state.pause || state.isPip) {
       showControls();
       clearHideTimeout();
       return;
@@ -246,8 +246,8 @@ export const VideoProgressBar = () => {
     >
       <div class="relative mx-5 flex h-full flex-col justify-end gap-4 py-3">
         <div class="flex h-full w-full justify-between px-5">
-          <div>{formatTime(video.state.currentTime)}</div>
-          <div>{formatTime(video.state.duration)}</div>
+          <div>{formatTime(state.currentTime)}</div>
+          <div>{formatTime(state.duration)}</div>
         </div>
         <div
           class="relative h-2 rounded-4xl bg-gray-500/50"
@@ -257,7 +257,7 @@ export const VideoProgressBar = () => {
 
             const newTime = pixelToTime(
               offsetX,
-              video.state.duration,
+              state.duration,
               e.currentTarget.offsetWidth
             );
 
@@ -266,8 +266,8 @@ export const VideoProgressBar = () => {
               absolute: true,
             });
 
-            if (video.state.pause) {
-              video.setState("currentTime", () => newTime);
+            if (state.pause) {
+              setState("currentTime", () => newTime);
             }
 
             drag.setX(e.offsetX);
@@ -282,8 +282,8 @@ export const VideoProgressBar = () => {
               class="absolute z-10 h-full w-full bg-orange-400"
               style={{
                 width: `${timeToPixel(
-                  video.state.currentTime,
-                  video.state.duration,
+                  state.currentTime,
+                  state.duration,
                   containerRef.offsetWidth
                 )}px`,
               }}
@@ -292,8 +292,8 @@ export const VideoProgressBar = () => {
               class="h-full w-full bg-white/40"
               style={{
                 width: `${timeToPixel(
-                  video.state.cachedTime,
-                  video.state.duration,
+                  state.cachedTime,
+                  state.duration,
                   containerRef.offsetWidth
                 )}px`,
               }}
@@ -313,11 +313,11 @@ export const VideoProgressBar = () => {
                   // update the player
                   const newTime = pixelToTime(
                     value.x,
-                    video.state.duration,
+                    state.duration,
                     value.$container.offsetWidth
                   );
 
-                  video.setState("currentTime", () => newTime);
+                  setState("currentTime", () => newTime);
 
                   await events.requestSeekEvent.emit({
                     position: newTime,
@@ -330,17 +330,17 @@ export const VideoProgressBar = () => {
         </div>
         <div class="flex items-center justify-between px-5 text-white">
           <div class="left">
-            <button onClick={() => video.setState("pause", (value) => !value)}>
-              <Show when={video.state.pause}>
+            <button onClick={() => setState("pause", (value) => !value)}>
+              <Show when={state.pause}>
                 <Play />
               </Show>
-              <Show when={!video.state.pause}>
+              <Show when={!state.pause}>
                 <Pause />
               </Show>
             </button>
           </div>
           <div class="right flex items-center gap-10">
-            <Show when={video.state.audioTracks.length}>
+            <Show when={state.audioTracks.length}>
               <Select
                 itemRender={(track) => (
                   <button
@@ -354,11 +354,11 @@ export const VideoProgressBar = () => {
                     {track.title || track.lang}
                   </button>
                 )}
-                list={video.state.audioTracks}
+                list={state.audioTracks}
                 trigger={<AudioLines class="h-5 w-5" />}
               />
             </Show>
-            <Show when={video.state.subtitleTracks.length}>
+            <Show when={state.subtitleTracks.length}>
               <Select
                 itemRender={(track) => (
                   <button
@@ -372,7 +372,7 @@ export const VideoProgressBar = () => {
                     {track.title || track.lang}
                   </button>
                 )}
-                list={video.state.subtitleTracks}
+                list={state.subtitleTracks}
                 trigger={<Subtitles class="h-5 w-5" />}
               />
             </Show>
@@ -386,24 +386,24 @@ export const VideoProgressBar = () => {
 
 const PIPButton = () => {
   const params = useParams();
-  const video = useVideo(params.id);
+  const [state, useState] = useVideoContext();
 
   return (
     <button
       onClick={() => {
-        if (video.state.isPip) {
-          video.hidePipWindow();
-        } else {
-          video.showPipWindow();
-        }
+        // if (state.isPip) {
+        // hidePipWindow();
+        // } else {
+        //   video.showPipWindow();
+        // }
       }}
     >
       <Switch>
-        <Match when={!video.state.isPip}>
+        <Match when={!state.isPip}>
           <PictureInPicture class="h-5 w-5" />
         </Match>
 
-        <Match when={video.state.isPip}>
+        <Match when={state.isPip}>
           <PictureInPicture2 class="h-5 w-5" />
         </Match>
       </Switch>

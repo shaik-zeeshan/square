@@ -1,4 +1,9 @@
 import type { Api } from "@jellyfin/sdk";
+import {
+  PlayMethod,
+  type PlaystateApi,
+} from "@jellyfin/sdk/lib/generated-client";
+import { getPlaystateApi } from "@jellyfin/sdk/lib/utils/api/playstate-api";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getAllWindows, getCurrentWindow } from "@tauri-apps/api/window";
 import { Effect, pipe } from "effect";
@@ -27,6 +32,17 @@ export const createTauriListener = <K extends keyof typeof events>(
     unlisten = await events[event].listen(handler);
   });
   onCleanup(() => unlisten?.());
+  // createEffect(async () => {
+  //   let unlisten: UnlistenFn | null = null;
+  //
+  //   const setup = async () => {
+  //     unlisten = await events[event].listen(handler);
+  //   };
+  //
+  //   await setup();
+  //
+  //   onCleanup(() => unlisten?.());
+  // });
 };
 
 // for getting percentage of current time from duration
@@ -85,6 +101,10 @@ export const useVideo = (id: string) => {
     refetchOnWindowFocus: false,
   }));
 
+  const playSessionId = crypto.randomUUID();
+
+  const progressHelper = new ProgressHelper(jf.api);
+
   const nextItem = createEffectQuery(() => ({
     queryKey: ["getNextEpisode", { id: item?.data?.Id }],
     queryFn: () =>
@@ -110,7 +130,7 @@ export const useVideo = (id: string) => {
    *
    *
    */
-  createTauriListener("fileLoadedChange", ({ payload }) => {
+  createTauriListener("fileLoadedChange", async ({ payload }) => {
     setState(
       produce((state) => {
         state.duration = payload.duration;
@@ -119,6 +139,8 @@ export const useVideo = (id: string) => {
     );
     setState("duration", () => payload.duration);
     setState("currentTime", () => payload.current_time);
+
+    await progressHelper.start(playSessionId, item.data?.Id as string);
   });
 
   createTauriListener("playBackStateChange", ({ payload }) => {
@@ -126,10 +148,23 @@ export const useVideo = (id: string) => {
     setState("pause", () => payload.pause);
   });
 
-  createTauriListener("playBackTimeChange", ({ payload }) => {
+  let lastProgressReportTime = 0;
+
+  createTauriListener("playBackTimeChange", async ({ payload }) => {
     // change playback state
-    setState("currentTime", () => Number(payload.position) ?? 0);
+    const time = Number(payload.position) ?? 0;
+    setState("currentTime", () => time);
     // TODO: need to report progress to jellyfin
+    const now = Date.now();
+    if (now - lastProgressReportTime >= 3000 && jf.api) {
+      lastProgressReportTime = now;
+
+      await progressHelper.progress(
+        playSessionId,
+        item.data?.Id as string,
+        time
+      );
+    }
   });
 
   createTauriListener("speedEventChange", ({ payload }) => {
@@ -173,6 +208,14 @@ export const useVideo = (id: string) => {
   createTauriListener("cacheTimeChange", ({ payload }) => {
     // for checking
     setState("cachedTime", () => payload.time);
+  });
+
+  createTauriListener("eofEventChange", async () => {
+    await progressHelper.stop(
+      playSessionId,
+      item.data?.Id as string,
+      state.currentTime
+    );
   });
 
   /*
@@ -265,8 +308,11 @@ export const useVideo = (id: string) => {
    */
 
   onCleanup(async () => {
+    const itemId = id;
+    const currentTime = state.currentTime;
     // Clear State
     setState(() => DEFAULT_VIDEO_PLAYBACK());
+    await progressHelper.stop(playSessionId, itemId, currentTime);
     // clean up state
     await events.requestPlayBackState.emit({ pause: true });
     await events.requestClearEvent.emit();
@@ -291,3 +337,45 @@ export const useVideo = (id: string) => {
     isPipShowing,
   };
 };
+
+class ProgressHelper {
+  playstate: PlaystateApi;
+  constructor(api: Api) {
+    this.playstate = getPlaystateApi(api);
+  }
+
+  async start(sessionId: string, currentId: string) {
+    await this.playstate.reportPlaybackStart({
+      playbackStartInfo: {
+        ItemId: currentId,
+        PlaySessionId: sessionId,
+        PlayMethod: PlayMethod.DirectStream,
+        CanSeek: true,
+        IsPaused: false,
+        VolumeLevel: 100, // Clamp to 100 for Jellyfin
+      },
+    });
+  }
+
+  async progress(sessionId: string, currentId: string, currentTime: number) {
+    await this.playstate.reportPlaybackProgress({
+      playbackProgressInfo: {
+        ItemId: currentId,
+        PlaySessionId: sessionId,
+        PlayMethod: PlayMethod.DirectStream,
+        PositionTicks: Math.floor(currentTime * 10_000_000),
+        CanSeek: true,
+      },
+    });
+  }
+
+  async stop(sessionId: string, currentId: string, currentTime: number) {
+    await this.playstate.reportPlaybackStopped({
+      playbackStopInfo: {
+        ItemId: currentId,
+        PlaySessionId: sessionId,
+        PositionTicks: Math.floor(currentTime * 10_000_000),
+      },
+    });
+  }
+}

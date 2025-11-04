@@ -1,6 +1,7 @@
 import type {
   BaseItemDto,
   ItemsApiGetItemsRequest,
+  MediaInfoApiGetPlaybackInfoRequest,
 } from "@jellyfin/sdk/lib/generated-client";
 import type { SolidQueryOptions } from "@tanstack/solid-query";
 import { Effect, pipe } from "effect";
@@ -245,6 +246,41 @@ class Jellyfin {
             JellyfinService.pipe(Effect.flatMap((jf) => jf.getNextEpisode(i)))
           )
         ),
+    }));
+
+  playstateKey = createQueryKey<"getPlaystate", { id: string }>("getPlaystate");
+
+  playstateDataHelpers = createQueryDataHelpers<
+    ExtractQueryData<ReturnType<typeof this.getItem>>,
+    { id: string }
+  >(this.playstateKey);
+
+  getPlaystate = (
+    id: () => string,
+    params?: MediaInfoApiGetPlaybackInfoRequest,
+    queryOptions?: Accessor<
+      Omit<
+        SolidQueryOptions<
+          Effect.Effect.Success<
+            ReturnType<JellyfinService["getPlaybackState"]>
+          >, // TQueryFnData
+          Effect.Effect.Error<ReturnType<JellyfinService["getPlaybackState"]>>, // TError
+          Effect.Effect.Success<
+            ReturnType<JellyfinService["getPlaybackState"]>
+          >, // TQueryFnData
+          ReturnType<typeof this.playstateKey> // TQueryKey
+        >,
+        "queryFn" | "queryKey"
+      >
+    >
+  ) =>
+    createEffectQuery(() => ({
+      queryKey: this.playstateKey({ id: id() }),
+      queryFn: () =>
+        JellyfinService.pipe(
+          Effect.flatMap((jf) => jf.getPlaybackState(id(), params))
+        ),
+      ...(queryOptions ? queryOptions() : {}),
     }));
 
   /*

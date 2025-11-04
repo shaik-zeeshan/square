@@ -1,4 +1,3 @@
-import { useParams } from "@solidjs/router";
 import {
   type ComponentProps,
   createEffect,
@@ -8,7 +7,7 @@ import {
   Show,
 } from "solid-js";
 import { createStore, produce } from "solid-js/store";
-import { useVideo } from "~/hooks/useVideo";
+import { useVideoContext } from "~/contexts/video-context";
 import Pause from "~icons/lucide/pause";
 import Play from "~icons/lucide/play";
 
@@ -25,8 +24,7 @@ const DEFAULT_OSD: () => OSD = () => ({
 });
 
 export const ShowOSD = () => {
-  const parmas = useParams();
-  const video = useVideo(parmas.id);
+  const [state] = useVideoContext();
 
   const [currentOSD, setOSD] = createStore<OSD>(DEFAULT_OSD());
   const [show, setShow] = createSignal(false);
@@ -52,7 +50,7 @@ export const ShowOSD = () => {
 
   createEffect(
     on(
-      () => video.state.pause,
+      () => state.pause,
       (pause) => {
         setOSD(
           produce((state) => {

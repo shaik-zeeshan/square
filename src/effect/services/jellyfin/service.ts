@@ -4,6 +4,7 @@ import type {
   ItemFields,
   ItemsApiGetItemsRequest,
   ItemsApiGetResumeItemsRequest,
+  MediaInfoApiGetPlaybackInfoRequest,
   TvShowsApiGetNextUpRequest,
   UserLibraryApiGetLatestMediaRequest,
 } from "@jellyfin/sdk/lib/generated-client";
@@ -274,6 +275,20 @@ export class JellyfinService extends Effect.Service<JellyfinService>()(
           },
           catch: (e) => new HttpError({ status: 0, message: String(e) }),
         });
+
+      const fetchPlaybackState = (
+        jf: Api,
+        params: MediaInfoApiGetPlaybackInfoRequest
+      ) =>
+        Effect.tryPromise({
+          try: async () => {
+            const { getMediaInfoApi } = await import(
+              "@jellyfin/sdk/lib/utils/api/media-info-api"
+            );
+            return await getMediaInfoApi(jf).getPlaybackInfo(params);
+          },
+          catch: (e) => new HttpError({ status: 0, message: String(e) }),
+        });
       /*
        *
        *
@@ -524,6 +539,41 @@ export class JellyfinService extends Effect.Service<JellyfinService>()(
           return yield* getImages(jf)(items);
         });
 
+      const getPlaybackState = (
+        id: string,
+        params?: MediaInfoApiGetPlaybackInfoRequest
+      ) =>
+        Effect.gen(function* () {
+          const jf = yield* auth.getApi();
+          const user = yield* auth.getUser();
+
+          const res = yield* fetchPlaybackState(jf, {
+            userId: user.Id,
+            itemId: id,
+            ...params,
+          }).pipe(
+            Effect.flatMap((data) =>
+              data.status !== 200
+                ? Effect.fail(
+                    new HttpError({
+                      status: data.status,
+                      message: data.statusText,
+                    })
+                  )
+                : Effect.succeed(data)
+            )
+          );
+
+          if (!res.data) {
+            return yield* Effect.fail(
+              new HttpError({
+                status: 404,
+                message: "no item found",
+              })
+            );
+          }
+          return res.data;
+        });
       /*
        *
        *
@@ -537,16 +587,6 @@ export class JellyfinService extends Effect.Service<JellyfinService>()(
        *
        *
        */
-      // Effect.tryPromise({
-      //           try: async () => {
-      //             const { getPlaystateApi } = await import(
-      //               "@jellyfin/sdk/lib/utils/api/playstate-api"
-      //             );
-      //             await getPlaystateApi(jf).markPlayedItem({ userId, itemId });
-      //           },
-      //           catch: (e: Error) =>
-      //             new HttpError({ status: 401, message: e.message }),
-      //         })
       const markItemPlayed = (id: string) =>
         Effect.gen(function* () {
           const jf = yield* auth.getApi();
@@ -655,6 +695,7 @@ export class JellyfinService extends Effect.Service<JellyfinService>()(
         getNextupItems,
         getLatestMedia,
         getNextEpisode,
+        getPlaybackState,
 
         /*
          *
