@@ -386,16 +386,28 @@ export const VideoProgressBar = () => {
 
 const PIPButton = () => {
   const params = useParams();
-  const [state, useState] = useVideoContext();
+  const [state, setState] = useVideoContext();
+
+  const showPipWindow = async () => {
+    await commands.showPipWindow();
+
+    setState("isPip", () => true);
+  };
+
+  const hidePipWindow = async () => {
+    await commands.hidePipWindow();
+
+    setState("isPip", () => false);
+  };
 
   return (
     <button
       onClick={() => {
-        // if (state.isPip) {
-        // hidePipWindow();
-        // } else {
-        //   video.showPipWindow();
-        // }
+        if (state.isPip) {
+          hidePipWindow();
+        } else {
+          showPipWindow();
+        }
       }}
     >
       <Switch>
