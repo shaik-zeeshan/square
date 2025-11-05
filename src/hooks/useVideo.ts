@@ -27,22 +27,24 @@ export const createTauriListener = <K extends keyof typeof events>(
   ) => void
 ) => {
   let unlisten: UnlistenFn | null = null;
+  let isSetup = false;
 
   createEffect(async () => {
+    if (isSetup) {
+      return;
+    }
+
+    isSetup = true;
     unlisten = await events[event].listen(handler);
   });
-  onCleanup(() => unlisten?.());
-  // createEffect(async () => {
-  //   let unlisten: UnlistenFn | null = null;
-  //
-  //   const setup = async () => {
-  //     unlisten = await events[event].listen(handler);
-  //   };
-  //
-  //   await setup();
-  //
-  //   onCleanup(() => unlisten?.());
-  // });
+
+  onCleanup(() => {
+    if (unlisten) {
+      unlisten();
+      unlisten = null;
+    }
+    isSetup = false;
+  });
 };
 
 // for getting percentage of current time from duration

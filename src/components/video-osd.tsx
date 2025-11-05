@@ -4,6 +4,7 @@ import {
   createSignal,
   type JSXElement,
   on,
+  onCleanup,
   Show,
 } from "solid-js";
 import { createStore, produce } from "solid-js/store";
@@ -38,6 +39,10 @@ export const ShowOSD = () => {
           return;
         }
 
+        if (hideTimeout) {
+          clearTimeout(hideTimeout);
+        }
+
         hideTimeout = setTimeout(() => {
           setShow(false);
         }, 1000);
@@ -47,6 +52,12 @@ export const ShowOSD = () => {
       }
     )
   );
+
+  onCleanup(() => {
+    if (hideTimeout) {
+      clearTimeout(hideTimeout);
+    }
+  });
 
   createEffect(
     on(

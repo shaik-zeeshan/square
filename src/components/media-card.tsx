@@ -190,14 +190,17 @@ export function EpisodeCard(props: EpisodeCardProps) {
   };
 
   // Calculate playback progress percentage
-  const playbackProgress = () =>
+  const playbackProgress = createMemo(() =>
     item.data?.UserData?.PlaybackPositionTicks && item.data?.RunTimeTicks
       ? (item.data?.UserData.PlaybackPositionTicks / item.data?.RunTimeTicks) *
         100
-      : 0;
+      : 0
+  );
 
-  const isWatched = () => item.data?.UserData?.Played;
-  const isInProgress = () => playbackProgress() > 0 && playbackProgress() < 95;
+  const isWatched = createMemo(() => item.data?.UserData?.Played);
+  const isInProgress = createMemo(
+    () => playbackProgress() > 0 && playbackProgress() < 95
+  );
 
   return (
     <a
@@ -377,14 +380,17 @@ export function MainPageEpisodeCard(props: EpisodeCardProps) {
   };
 
   // Calculate playback progress percentage
-  const playbackProgress = () =>
+  const playbackProgress = createMemo(() =>
     item.data.UserData?.PlaybackPositionTicks && item.data.RunTimeTicks
       ? (item.data.UserData.PlaybackPositionTicks / item.data.RunTimeTicks) *
         100
-      : 0;
+      : 0
+  );
 
-  const isWatched = () => item.data.UserData?.Played;
-  const isInProgress = () => playbackProgress() > 0 && playbackProgress() < 95;
+  const isWatched = createMemo(() => item.data.UserData?.Played);
+  const isInProgress = createMemo(
+    () => playbackProgress() > 0 && playbackProgress() < 95
+  );
 
   return (
     <a class="group block" href={`/video/${item.data.Id}/new`}>

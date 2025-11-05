@@ -37,7 +37,7 @@ export function UserDropdown(props: UserDropdownProps) {
 
     document.addEventListener("click", handleClickOutside);
     onCleanup(() => document.removeEventListener("click", handleClickOutside));
-  });
+  }, []);
 
   const handleLogout = () => {
     logout.mutate();
