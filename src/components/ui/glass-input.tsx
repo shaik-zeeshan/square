@@ -3,32 +3,24 @@ import { type ComponentProps, splitProps } from "solid-js";
 import { cn } from "~/lib/utils";
 
 const inputVariants = cva(
-  "w-full border outline-none backdrop-blur-md transition-all duration-[var(--glass-transition-base)] focus:outline-none",
+  "w-full border outline-none transition-all duration-200 focus:outline-none",
   {
     variants: {
       variant: {
-        glass:
-          "border-[var(--glass-border-light)] bg-[var(--glass-bg-light)] placeholder:text-white/40 focus:border-[var(--glass-border-medium)] focus:bg-[var(--glass-bg-medium)]",
-        "glass-subtle":
-          "border-[var(--glass-border-subtle)] bg-[var(--glass-bg-subtle)] placeholder:text-white/30 focus:border-[var(--glass-border-light)] focus:bg-[var(--glass-bg-light)]",
         solid:
           "border-input bg-background placeholder:text-muted-foreground focus:border-ring",
+        default:
+          "border-gray-300 bg-white placeholder:text-gray-500 focus:border-blue-500 dark:border-gray-600 dark:bg-gray-800 dark:focus:border-blue-400 dark:placeholder:text-gray-400",
       },
       size: {
         sm: "h-8 rounded-md px-3 text-sm",
         md: "h-10 rounded-lg px-4 text-base",
         lg: "h-12 rounded-xl px-5 text-lg",
       },
-      blur: {
-        subtle: "backdrop-blur-[var(--glass-blur-subtle)]",
-        medium: "backdrop-blur-[var(--glass-blur-medium)]",
-        strong: "backdrop-blur-[var(--glass-blur-strong)]",
-      },
     },
     defaultVariants: {
-      variant: "glass",
+      variant: "default",
       size: "md",
-      blur: "medium",
     },
   }
 );
@@ -40,12 +32,7 @@ export interface GlassInputProps
 }
 
 export function GlassInput(props: GlassInputProps) {
-  const [local, others] = splitProps(props, [
-    "class",
-    "variant",
-    "size",
-    "blur",
-  ]);
+  const [local, others] = splitProps(props, ["class", "variant", "size"]);
 
   return (
     <input
@@ -53,7 +40,6 @@ export function GlassInput(props: GlassInputProps) {
         inputVariants({
           variant: local.variant,
           size: local.size,
-          blur: local.blur,
         }),
         local.class
       )}

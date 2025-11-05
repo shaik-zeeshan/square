@@ -402,6 +402,7 @@ const PIPButton = () => {
 
   return (
     <button
+      class="dropdown-trigger inline-flex items-center justify-center rounded px-3 py-2 font-medium text-sm transition-all duration-200 dark:hover:bg-gray-700"
       onClick={() => {
         if (state.isPip) {
           hidePipWindow();

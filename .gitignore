@@ -225,3 +225,7 @@ out/
 # Generated files
 auto-imports.d.ts
 CHANGELOG.md
+
+# Opencode
+AGENTS.md
+opencode.json

@@ -4,7 +4,7 @@ import { ItemActions } from "~/components/ItemActions";
 import { MainPageEpisodeCard, SeriesCard } from "~/components/media-card";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
-import { GlassCard } from "~/components/ui";
+
 import { InlineLoading } from "~/components/ui/loading";
 import { useAuth } from "~/effect/services/hooks/use-auth";
 import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
@@ -113,15 +113,12 @@ export default function Home() {
                                 class="group block h-full w-full"
                                 href={`/library/${item.Id}`}
                               >
-                                <GlassCard
-                                  class="h-full w-full overflow-hidden shadow-[var(--glass-shadow-md)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-[var(--glass-shadow-lg)]"
-                                  preset="card"
-                                >
+                                <div class="h-full w-full overflow-hidden rounded-lg border border-gray-200 bg-white shadow-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                   <div class="relative h-full w-full overflow-hidden">
                                     {/* Image fills entire card */}
                                     <Show
                                       fallback={
-                                        <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--glass-bg-medium)] to-[var(--glass-bg-subtle)]">
+                                        <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
                                           <span class="text-6xl opacity-30">
                                             {item.Name?.charAt(0)}
                                           </span>
@@ -151,7 +148,7 @@ export default function Home() {
                                       </Show>
                                     </div>
                                   </div>
-                                </GlassCard>
+                                </div>
                               </a>
                             )}
                           </For>
@@ -199,15 +196,12 @@ export default function Home() {
                                   class="group block"
                                   href={`/video/${item.Id}/new`}
                                 >
-                                  <GlassCard
-                                    class="overflow-hidden shadow-[var(--glass-shadow-md)] transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-[var(--glass-shadow-lg)]"
-                                    preset="card"
-                                  >
+                                  <div class="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-md transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-lg dark:border-gray-700 dark:bg-gray-800">
                                     <div class="relative aspect-[16/9] overflow-hidden">
                                       {/* Image */}
                                       <Show
                                         fallback={
-                                          <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-[var(--glass-bg-medium)] to-[var(--glass-bg-subtle)]">
+                                          <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800">
                                             <span class="text-4xl opacity-30">
                                               {item.Name?.charAt(0)}
                                             </span>
@@ -241,33 +235,24 @@ export default function Home() {
                                       </Show>
 
                                       {/* Item Actions - Show on hover */}
-                                      <Show when={item.Id}>
-                                        {(itemId) => (
-                                          <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                                            <ItemActions
-                                              item={item}
-                                              itemId={itemId()}
-                                              onDone={() =>
-                                                JellyfinOperations.resumeItemsQueryDataHelpers.invalidateQuery()
-                                              }
-                                              variant="card"
-                                            />
-                                          </div>
-                                        )}
-                                      </Show>
+                                      <div class="absolute top-2 right-2 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                                        <ItemActions
+                                          item={item}
+                                          itemId={item.Id as string}
+                                          variant="card"
+                                        />
+                                      </div>
 
                                       {/* Title Info */}
-                                      <div class="absolute right-0 bottom-0 left-0 p-3">
-                                        <h3 class="line-clamp-2 font-semibold text-sm text-white drop-shadow-lg">
+                                      <div class="absolute right-0 bottom-0 left-0 p-4">
+                                        <h3 class="line-clamp-2 font-semibold text-lg text-white drop-shadow-lg">
                                           {item.Name}
                                         </h3>
                                         <Show
                                           when={isEpisode && item.SeriesName}
                                         >
-                                          <p class="mt-1 text-white/80 text-xs drop-shadow-md">
-                                            {item.SeriesName} - S
-                                            {item.ParentIndexNumber}E
-                                            {item.IndexNumber}
+                                          <p class="mt-1 text-sm text-white/80 drop-shadow-md">
+                                            {item.SeriesName}
                                           </p>
                                         </Show>
                                         <Show
@@ -279,7 +264,7 @@ export default function Home() {
                                         </Show>
                                       </div>
                                     </div>
-                                  </GlassCard>
+                                  </div>
                                 </a>
                               );
                             }}

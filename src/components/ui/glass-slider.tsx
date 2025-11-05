@@ -3,13 +3,13 @@ import { type ComponentProps, splitProps } from "solid-js";
 import { cn } from "~/lib/utils";
 
 const sliderVariants = cva(
-  "group relative w-full cursor-pointer transition-all duration-[var(--glass-transition-base)]",
+  "group relative w-full cursor-pointer transition-all duration-200",
   {
     variants: {
       variant: {
-        glass: "bg-white/20",
-        "glass-subtle": "bg-white/10",
-        "glass-strong": "bg-white/30",
+        default: "bg-gray-300 dark:bg-gray-600",
+        subtle: "bg-gray-200 dark:bg-gray-700",
+        strong: "bg-gray-400 dark:bg-gray-500",
       },
       size: {
         sm: "h-0.5 rounded-full hover:h-1",
@@ -18,24 +18,24 @@ const sliderVariants = cva(
       },
     },
     defaultVariants: {
-      variant: "glass",
+      variant: "default",
       size: "md",
     },
   }
 );
 
 const sliderFillVariants = cva(
-  "absolute top-0 left-0 h-full rounded-full transition-all duration-[var(--glass-transition-base)]",
+  "absolute top-0 left-0 h-full rounded-full transition-all duration-200",
   {
     variants: {
       variant: {
-        glass: "bg-white",
-        "glass-subtle": "bg-white/80",
-        "glass-strong": "bg-white",
+        default: "bg-blue-500",
+        subtle: "bg-blue-400",
+        strong: "bg-blue-600",
       },
     },
     defaultVariants: {
-      variant: "glass",
+      variant: "default",
     },
   }
 );

@@ -8,7 +8,7 @@ import {
 import { createSignal, Show } from "solid-js";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
-import { GlassCard } from "~/components/ui";
+
 import { useAuth } from "~/effect/services/hooks/use-auth";
 
 export default function SettingsPage() {
@@ -76,14 +76,14 @@ export default function SettingsPage() {
           <Show when={activeTab() === "profile"}>
             <QueryBoundary
               loadingFallback={
-                <GlassCard class="p-8 text-center" preset="card">
+                <div class="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-lg dark:border-gray-700 dark:bg-gray-800">
                   <div class="animate-pulse">Loading profile...</div>
-                </GlassCard>
+                </div>
               }
               query={userDetails}
             >
               {(data) => (
-                <GlassCard class="p-6" preset="card">
+                <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-800">
                   <h2 class="mb-6 flex items-center gap-2 font-semibold text-xl">
                     <UserIcon class="h-5 w-5" />
                     User Profile
@@ -154,13 +154,13 @@ export default function SettingsPage() {
                       </div>
                     </div>
                   </div>
-                </GlassCard>
+                </div>
               )}
             </QueryBoundary>
           </Show>
 
           <Show when={activeTab() === "server"}>
-            <GlassCard class="p-6" preset="card">
+            <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-800">
               <h2 class="mb-6 flex items-center gap-2 font-semibold text-xl">
                 <Server class="h-5 w-5" />
                 Server Information
@@ -196,7 +196,7 @@ export default function SettingsPage() {
                   </div>
                 </div>
               </div>
-            </GlassCard>
+            </div>
           </Show>
         </div>
       </div>

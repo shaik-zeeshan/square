@@ -1,5 +1,4 @@
 import { type ComponentProps, type JSX, Show, splitProps } from "solid-js";
-import { getGlassClasses, glassAnimations } from "~/lib/glass-utils";
 import { cn } from "~/lib/utils";
 
 export interface GlassDropdownProps extends ComponentProps<"div"> {
@@ -35,9 +34,7 @@ export function GlassDropdown(props: GlassDropdownProps) {
     <Show when={local.open}>
       <div
         class={cn(
-          "absolute right-0 left-0 z-50 p-2",
-          getGlassClasses("dropdown"),
-          glassAnimations.fadeIn,
+          "fade-in absolute right-0 left-0 z-50 animate-in rounded-lg border border-gray-200 bg-white p-2 shadow-lg duration-200 dark:border-gray-700 dark:bg-gray-800",
           positionClasses(),
           local.class
         )}
@@ -61,8 +58,8 @@ export function GlassDropdownItem(props: GlassDropdownItemProps) {
     <button
       aria-current={local.selected ? "true" : "false"}
       class={cn(
-        "w-full cursor-pointer rounded-md px-3 py-2 text-left text-white/90 transition-all duration-[var(--glass-transition-fast)] hover:bg-[#111111d1] hover:text-white focus:bg-[#111111d1] focus:outline-none",
-        local.selected && "bg-[#111111d1] text-white",
+        "w-full cursor-pointer rounded-md px-3 py-2 text-left transition-all duration-200 hover:bg-gray-100 focus:bg-gray-100 focus:outline-none dark:focus:bg-gray-700 dark:hover:bg-gray-700",
+        local.selected && "bg-gray-100 dark:bg-gray-700",
         local.class
       )}
       role="menuitem"

@@ -3,22 +3,18 @@ import { type ComponentProps, splitProps } from "solid-js";
 import { cn } from "~/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex cursor-pointer items-center justify-center border backdrop-blur-md transition-all duration-[var(--glass-transition-base)] disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex cursor-pointer items-center justify-center border transition-all duration-200 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        glass:
-          "border-[var(--glass-border-light)] bg-[var(--glass-bg-light)] hover:border-[var(--glass-border-medium)] hover:bg-[var(--glass-bg-medium)] active:scale-95",
-        "glass-subtle":
-          "border-[var(--glass-border-subtle)] bg-[var(--glass-bg-subtle)] hover:border-[var(--glass-border-light)] hover:bg-[var(--glass-bg-light)] active:scale-95",
-        "glass-strong":
-          "border-[var(--glass-border-medium)] bg-[var(--glass-bg-medium)] hover:border-[var(--glass-border-strong)] hover:bg-[var(--glass-bg-heavy)] active:scale-95",
         solid:
           "border-transparent bg-primary text-primary-foreground hover:opacity-90 active:scale-95",
         ghost:
-          "border-transparent bg-transparent hover:bg-[var(--glass-bg-subtle)] active:scale-95",
+          "border-transparent bg-transparent hover:bg-gray-100 active:scale-95 dark:hover:bg-gray-800",
         outline:
-          "border-[var(--glass-border-medium)] bg-transparent hover:bg-[var(--glass-bg-subtle)]",
+          "border-gray-300 bg-transparent hover:bg-gray-50 dark:border-gray-600 dark:hover:bg-gray-900",
+        default:
+          "border-gray-300 bg-white hover:bg-gray-50 active:scale-95 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700",
       },
       size: {
         sm: "h-8 rounded-md px-3 text-sm",
@@ -28,16 +24,10 @@ const buttonVariants = cva(
         "icon-sm": "h-8 w-8 rounded-md",
         "icon-lg": "h-12 w-12 rounded-lg",
       },
-      blur: {
-        subtle: "backdrop-blur-[var(--glass-blur-subtle)]",
-        medium: "backdrop-blur-[var(--glass-blur-medium)]",
-        strong: "backdrop-blur-[var(--glass-blur-strong)]",
-      },
     },
     defaultVariants: {
-      variant: "glass",
+      variant: "default",
       size: "md",
-      blur: "medium",
     },
   }
 );
@@ -51,7 +41,6 @@ export function GlassButton(props: GlassButtonProps) {
     "class",
     "variant",
     "size",
-    "blur",
     "children",
   ]);
 
@@ -61,7 +50,6 @@ export function GlassButton(props: GlassButtonProps) {
         buttonVariants({
           variant: local.variant,
           size: local.size,
-          blur: local.blur,
         }),
         local.class
       )}

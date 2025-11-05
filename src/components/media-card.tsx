@@ -402,7 +402,7 @@ export function MainPageEpisodeCard(props: EpisodeCardProps) {
           {/* Episode Image */}
           <Show
             fallback={
-              <div class="flex h-full w-full items-center justify-center bg-linear-to-br from-(--glass-bg-medium) to-(--glass-bg-subtle)">
+              <div class="flex h-full w-full items-center justify-center bg-linear-to-br from-[var(--glass-bg-medium)] to-[var(--glass-bg-subtle)]">
                 <span class="text-4xl opacity-30">
                   {item.data.Name?.charAt(0)}
                 </span>

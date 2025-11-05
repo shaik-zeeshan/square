@@ -50,7 +50,7 @@ export const Dropdown = (
 
   return (
     <DropdownProvider id={id} {...defaultProps}>
-      <div class="relative flex h-fit items-center" id={id}>
+      <div class="relative inline-block h-fit" id={id}>
         {defaultProps.children}
       </div>
     </DropdownProvider>
@@ -70,7 +70,10 @@ export const DropdownTrigger = (props: ComponentProps<"button">) => {
 
   return (
     <button
-      class={cn("dropdown-trigger", classNames)}
+      class={cn(
+        "dropdown-trigger inline-flex items-center justify-center rounded-md border border-gray-200 bg-white px-3 py-2 font-medium text-sm transition-all duration-200 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 dark:border-gray-700 dark:bg-gray-800 dark:focus:ring-offset-gray-800 dark:hover:bg-gray-700",
+        classNames
+      )}
       id={`btn-${ctx.state.id}`}
       onClick={() => {
         ctx?.onOpenChange(!ctx.state.open);
@@ -113,7 +116,10 @@ export const DropdownPortal = (props: ComponentProps<"div">) => {
         ref={portalRef}
       >
         <div
-          class={cn("max-h-96 overflow-y-auto rounded p-5", classNames)}
+          class={cn(
+            "fade-in-0 zoom-in-95 max-h-96 animate-in overflow-y-auto rounded-lg border border-gray-200 bg-white p-2 shadow-lg duration-200 dark:border-gray-700 dark:bg-gray-800",
+            classNames
+          )}
           style={
             {
               "position-anchor": `--pop-${ctx.state.id}`,
