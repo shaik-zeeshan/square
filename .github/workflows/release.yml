@@ -98,10 +98,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # Skip code signing and notarization for CI builds
           APPLE_SIGNING_IDENTITY: "-"
-          APPLE_CERTIFICATE: "-"
-          APPLE_ID: "-"
-          APPLE_PASSWORD: "-"
-          APPLE_TEAM_ID: "-"
         with:
           tagName: v__VERSION__
           releaseName: "v__VERSION__"
