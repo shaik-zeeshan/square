@@ -38,8 +38,8 @@ jobs:
         include:
           - platform: "macos-latest"
             args: "--target aarch64-apple-darwin"
-          - platform: "macos-latest"
-            args: "--target x86_64-apple-darwin"
+          # - platform: "macos-latest"
+          #   args: "--target x86_64-apple-darwin"
 
     runs-on: ${{ matrix.platform }}
     steps:
@@ -96,11 +96,12 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Skip code signing and notarization for CI builds
           APPLE_SIGNING_IDENTITY: "-"
           APPLE_CERTIFICATE: "-"
-          APPLE_ID: ""
-          APPLE_PASSWORD: ""
-          APPLE_TEAM_ID: ""
+          APPLE_ID: "-"
+          APPLE_PASSWORD: "-"
+          APPLE_TEAM_ID: "-"
         with:
           tagName: v__VERSION__
           releaseName: "v__VERSION__"
