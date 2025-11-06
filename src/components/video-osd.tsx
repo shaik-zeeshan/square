@@ -11,6 +11,10 @@ import { createStore, produce } from "solid-js/store";
 import { useVideoContext } from "~/contexts/video-context";
 import Pause from "~icons/lucide/pause";
 import Play from "~icons/lucide/play";
+import Volume from "~icons/lucide/volume";
+import Volume1 from "~icons/lucide/volume-1";
+import Volume2 from "~icons/lucide/volume-2";
+import VolumeX from "~icons/lucide/volume-x";
 
 export type OSD = {
   property: string | null;
@@ -68,6 +72,58 @@ export const ShowOSD = () => {
             state.message = pause ? "Video Paused" : "Video Playing";
             state.property = "pause";
             state.icon = pause ? Pause : Play;
+          })
+        );
+
+        setShow(true);
+      },
+      {
+        defer: true,
+      }
+    )
+  );
+
+  createEffect(
+    on(
+      () => state.volume,
+      (volume) => {
+        if (!volume) {
+          return;
+        }
+        setOSD(
+          produce((state) => {
+            state.message = `Volume: ${Math.round(volume)}%`;
+            state.property = "volume";
+            if (volume > 80) {
+              state.icon = Volume2;
+            } else if (volume > 40) {
+              state.icon = Volume1;
+            } else {
+              state.icon = Volume;
+            }
+          })
+        );
+
+        setShow(true);
+      },
+      {
+        defer: true,
+      }
+    )
+  );
+
+  createEffect(
+    on(
+      () => state.isMuted,
+      (muted) => {
+        if (!muted) {
+          return;
+        }
+        setOSD(
+          produce((state) => {
+            state.message = "Muted";
+            state.property = "muted";
+            state.icon = VolumeX;
           })
         );
 

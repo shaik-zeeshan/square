@@ -29,9 +29,9 @@ const sliderFillVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-blue-500",
-        subtle: "bg-blue-400",
-        strong: "bg-blue-600",
+        default: "bg-orange-400",
+        subtle: "bg-orange-400",
+        strong: "bg-orange-500",
       },
     },
     defaultVariants: {

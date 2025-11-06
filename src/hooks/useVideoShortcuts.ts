@@ -1,19 +1,3 @@
-// import { createEventListener } from "@solid-primitives/event-listener";
-// import { useVideoContext } from "~/contexts/video-context";
-// import { match } from "~/lib/utils";
-//
-// export const useVideoShortcuts = () => {
-//   const [, setState] = useVideoContext();
-//
-//   createEventListener(window, "keydown", (e) =>
-//     match(e.key, {
-//       " ": () => {
-//         setState("pause", (value) => !value);
-//       },
-//     })
-//   );
-// };
-//
 import { createEventListener } from "@solid-primitives/event-listener";
 import { useNavigate } from "@solidjs/router";
 import type { SetStoreFunction } from "solid-js/store";
@@ -95,7 +79,8 @@ const executeCommand = async (
     adjustVolume: () =>
       setState("volume", (value) => {
         const newVol = value + Number(params?.by);
-        return newVol <= 200 ? newVol : value;
+        const clampedValue = Math.floor(Math.min(Math.max(newVol, 0), 100));
+        return clampedValue;
       }),
 
     // Seek

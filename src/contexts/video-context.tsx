@@ -1,9 +1,11 @@
 import { createContextProvider } from "@solid-primitives/context";
-import { createEventListener } from "@solid-primitives/event-listener";
-import { makePersisted } from "@solid-primitives/storage";
-import { createStore } from "solid-js/store";
+import {
+  createStore,
+  reconcile,
+  type SetStoreFunction,
+  unwrap,
+} from "solid-js/store";
 import type { Track } from "~/lib/tauri";
-import { safeJsonParse } from "~/lib/utils";
 
 export type VideoPlayback = {
   pause: boolean;
@@ -34,21 +36,31 @@ export const DEFAULT_VIDEO_PLAYBACK = () => ({
 const VIDEO_PLAYBACK_KEY = "video_playback_store";
 
 const createVideoStore = (defaultState: VideoPlayback) => {
-  const [store, setStore] = makePersisted(
-    createStore<VideoPlayback>(defaultState),
-    {
-      name: VIDEO_PLAYBACK_KEY,
-    }
-  );
+  const [store, setStore] = createStore<VideoPlayback>(defaultState);
+  const channel = new BroadcastChannel(VIDEO_PLAYBACK_KEY);
+  const tabId = crypto.randomUUID();
 
-  // Sync updates across windows (e.g., main and PiP) using the storage event
-  createEventListener(window, "storage", (event) => {
-    if (event.key === VIDEO_PLAYBACK_KEY) {
-      setStore(safeJsonParse(event.newValue, DEFAULT_VIDEO_PLAYBACK()));
+  channel.onmessage = (event: MessageEvent) => {
+    if (event.data.id === tabId) {
+      return;
     }
-  });
 
-  return [store, setStore] as const;
+    setStore(reconcile(JSON.parse(event.data.payload)));
+  };
+
+  // @ts-expect-error: wrapper
+  const updateStore: SetStoreFunction<VideoPlayback> = (
+    ...args: Parameters<SetStoreFunction<VideoPlayback>>
+  ) => {
+    setStore.apply(this, args);
+    channel.postMessage({
+      type: "state-update",
+      id: tabId,
+      payload: JSON.stringify(unwrap(store)),
+    });
+  };
+
+  return [store, updateStore] as const;
 };
 
 const [VideoContextProvider, useVideoInner] = createContextProvider(() =>

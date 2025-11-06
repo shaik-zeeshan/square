@@ -1,5 +1,4 @@
 import { createEventListener } from "@solid-primitives/event-listener";
-import { useParams } from "@solidjs/router";
 import {
   animate,
   createDraggable,
@@ -18,6 +17,7 @@ import {
   Show,
   Switch,
 } from "solid-js";
+import { GlassVolumeSlider } from "~/components/ui/glass-volume-slider";
 import { Select } from "~/components/ui/select";
 import { useVideoContext } from "~/contexts/video-context";
 import { commands, events } from "~/lib/tauri";
@@ -25,6 +25,10 @@ import AudioLines from "~icons/lucide/audio-lines";
 import Pause from "~icons/lucide/pause";
 import Play from "~icons/lucide/play";
 import Subtitles from "~icons/lucide/subtitles";
+import Volume from "~icons/lucide/volume";
+import Volume1 from "~icons/lucide/volume-1";
+import Volume2 from "~icons/lucide/volume-2";
+import VolumeX from "~icons/lucide/volume-x";
 
 const ANIMATION_DURATION = Duration.toMillis("200 millis");
 const SHOW_CONTROLS_DURATION = Duration.toMillis("2 seconds");
@@ -52,7 +56,6 @@ function formatTime(seconds: number) {
 }
 
 export const VideoProgressBar = () => {
-  const params = useParams();
   let containerRef!: HTMLDivElement;
   let drag!: Draggable;
 
@@ -93,7 +96,7 @@ export const VideoProgressBar = () => {
 
       self?.add("hideControls", () => {
         animate(controlsEl, {
-          y: 100,
+          y: 200,
           transformOrigin: "50% 100%", // origin at bottom
           duration: ANIMATION_DURATION,
         });
@@ -329,7 +332,7 @@ export const VideoProgressBar = () => {
           />
         </div>
         <div class="flex items-center justify-between px-5 text-white">
-          <div class="left">
+          <div class="left flex items-center gap-3">
             <button onClick={() => setState("pause", (value) => !value)}>
               <Show when={state.pause}>
                 <Play />
@@ -338,6 +341,51 @@ export const VideoProgressBar = () => {
                 <Pause />
               </Show>
             </button>
+            <div class="flex items-center gap-2">
+              <button
+                class="p-1"
+                onClick={() => setState("isMuted", (value) => !value)}
+              >
+                <Show when={state.isMuted || state.volume === 0}>
+                  <VolumeX class="h-5 w-5" />
+                </Show>
+                <Show
+                  when={
+                    !state.isMuted && state.volume > 0 && state.volume <= 33
+                  }
+                >
+                  <Volume class="h-5 w-5" />
+                </Show>
+                <Show
+                  when={
+                    !state.isMuted && state.volume > 33 && state.volume <= 66
+                  }
+                >
+                  <Volume1 class="h-5 w-5" />
+                </Show>
+                <Show when={!state.isMuted && state.volume > 66}>
+                  <Volume2 class="h-5 w-5" />
+                </Show>
+              </button>
+              <div class="w-24">
+                <GlassVolumeSlider
+                  maxVolume={100}
+                  onChange={async (value) => {
+                    const clampedValue = Math.floor(
+                      Math.min(Math.max(value, 0), 100)
+                    );
+                    setState("volume", () => clampedValue);
+                    setState("isMuted", () => clampedValue === 0);
+                    await events.requestVolumeEvent.emit({
+                      percentage: clampedValue,
+                    });
+                  }}
+                  size="md"
+                  value={state.isMuted ? 0 : state.volume}
+                  variant="subtle"
+                />
+              </div>
+            </div>
           </div>
           <div class="right flex items-center gap-10">
             <Show when={state.audioTracks.length}>
@@ -385,7 +433,6 @@ export const VideoProgressBar = () => {
 };
 
 const PIPButton = () => {
-  const params = useParams();
   const [state, setState] = useVideoContext();
 
   const showPipWindow = async () => {

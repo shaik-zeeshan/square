@@ -150,23 +150,10 @@ export const useVideo = (id: string) => {
     setState("pause", () => payload.pause);
   });
 
-  let lastProgressReportTime = 0;
-
-  createTauriListener("playBackTimeChange", async ({ payload }) => {
+  createTauriListener("playBackTimeChange", ({ payload }) => {
     // change playback state
     const time = Number(payload.position) ?? 0;
     setState("currentTime", () => time);
-    // TODO: need to report progress to jellyfin
-    const now = Date.now();
-    if (now - lastProgressReportTime >= 3000 && jf.api) {
-      lastProgressReportTime = now;
-
-      await progressHelper.progress(
-        playSessionId,
-        item.data?.Id as string,
-        time
-      );
-    }
   });
 
   createTauriListener("speedEventChange", ({ payload }) => {
@@ -247,6 +234,27 @@ export const useVideo = (id: string) => {
     )
   );
 
+  let lastProgressReportTime = 0;
+
+  createEffect(
+    on(
+      () => state.currentTime,
+      async (time) => {
+        const now = Date.now();
+        if (now - lastProgressReportTime >= 3000 && jf.api) {
+          lastProgressReportTime = now;
+
+          await progressHelper.progress(
+            playSessionId,
+            item.data?.Id as string,
+            time
+          );
+        }
+      },
+      { defer: true }
+    )
+  );
+
   createEffect(
     on(
       () => state.isMuted,
@@ -263,6 +271,11 @@ export const useVideo = (id: string) => {
     on(
       () => state.volume,
       async (volume) => {
+        if (!volume) {
+          setState("isMuted", () => true);
+          return;
+        }
+
         await events.requestVolumeEvent.emit({ percentage: volume });
       },
       { defer: true }
