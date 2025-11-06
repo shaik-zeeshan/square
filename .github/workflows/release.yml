@@ -26,11 +26,22 @@ jobs:
             echo "📝 Regular commit detected"
           fi
 
-  # Build for macOS
-  build-macos:
+  # Build and release using Tauri action
+  publish-tauri:
     needs: check-release
     if: needs.check-release.outputs.is-release == 'true'
-    runs-on: macos-latest
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "macos-latest"
+            args: "--target aarch64-apple-darwin"
+          # - platform: "macos-latest"
+          #   args: "--target x86_64-apple-darwin"
+
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -43,7 +54,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
 
       - name: Cache Rust dependencies
         uses: actions/cache@v4
@@ -68,103 +79,30 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          # Install Homebrew dependencies
+          # Install Homebrew dependencies (required for MPV dynamic linking)
           brew install git pkg-config cmake nasm yasm autoconf automake libtool meson ninja curl
 
       - name: Install Bun dependencies
         run: bun install
 
-      - name: Build application
-        run: make ci-build
-        env:
-          CI: false
-
-      - name: Extract app name and version
-        id: app-info
+      - name: Setup dynamic libraries and build
         run: |
-          # Extract app name from tauri.conf.json
-          APP_NAME=$(grep '"productName"' src-tauri/tauri.conf.json | cut -d'"' -f4)
-          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
-          echo "Extracted app name: $APP_NAME"
-          
-          # Extract version from Cargo.toml
-          VERSION=$(grep '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Extracted version: $VERSION"
+          # Use Makefile targets for dynamic library setup and building
+          make download-dylibs
+          make sign-dylibs
+          bun run build
 
-      - name: Rename and Upload DMG file
-        run: |
-          # Find the generated DMG file (using the app name from tauri config)
-          DMG_FILE=$(find src-tauri/target/release/bundle/dmg -name "${{ steps.app-info.outputs.app_name }}_*_aarch64.dmg" | head -1)
-          if [ -n "$DMG_FILE" ]; then
-            # Create new filename with app name and version
-            NEW_NAME="${{ steps.app-info.outputs.app_name }}_${{ steps.app-info.outputs.version }}_macos-aarch64.dmg"
-            NEW_PATH="src-tauri/target/release/bundle/dmg/$NEW_NAME"
-            cp "$DMG_FILE" "$NEW_PATH"
-            echo "Renamed DMG to: $NEW_NAME"
-            echo "DMG file ready for upload: $NEW_PATH"
-          else
-            echo "No DMG file found!"
-            exit 1
-          fi
-
-      - name: Upload DMG artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ steps.app-info.outputs.app_name }}-macos-dmg
-          path: src-tauri/target/release/bundle/dmg/${{ steps.app-info.outputs.app_name }}_${{ steps.app-info.outputs.version }}_macos-aarch64.dmg
-          retention-days: 30
-
-
-
-  # Create GitHub Release
-  create-release:
-    needs: [check-release, build-macos]
-    if: needs.check-release.outputs.is-release == 'true'
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Extract app name and version
-        id: app-info
-        run: |
-          # Extract app name from tauri.conf.json
-          APP_NAME=$(grep '"productName"' src-tauri/tauri.conf.json | cut -d'"' -f4)
-          echo "app_name=$APP_NAME" >> $GITHUB_OUTPUT
-          echo "Extracted app name: $APP_NAME"
-          
-          # Extract version from Cargo.toml
-          VERSION=$(grep '^version = ' src-tauri/Cargo.toml | cut -d'"' -f2)
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "Extracted version: $VERSION"
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v5
-        with:
-          path: ./artifacts
-
-      - name: Generate Changelog
-        run: |
-          # Install conventional changelog
-          npm install -g conventional-changelog-cli
-          
-          # Generate changelog from commits
-          conventional-changelog -p angular -i CHANGELOG.md -s -r 0
-          
-          # Show the generated changelog
-          cat CHANGELOG.md
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v${{ steps.app-info.outputs.version }}
-          name: v${{ steps.app-info.outputs.version }}
-          body_path: CHANGELOG.md
-          files: |
-            artifacts/${{ steps.app-info.outputs.app_name }}_${{ steps.app-info.outputs.version }}_macos-aarch64.dmg
-          draft: false
-          prerelease: false
+      - name: Build and release with Tauri action
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Skip code signing and notarization for CI builds
+          APPLE_SIGNING_IDENTITY: "-"
+        with:
+          tagName: v__VERSION__
+          releaseName: "v__VERSION__"
+          releaseBody: "See the assets to download this version and install."
+          releaseDraft: false
+          prerelease: false
+          args: ${{ matrix.args }} --bundles dmg
 
