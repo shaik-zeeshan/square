@@ -105,5 +105,5 @@ jobs:
           includeUpdaterJson: true
           releaseDraft: false
           prerelease: false
-          args: ${{ matrix.args }} --bundles dmg
+          args: ${{ matrix.args }}
 
