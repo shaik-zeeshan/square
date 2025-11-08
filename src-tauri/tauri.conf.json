@@ -30,6 +30,7 @@
       "icons/icon.ico"
     ],
     "resources": [],
+    "createUpdaterArtifacts": true,
     "macOS": {
       "frameworks": [
         "../lib/dylib/libarchive.13.dylib",
