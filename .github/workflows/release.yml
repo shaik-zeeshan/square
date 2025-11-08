@@ -102,8 +102,7 @@ jobs:
           tagName: v__VERSION__
           releaseName: "v__VERSION__"
           releaseBody: "See the assets to download this version and install."
-          includeDebug: ${{ ( ! startsWith(github.ref, 'refs/tags/v') ) }}
-          includeRelease: ${{ ( startsWith(github.ref, 'refs/tags/v') ) }}
+          includeUpdaterJson: true
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }} --bundles dmg
