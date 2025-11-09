@@ -33,3 +33,6 @@ export class MutationError extends Data.TaggedError("MutationError")<{
   mutation: string;
   message: string;
 }> {}
+
+// biome-ignore lint/complexity/noBannedTypes: Tagged Error
+export class NoUpdateFound extends Data.TaggedError("NoUpdateFound")<{}> {}

@@ -63,7 +63,7 @@ export function UserDropdown(props: UserDropdownProps) {
         </button>
 
         <Show when={isUserDropdownOpen()}>
-          <div class="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-700 dark:bg-gray-800">
+          <div class="absolute right-0 z-50 mt-2 w-64 overflow-hidden rounded-lg border shadow-lg">
             {/* User Info Section */}
             <div class="border-border border-b px-4 py-3">
               <Show

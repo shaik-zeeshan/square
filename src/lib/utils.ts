@@ -67,7 +67,7 @@ export const match = <T extends string, R>(
       }>
 ): Promise<R> | Promise<undefined> | R | undefined => {
   if (!Array.isArray(patterns)) {
-    return patterns[value]?.();
+    return patterns[value as string]?.();
   }
 
   return patterns.find((p) => p.match(value))?.handler();

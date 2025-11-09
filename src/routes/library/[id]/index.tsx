@@ -33,7 +33,7 @@ export default function Page(props: RouteSectionProps) {
             breadcrumbs={[
               {
                 label: "Libraries",
-                icon: <LibraryIcon class="h-4 w-4 flex-shrink-0 opacity-70" />,
+                icon: <LibraryIcon class="h-4 w-4 shrink-0 opacity-70" />,
               },
             ]}
             class="relative z-50"
@@ -51,7 +51,7 @@ export default function Page(props: RouteSectionProps) {
             breadcrumbs={[
               {
                 label: "Libraries",
-                icon: <LibraryIcon class="h-4 w-4 flex-shrink-0 opacity-70" />,
+                icon: <LibraryIcon class="h-4 w-4 shrink-0 opacity-70" />,
               },
             ]}
             class="relative z-50"

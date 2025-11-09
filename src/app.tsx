@@ -13,6 +13,7 @@ import { useOverlayScrollbars } from "./hooks/useOverlayScrollbars";
 import { commands } from "./lib/tauri";
 
 import "./app.css";
+import { CheckForUpdate } from "~/components/update-component";
 import { VideoContextProvider } from "./contexts/video-context";
 import { queryClient } from "./effect/tanstack/query";
 
@@ -35,6 +36,7 @@ const AppContainer = (props: { children: JSX.Element }) => {
         data-tauri-drag-region
       />
       {props.children}
+      <CheckForUpdate />
     </div>
   );
 };
@@ -59,7 +61,7 @@ export default function App() {
                   </AppContainer>
                   <Toaster />
                   <SolidQueryDevtools
-                    buttonPosition="top-right"
+                    buttonPosition="bottom-left"
                     initialIsOpen={false}
                     position="top"
                   />

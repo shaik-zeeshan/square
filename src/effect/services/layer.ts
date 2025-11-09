@@ -1,4 +1,5 @@
 import { Layer, Logger, type ManagedRuntime } from "effect";
+import { UpdateSerivceLayer } from "~/effect/services/update/serives";
 import { AuthServiceLayer } from "./auth";
 import { JellyfinClientServiceLayer } from "./jellyfin/client";
 import { JellyfinServiceLayer } from "./jellyfin/service";
@@ -10,7 +11,8 @@ export const LiveLayer = Layer.mergeAll(
   ServerStorageServiceLayer,
   AuthServiceLayer,
   JellyfinClientServiceLayer,
-  JellyfinServiceLayer
+  JellyfinServiceLayer,
+  UpdateSerivceLayer
 ).pipe(Layer.provide(Logger.pretty));
 
 export type LiveManagedError = Layer.Layer.Error<typeof LiveLayer>;

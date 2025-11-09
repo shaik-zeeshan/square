@@ -76,14 +76,14 @@ export default function SettingsPage() {
           <Show when={activeTab() === "profile"}>
             <QueryBoundary
               loadingFallback={
-                <div class="rounded-lg border border-gray-200 bg-white p-8 text-center shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <div class="rounded-lg border p-8 text-center shadow-lg">
                   <div class="animate-pulse">Loading profile...</div>
                 </div>
               }
               query={userDetails}
             >
               {(data) => (
-                <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+                <div class="rounded-lg p-6 shadow-lg">
                   <h2 class="mb-6 flex items-center gap-2 font-semibold text-xl">
                     <UserIcon class="h-5 w-5" />
                     User Profile
@@ -160,7 +160,7 @@ export default function SettingsPage() {
           </Show>
 
           <Show when={activeTab() === "server"}>
-            <div class="rounded-lg border border-gray-200 bg-white p-6 shadow-lg dark:border-gray-700 dark:bg-gray-800">
+            <div class="rounded-lg bg-white p-6 shadow-lg">
               <h2 class="mb-6 flex items-center gap-2 font-semibold text-xl">
                 <Server class="h-5 w-5" />
                 Server Information
