@@ -31,7 +31,7 @@ export const CheckForUpdate = () => {
   }));
 
   return (
-    <Show when={updateExists}>
+    <Show when={updateExists.data}>
       <Switch>
         <Match when={state().stage === "idle"}>
           <button
