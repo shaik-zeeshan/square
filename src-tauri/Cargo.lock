@@ -5611,16 +5611,16 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-stronghold"
-version = "2.3.0"
+version = "2.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01f6138bd2c7613c946b75f8b9739d1e2486a3c68bbf4189ac7b175ee0c63abf"
+checksum = "6307f47fcf548531743f6f12dbde075014bd8a22c5f8c14201e571de52cbd057"
 dependencies = [
  "hex",
  "iota-crypto",
  "iota_stronghold",
  "log",
- "rand_chacha 0.3.1",
- "rand_core 0.6.4",
+ "rand_chacha 0.9.0",
+ "rand_core 0.9.3",
  "rust-argon2 2.1.0",
  "serde",
  "serde_json",
