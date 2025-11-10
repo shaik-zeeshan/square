@@ -44,7 +44,7 @@ tauri-plugin-http = { version = "2" ,features = ["default"] }
 # Video Player
 glutin = "0.32"
 gl = "0.14"
-cidre = "0.11.3"
+cidre = "0.11.4"
 tauri-plugin-opener = "2"
 tauri-plugin-stronghold = "2"
 keyring = { version = "3.6", features = ["apple-native", "windows-native", "sync-secret-service"] }
