@@ -93,7 +93,7 @@ jobs:
           bun run build
 
       - name: Build and release with Tauri action
-        uses: tauri-apps/tauri-action@v0.5.24
+        uses: tauri-apps/tauri-action@v0.6.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
