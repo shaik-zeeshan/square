@@ -74,13 +74,13 @@ export const VideoProgressBar = () => {
         const pixel = timeToPixel(
           value,
           state.duration,
-          containerRef.offsetWidth
+          containerRef.offsetWidth,
         );
 
         drag.setX(Number.isNaN(pixel) ? 0 : pixel);
       },
-      { defer: true }
-    )
+      { defer: true },
+    ),
   );
 
   createEffect(() => {
@@ -166,8 +166,8 @@ export const VideoProgressBar = () => {
         }, SHOW_CONTROLS_DURATION);
 
         onCleanup(() => clearTimeout(timeout));
-      }
-    )
+      },
+    ),
   );
 
   createEffect(
@@ -189,8 +189,8 @@ export const VideoProgressBar = () => {
         }, SHOW_CONTROLS_DURATION);
 
         onCleanup(() => clearTimeout(timeout));
-      }
-    )
+      },
+    ),
   );
 
   onMount(() => {
@@ -261,7 +261,7 @@ export const VideoProgressBar = () => {
             const newTime = pixelToTime(
               offsetX,
               state.duration,
-              e.currentTarget.offsetWidth
+              e.currentTarget.offsetWidth,
             );
 
             await events.requestSeekEvent.emit({
@@ -287,7 +287,7 @@ export const VideoProgressBar = () => {
                 width: `${timeToPixel(
                   state.currentTime,
                   state.duration,
-                  containerRef.offsetWidth
+                  containerRef.offsetWidth,
                 )}px`,
               }}
             />
@@ -297,7 +297,7 @@ export const VideoProgressBar = () => {
                 width: `${timeToPixel(
                   state.cachedTime,
                   state.duration,
-                  containerRef.offsetWidth
+                  containerRef.offsetWidth,
                 )}px`,
               }}
             />
@@ -317,7 +317,7 @@ export const VideoProgressBar = () => {
                   const newTime = pixelToTime(
                     value.x,
                     state.duration,
-                    value.$container.offsetWidth
+                    value.$container.offsetWidth,
                   );
 
                   setState("currentTime", () => newTime);
@@ -372,7 +372,7 @@ export const VideoProgressBar = () => {
                   maxVolume={100}
                   onChange={async (value) => {
                     const clampedValue = Math.floor(
-                      Math.min(Math.max(value, 0), 100)
+                      Math.min(Math.max(value, 0), 100),
                     );
                     setState("volume", () => clampedValue);
                     setState("isMuted", () => clampedValue === 0);

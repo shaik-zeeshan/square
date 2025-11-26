@@ -24,8 +24,6 @@ export default function Page(props: RouteSectionProps) {
 
   return (
     <section class="relative flex min-h-screen flex-col">
-      {/* Background with enhanced overlay */}
-
       {/* Navigation Bar */}
       <QueryBoundary
         loadingFallback={

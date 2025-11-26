@@ -460,7 +460,6 @@ export default function Page(props: RouteSectionProps) {
           class="fade-in slide-in-from-bottom-4 fixed right-8 bottom-8 z-50 animate-in text-white"
           onClick={scrollToTop}
           size="icon-lg"
-          variant="glass"
         >
           <ArrowUp class="h-6 w-6" />
         </GlassButton>

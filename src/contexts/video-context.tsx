@@ -64,7 +64,7 @@ const createVideoStore = (defaultState: VideoPlayback) => {
 };
 
 const [VideoContextProvider, useVideoInner] = createContextProvider(() =>
-  createVideoStore(DEFAULT_VIDEO_PLAYBACK())
+  createVideoStore(DEFAULT_VIDEO_PLAYBACK()),
 );
 
 export const useVideoContext = () => {
