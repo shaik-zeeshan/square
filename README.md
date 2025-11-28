@@ -7,7 +7,7 @@ A modern Jellyfin client built with Tauri, featuring high-performance MPV integr
 - [x] jellyfin integration
 - [x] MPV player integration
 - [x] PIP (Picture-in-Picture)
-- [ ] using Effect-ts
-- [ ] Improve Video Player and PIP
+- [x] using Effect-ts
+- [ ] Improve Video Player and PIP (WIP)
 - [ ] Integrate Sonarr, Radarr
 - [ ] Other....
