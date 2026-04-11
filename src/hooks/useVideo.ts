@@ -118,7 +118,9 @@ export const useVideo = (id: string) => {
       ),
 
     // enabled: when the user reaches last 15% of video
-    enabled: () => getPercentage(state.currentTime, state.duration) > 80,
+    enabled: () =>
+      Boolean(item.data?.Id) &&
+      getPercentage(state.currentTime, state.duration) > 80,
   }));
 
   /*

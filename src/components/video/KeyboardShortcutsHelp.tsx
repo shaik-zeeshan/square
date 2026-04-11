@@ -14,7 +14,7 @@ import {
   VolumeX,
   X,
 } from "lucide-solid";
-import { createSignal, For, onCleanup, onMount, Show } from "solid-js";
+import { createEffect, createSignal, For, onCleanup, onMount, Show } from "solid-js";
 import {
   animationPresets,
   createAnimeInstance,
@@ -132,6 +132,24 @@ export function KeyboardShortcutsHelp(props: KeyboardShortcutsHelpProps) {
     },
   ];
 
+  // Track the element that held focus before the overlay opened so we can
+  // restore it when the overlay closes.
+  let previouslyFocused: HTMLElement | null = null;
+
+  // Focus the overlay whenever it becomes visible so that keyboard events
+  // (Esc, ?, I) are handled by the overlay's own onKeyDown handler instead of
+  // falling through to the global shortcut listener.
+  createEffect(() => {
+    if (props.visible) {
+      previouslyFocused = document.activeElement as HTMLElement | null;
+      // Wait one tick so the DOM is mounted before focusing
+      setTimeout(() => overlayRef?.focus(), 0);
+    } else if (previouslyFocused) {
+      previouslyFocused.focus();
+      previouslyFocused = null;
+    }
+  });
+
   onMount(() => {
     if (prefersReducedMotion()) {
       return;
@@ -197,7 +215,11 @@ export function KeyboardShortcutsHelp(props: KeyboardShortcutsHelpProps) {
   };
 
   const handleKeyDown = (e: KeyboardEvent) => {
+    // Stop all key events from reaching the global shortcut listener while
+    // the overlay is open.
+    e.stopPropagation();
     if (e.key === "Escape" || e.key === "?" || e.key === "i" || e.key === "I") {
+      e.preventDefault();
       props.onClose();
     }
   };

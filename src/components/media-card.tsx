@@ -76,15 +76,15 @@ export function SeriesCard(props: SeriesCardProps) {
               item.data?.UserData?.UnplayedItemCount > 0
             }
           >
-            <div class="absolute top-3 right-3 z-10 rounded-full border-2 border-white/30 bg-blue-500 px-2.5 py-1.5 font-bold text-white text-xs shadow-lg">
+            <div class="absolute top-2 right-2 z-10 rounded-md border border-amber-400/30 bg-amber-400/20 px-2 py-0.5 font-bold text-amber-200 text-xs shadow-lg backdrop-blur-sm">
               {item.data?.UserData?.UnplayedItemCount}
             </div>
           </Show>
 
           {/* Played Indicator */}
           <Show when={item.data?.UserData?.Played}>
-            <div class="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-full border border-white/20 bg-green-500/90 px-2.5 py-1.5 font-semibold text-white text-xs shadow-lg">
-              <Check class="h-3 w-3" />
+            <div class="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-2 py-0.5 font-medium text-white/70 text-xs backdrop-blur-sm">
+              <Check class="h-3 w-3 text-emerald-400" />
               <span>Watched</span>
             </div>
           </Show>
@@ -209,7 +209,7 @@ export function EpisodeCard(props: EpisodeCardProps) {
       class="group block"
       href={
         item.data?.LocationType === "FileSystem"
-          ? `/video/${item.data?.Id}/new`
+          ? `/video/${item.data?.Id}`
           : ""
       }
       role={item.data?.LocationType === "FileSystem" ? "link" : "button"}
@@ -243,9 +243,9 @@ export function EpisodeCard(props: EpisodeCardProps) {
 
           {/* Progress bar */}
           <Show when={isInProgress()}>
-            <div class="absolute right-0 bottom-0 left-0 z-10 h-1 bg-white/20">
+            <div class="absolute right-0 bottom-0 left-0 z-10 h-[3px] bg-black/40">
               <div
-                class="h-full bg-blue-500 transition-all duration-300"
+                class="h-full rounded-r-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)] transition-all duration-300"
                 style={{ width: `${playbackProgress()}%` }}
               />
             </div>
@@ -262,15 +262,15 @@ export function EpisodeCard(props: EpisodeCardProps) {
 
           {/* Runtime badge */}
           <Show when={runtimeMinutes}>
-            <div class="absolute right-2 bottom-2 z-10 rounded-md bg-black/80 px-2 py-0.5 font-medium text-white text-xs backdrop-blur-sm">
+            <div class="absolute right-2 bottom-2 z-10 rounded-md bg-black/70 px-1.5 py-0.5 font-medium text-white/80 text-xs backdrop-blur-sm">
               {formatRuntime(runtimeMinutes)}
             </div>
           </Show>
 
           {/* Watched overlay */}
           <Show when={isWatched()}>
-            <div class="absolute top-2 right-2 z-10 rounded-full border border-white/30 bg-green-500/90 p-1">
-              <Check class="h-3.5 w-3.5 text-white" />
+            <div class="absolute top-2 left-2 z-10 flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-2 py-0.5 font-medium text-white/70 text-xs backdrop-blur-sm">
+              <Check class="h-3 w-3 text-emerald-400" />
             </div>
           </Show>
         </div>
@@ -393,7 +393,7 @@ export function MainPageEpisodeCard(props: EpisodeCardProps) {
   );
 
   return (
-    <a class="group block" href={`/video/${item.data.Id}/new`}>
+    <a class="group block" href={`/video/${item.data.Id}`}>
       <GlassCard
         class="h-full overflow-hidden shadow-(--glass-shadow-md) transition-all duration-300 group-hover:scale-[1.02] group-hover:shadow-(--glass-shadow-lg)"
         preset="card"
@@ -430,9 +430,9 @@ export function MainPageEpisodeCard(props: EpisodeCardProps) {
 
           {/* Progress bar */}
           <Show when={isInProgress()}>
-            <div class="absolute right-0 bottom-0 left-0 h-1 bg-black/50">
+            <div class="absolute right-0 bottom-0 left-0 h-[3px] bg-black/40">
               <div
-                class="h-full bg-blue-500 transition-all duration-300"
+                class="h-full rounded-r-full bg-amber-400 shadow-[0_0_6px_rgba(251,191,36,0.5)] transition-all duration-300"
                 style={{ width: `${playbackProgress()}%` }}
               />
             </div>
@@ -440,15 +440,15 @@ export function MainPageEpisodeCard(props: EpisodeCardProps) {
 
           {/* Episode number badge */}
           <Show when={item.data.IndexNumber}>
-            <div class="absolute top-3 left-3 z-10 rounded-full border border-white/30 bg-blue-500/90 px-2.5 py-1 font-bold text-sm text-white shadow-lg">
+            <div class="absolute top-2 left-2 z-10 rounded-md border border-white/20 bg-black/60 px-2 py-0.5 font-semibold text-white/80 text-xs backdrop-blur-sm">
               E{item.data.IndexNumber}
             </div>
           </Show>
 
           {/* Watched indicator */}
           <Show when={isWatched()}>
-            <div class="absolute top-3 right-3 z-10 flex items-center gap-1 rounded-full border border-white/20 bg-green-500/90 px-2.5 py-1.5 font-semibold text-white text-xs shadow-lg">
-              <Check class="h-3 w-3" />
+            <div class="absolute top-2 right-2 z-10 flex items-center gap-1 rounded-md border border-white/20 bg-black/60 px-2 py-0.5 font-medium text-white/70 text-xs backdrop-blur-sm">
+              <Check class="h-3 w-3 text-emerald-400" />
               <span>Watched</span>
             </div>
           </Show>

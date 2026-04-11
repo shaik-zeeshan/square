@@ -26,7 +26,8 @@ export type OSDType =
   | "play"
   | "pause"
   | "mute"
-  | "unmute";
+  | "unmute"
+  | "pip";
 
 export type OSDState = {
   visible: boolean;

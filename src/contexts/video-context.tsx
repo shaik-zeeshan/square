@@ -16,6 +16,8 @@ export type VideoPlayback = {
   speed: number;
   isMuted: boolean;
   isPip: boolean;
+  isPipTransitioning: boolean;
+  activePlaybackSessionId: string | null;
   audioTracks: Track[];
   subtitleTracks: Track[];
 };
@@ -31,6 +33,8 @@ export const DEFAULT_VIDEO_PLAYBACK = () => ({
   audioTracks: [],
   subtitleTracks: [],
   isPip: false,
+  isPipTransitioning: false,
+  activePlaybackSessionId: null,
 });
 
 const VIDEO_PLAYBACK_KEY = "video_playback_store";
@@ -64,7 +68,7 @@ const createVideoStore = (defaultState: VideoPlayback) => {
 };
 
 const [VideoContextProvider, useVideoInner] = createContextProvider(() =>
-  createVideoStore(DEFAULT_VIDEO_PLAYBACK()),
+  createVideoStore(DEFAULT_VIDEO_PLAYBACK())
 );
 
 export const useVideoContext = () => {

@@ -26,42 +26,11 @@ export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
 
   return (
     <Show when={props.itemDetails.data}>
-      <div class="pointer-events-none fixed top-0 right-0 bottom-0 left-0">
-        <div class="pointer-events-none absolute top-0 right-0 left-0 bg-gradient-to-b from-black/90 via-black/50 to-transparent p-8">
-          <div class="mx-auto max-w-2xl pt-10 text-white">
-            <h1 class="mb-3 text-center font-bold text-3xl drop-shadow-lg">
-              {props.itemDetails.data?.Name}
-            </h1>
-            <Show
-              when={
-                props.itemDetails.data?.SeriesName ||
-                props.itemDetails.data?.Name
-              }
-            >
-              <button
-                class="pointer-events-auto mx-auto mb-3 block cursor-pointer text-center font-medium text-foreground/60 text-xl drop-shadow-lg transition-colors hover:text-white"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const isMovie = props.itemDetails.data?.Type === "Movie";
-                  if (isMovie) {
-                    // Navigate to movie's library page
-                    navigate(
-                      `/library/${props.itemDetails.data?.ParentId}/item/${props.itemDetails.data?.Id}`
-                    );
-                  } else {
-                    // Navigate to series page for episodes
-                    navigate(
-                      `/library/${props.parentDetails.data?.ParentId}/item/${props.itemDetails.data?.ParentId}`
-                    );
-                  }
-                }}
-              >
-                {props.itemDetails.data?.SeriesName ||
-                  props.itemDetails.data?.Name}
-              </button>
-            </Show>
-
-            {/* Season and Episode Info for Episodes */}
+      <div class="pointer-events-none fixed inset-0">
+        {/* Top gradient — deep cinematic fade */}
+        <div class="pointer-events-none absolute top-0 right-0 left-0 bg-gradient-to-b from-black/90 via-black/45 to-transparent pt-0 pb-24">
+          <div class="mx-auto max-w-lg px-6 pt-16 text-white">
+            {/* Episode / Season meta */}
             <Show
               when={
                 props.itemDetails.data?.Type === "Episode" &&
@@ -69,9 +38,9 @@ export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
                   props.itemDetails.data?.IndexNumber)
               }
             >
-              <div class="mb-3 text-center text-lg text-white/80 drop-shadow-lg">
+              <div class="mb-2 text-center font-mono text-[10px] text-white/40 uppercase tracking-[0.2em]">
                 <Show when={props.itemDetails.data?.ParentIndexNumber}>
-                  Season {props.itemDetails.data?.ParentIndexNumber}
+                  S{props.itemDetails.data?.ParentIndexNumber}
                 </Show>
                 <Show
                   when={
@@ -79,15 +48,65 @@ export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
                     props.itemDetails.data?.IndexNumber
                   }
                 >
-                  {" • "}
+                  &thinsp;·&thinsp;
                 </Show>
                 <Show when={props.itemDetails.data?.IndexNumber}>
-                  Episode {props.itemDetails.data?.IndexNumber}
+                  E{props.itemDetails.data?.IndexNumber}
                 </Show>
               </div>
             </Show>
+
+            {/* Primary title */}
+            <h1 class="mb-2 text-center font-semibold text-[22px] text-white leading-tight tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.8)]">
+              {props.itemDetails.data?.Name}
+            </h1>
+
+            {/* Series link */}
+            <Show
+              when={
+                props.itemDetails.data?.Type === "Episode" &&
+                props.itemDetails.data?.SeriesName &&
+                // Only render once parent data has loaded so the link is
+                // never navigated before parentDetails.data?.ParentId is set.
+                props.parentDetails.data?.ParentId
+              }
+            >
+              <button
+                class="pointer-events-auto mx-auto mb-3 block cursor-pointer text-center text-[13px] text-white/45 drop-shadow-md transition-colors duration-150 hover:text-white/75"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const libraryId = props.parentDetails.data?.ParentId;
+                  const seriesId = props.itemDetails.data?.ParentId;
+                  if (!libraryId) {
+                    return;
+                  }
+                  if (!seriesId) {
+                    return;
+                  }
+                  navigate(`/library/${libraryId}/item/${seriesId}`);
+                }}
+              >
+                {props.itemDetails.data?.SeriesName}
+              </button>
+            </Show>
+
+            {/* Movie "view details" */}
+            <Show when={props.itemDetails.data?.Type === "Movie"}>
+              <button
+                class="pointer-events-auto mx-auto mb-3 block cursor-pointer text-center text-[12px] text-white/35 drop-shadow-md transition-colors duration-150 hover:text-white/65"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate(
+                    `/library/${props.itemDetails.data?.ParentId}/item/${props.itemDetails.data?.Id}`
+                  );
+                }}
+              >
+                View details
+              </button>
+            </Show>
+
             <Show when={props.itemDetails.data?.Overview}>
-              <p class="line-clamp-3 text-center text-sm text-white/70 leading-relaxed drop-shadow-md">
+              <p class="line-clamp-2 text-center text-[12px] text-white/45 leading-relaxed drop-shadow-md">
                 {props.itemDetails.data?.Overview}
               </p>
             </Show>

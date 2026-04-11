@@ -28,11 +28,14 @@ type UseVideoKeyboardShortcutsProps = {
   showControls: () => void;
   navigateToChapter: (chapter: Chapter) => void;
   toggleHelp: () => void;
+  /** Reactive accessor — returns true while the keyboard-help overlay is open */
+  isHelpOpen: () => boolean;
   showOSD: (
     type: OSDType,
     value: string | number | null,
     label?: string
   ) => void;
+  handleOpenPip: () => Promise<void>;
 };
 
 export function useVideoKeyboardShortcuts(
@@ -42,10 +45,34 @@ export function useVideoKeyboardShortcuts(
 
   // Use SolidJS event listener primitive attached to window
   createEventListener(window, "keydown", async (e: KeyboardEvent) => {
-    if (
-      (e.target as HTMLElement).tagName === "INPUT" ||
-      (e.target as HTMLElement).tagName === "TEXTAREA"
-    ) {
+    const target = e.target as HTMLElement;
+
+    // Never intercept events from standard text inputs
+    if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
+      return;
+    }
+
+    // While the keyboard-help overlay is open it manages its own focus and
+    // fires stopPropagation, so this listener should never receive events from
+    // inside the overlay.  As a belt-and-suspenders guard, skip all global
+    // shortcuts when the help panel is open so we cannot double-fire actions
+    // (e.g. toggling play via Space while the overlay is displayed).
+    if (props.isHelpOpen()) {
+      return;
+    }
+
+    // Never intercept any shortcut when a focusable player control (button,
+    // slider, range input) has focus.  These elements handle their own
+    // keyboard interaction; firing global shortcuts on top causes duplicate
+    // actions (e.g. Space toggling play twice, arrow keys seeking twice).
+    const isFocusablePlayerControl =
+      target.tagName === "BUTTON" ||
+      target.tagName === "SELECT" ||
+      target.getAttribute("role") === "slider" ||
+      target.closest('[role="slider"]') !== null ||
+      (target.tagName === "INPUT" && target.getAttribute("type") === "range");
+
+    if (isFocusablePlayerControl) {
       return;
     }
 
@@ -135,6 +162,11 @@ export function useVideoKeyboardShortcuts(
       case "KeyF":
         e.preventDefault();
         commands.toggleFullscreen();
+        break;
+
+      case "KeyP":
+        e.preventDefault();
+        await props.handleOpenPip();
         break;
 
       case "Escape":
@@ -245,25 +277,35 @@ export function useVideoKeyboardShortcuts(
         e.preventDefault();
         if (props.state.subtitleList.length > 0) {
           const currentIndex = props.state.subtitleIndex;
-          const currentSubtitleTrackIndx = props.state.subtitleList.findIndex(
-            (track) => track.id === currentIndex
-          );
+          // Build a virtual list: [Off (id=0), ...subtitleList]
+          // "Off" is represented by subtitleIndex === 0 or -1
+          const isOff =
+            currentIndex === 0 || currentIndex === -1;
+          const currentSubtitleTrackIndx = isOff
+            ? -1
+            : props.state.subtitleList.findIndex(
+                (track) => track.id === currentIndex
+              );
 
-          const nextIndex =
-            currentSubtitleTrackIndx === -1
-              ? 0
-              : (currentSubtitleTrackIndx + 1) %
-                (props.state.subtitleList.length - 1);
-          const nextSubtitleTrack = props.state.subtitleList[nextIndex];
-          await commands.playbackChangeSubtitle(
-            nextSubtitleTrack.id.toString()
-          );
-          props.showOSD(
-            "subtitle",
-            nextSubtitleTrack?.title ||
-              nextSubtitleTrack?.lang ||
-              (nextIndex === 0 ? "Off" : `Track ${nextIndex}`)
-          );
+          // Cycle: Off(-1) → track[0] → track[1] → … → last → Off
+          if (currentSubtitleTrackIndx === props.state.subtitleList.length - 1) {
+            // Was last track → go to Off
+            await commands.playbackChangeSubtitle("0");
+            props.showOSD("subtitle", "Off");
+          } else {
+            // Was Off(-1) or mid-list → advance to next track
+            const nextIndex = currentSubtitleTrackIndx + 1;
+            const nextSubtitleTrack = props.state.subtitleList[nextIndex];
+            await commands.playbackChangeSubtitle(
+              nextSubtitleTrack.id.toString()
+            );
+            props.showOSD(
+              "subtitle",
+              nextSubtitleTrack?.title ||
+                nextSubtitleTrack?.lang ||
+                `Track ${nextIndex + 1}`
+            );
+          }
           props.showControls();
         }
         break;

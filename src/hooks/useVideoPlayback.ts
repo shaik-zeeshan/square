@@ -3,9 +3,8 @@ import {
   PlayMethod,
 } from "@jellyfin/sdk/lib/generated-client";
 import { getPlaystateApi } from "@jellyfin/sdk/lib/utils/api/playstate-api";
-import { useQueryClient } from "@tanstack/solid-query";
-import { listen, type UnlistenFn } from "@tauri-apps/api/event";
-import { getCurrentWindow } from "@tauri-apps/api/window";
+import type { UnlistenFn } from "@tauri-apps/api/event";
+import { getAllWindows, getCurrentWindow } from "@tauri-apps/api/window";
 import { Effect } from "effect";
 import { createEffect, createSignal, onCleanup } from "solid-js";
 import { createStore } from "solid-js/store";
@@ -22,12 +21,11 @@ import {
   DEFAULT_AUDIO_LANG,
   DEFAULT_SUBTITLE_LANG,
 } from "~/components/video/types";
+import { useVideoContext } from "~/contexts/video-context";
 import { useRuntime } from "~/effect/runtime/use-runtime";
 import { AuthService } from "~/effect/services/auth";
-import { AuthOperations } from "~/effect/services/auth/operations";
 import type { WithImage } from "~/effect/services/jellyfin/service";
-import library from "~/lib/jellyfin/library";
-import { commands } from "~/lib/tauri";
+import { commands, events } from "~/lib/tauri";
 
 type ItemDetails = WithImage<BaseItemDto> | undefined;
 
@@ -44,8 +42,9 @@ export function useVideoPlayback(
     })
   );
 
-  const queryClient = useQueryClient();
-  const currentUser = AuthOperations.currentUser();
+  const [videoContext, setVideoState] = useVideoContext();
+  const playbackSessionId = crypto.randomUUID();
+  setVideoState("activePlaybackSessionId", playbackSessionId);
 
   const [state, setState] = createStore({
     audioIndex: -1,
@@ -64,12 +63,14 @@ export function useVideoPlayback(
     url: "",
     currentItemId: itemId(),
     isHoveringControls: false,
+    isInteractingControls: false,
     // New buffering and loading states
     bufferedTime: 0,
     bufferingPercentage: 0,
     isLoading: true,
     isBuffering: false,
     isSeeking: false,
+    playbackError: null as string | null,
     // OSD and help states
     osd: {
       visible: false,
@@ -89,10 +90,57 @@ export function useVideoPlayback(
     createSignal<NodeJS.Timeout>();
 
   let unlistenFuncs: UnlistenFn[] = [];
+  let listenerSetupVersion = 0;
+  let seekGuardTimeout: NodeJS.Timeout | undefined;
+  let bufferingResetTimeout: NodeJS.Timeout | undefined;
+  let localSeekTarget: number | null = null;
+  let localSeekGuardUntil = 0;
+  let hasClearedPlayback = false;
+
+  const removeControlInteractionListeners = () => {
+    window.removeEventListener("pointerup", handleControlInteractionEnd);
+    window.removeEventListener("pointercancel", handleControlInteractionEnd);
+  };
+
+  const SEEK_GUARD_MS = 900;
+  const SEEK_CONFIRM_TOLERANCE_SECONDS = 1.5;
 
   // Jellyfin playback reporting
   const playSessionId = crypto.randomUUID();
   let lastProgressReportTime = 0;
+
+  const shouldPreventControlsAutoHide = () =>
+    state.controlsLocked ||
+    state.isHoveringControls ||
+    state.isInteractingControls;
+
+  const clearHideControlsTimeout = () => {
+    const existing = hideControlsTimeout();
+    if (existing) {
+      clearTimeout(existing);
+      setHideControlsTimeout(undefined);
+    }
+  };
+
+  const scheduleHideControls = () => {
+    clearHideControlsTimeout();
+
+    if (shouldPreventControlsAutoHide()) {
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      if (shouldPreventControlsAutoHide()) {
+        return;
+      }
+
+      setState("showControls", false);
+      commands.toggleTitlebarHide(true);
+      setHideControlsTimeout(undefined);
+    }, 1000);
+
+    setHideControlsTimeout(timeout);
+  };
 
   const showControls = () => {
     if (state.controlsLocked) {
@@ -100,42 +148,23 @@ export function useVideoPlayback(
     }
     setState("showControls", true);
     commands.toggleTitlebarHide(false);
-
-    const existing = hideControlsTimeout();
-    if (existing) {
-      clearTimeout(existing);
-    }
-
-    // Only set timeout to hide if not hovering over controls
-    if (!state.isHoveringControls) {
-      const timeout = setTimeout(() => {
-        setState("showControls", false);
-        commands.toggleTitlebarHide(true);
-      }, 1000);
-
-      setHideControlsTimeout(timeout);
-    }
+    scheduleHideControls();
   };
 
   const toggleControlsLock = () => {
-    setState("controlsLocked", !state.controlsLocked);
-    if (state.controlsLocked) {
+    const nextLocked = !state.controlsLocked;
+    setState("controlsLocked", nextLocked);
+
+    if (nextLocked) {
       // When locking, hide controls immediately
       setState("showControls", false);
       commands.toggleTitlebarHide(true);
-      const existing = hideControlsTimeout();
-      if (existing) {
-        clearTimeout(existing);
-      }
+      clearHideControlsTimeout();
     } else {
       // When unlocking, show controls immediately
       setState("showControls", true);
       commands.toggleTitlebarHide(false);
-      // Clear any existing timeout
-      const existing = hideControlsTimeout();
-      if (existing) {
-        clearTimeout(existing);
-      }
+      scheduleHideControls();
     }
   };
 
@@ -171,6 +200,84 @@ export function useVideoPlayback(
 
   const updateBufferHealth = (health: BufferHealth) => {
     setState("bufferHealth", health);
+  };
+
+  const setBufferingState = (next: boolean, debounceMs = 250) => {
+    if (next) {
+      clearTimeout(bufferingResetTimeout);
+      if (!state.isBuffering) {
+        setState("isBuffering", true);
+      }
+      return;
+    }
+
+    clearTimeout(bufferingResetTimeout);
+    bufferingResetTimeout = setTimeout(() => {
+      if (state.isBuffering) {
+        setState("isBuffering", false);
+      }
+    }, debounceMs);
+  };
+
+  const beginAbsoluteSeek = (targetSeconds: number) => {
+    const safeTarget = Math.max(
+      0,
+      Math.min(
+        targetSeconds,
+        state.duration > 0 ? state.duration : Number.POSITIVE_INFINITY
+      )
+    );
+
+    localSeekTarget = safeTarget;
+    localSeekGuardUntil = Date.now() + SEEK_GUARD_MS;
+
+    clearTimeout(seekGuardTimeout);
+    seekGuardTimeout = setTimeout(() => {
+      localSeekTarget = null;
+      localSeekGuardUntil = 0;
+      setState("isSeeking", false);
+    }, SEEK_GUARD_MS + 300);
+
+    setState("isSeeking", true);
+    showControls();
+    commands.playbackAbsoluteSeek(safeTarget);
+  };
+
+  const clearPlaybackError = () => {
+    setState("playbackError", null);
+  };
+
+  const clearPlaybackIfActiveSession = async () => {
+    if (hasClearedPlayback) {
+      return;
+    }
+
+    const activePlaybackSessionId = videoContext.activePlaybackSessionId;
+    if (
+      activePlaybackSessionId &&
+      activePlaybackSessionId !== playbackSessionId
+    ) {
+      return;
+    }
+
+    hasClearedPlayback = true;
+    if (activePlaybackSessionId === playbackSessionId) {
+      setVideoState("activePlaybackSessionId", null);
+    }
+    await commands.playbackClear();
+  };
+
+  const retryPlayback = async () => {
+    if (!state.url) {
+      return;
+    }
+
+    clearPlaybackError();
+    setState("isLoading", true);
+    setBufferingState(false, 0);
+
+    await commands.playbackLoad(state.url);
+    await commands.playbackPlay();
   };
 
   const togglePlay = () => {
@@ -214,24 +321,7 @@ export function useVideoPlayback(
   const navigateToChapter = (chapter: Chapter) => {
     // Convert ticks to seconds (1 tick = 100 nanoseconds = 0.0000001 seconds)
     const startTimeSeconds = chapter.startPositionTicks / 10_000_000;
-
-    // Use relative time approach like handleProgressClick
-    const currentTime = Number(state.currentTime);
-    const relativeTime = startTimeSeconds - currentTime;
-
-    // Set seeking state
-    setState("isSeeking", true);
-    showControls();
-
-    commands.playbackSeek(relativeTime);
-
-    // Reset seeking state after a delay
-    setTimeout(() => {
-      setState("isSeeking", false);
-    }, 1000);
-
-    // Don't immediately update state - let Tauri's playback-time event handle it
-    // This prevents the state from being overwritten by stale time events
+    beginAbsoluteSeek(startTimeSeconds);
   };
 
   const handleProgressClick = (value: number) => {
@@ -239,27 +329,67 @@ export function useVideoPlayback(
       return;
     }
     const newTime = (value / 100) * state.duration;
-    const relativeTime = newTime - Number(state.currentTime);
+    beginAbsoluteSeek(newTime);
+  };
 
-    // Set seeking state
-    setState("isSeeking", true);
-    showControls();
+  const syncPipVisibility = async () => {
+    const windows = await getAllWindows();
+    const pipWindow = windows.find((w) => w.label === "pip");
+    const isVisible = (await pipWindow?.isVisible()) ?? false;
+    setVideoState("isPip", isVisible);
+    return isVisible;
+  };
 
-    commands.playbackSeek(relativeTime);
-    setState("currentTime", newTime.toString());
+  const getPipToggleLabel = (wasVisible: boolean, isVisible: boolean) => {
+    if (wasVisible) {
+      return isVisible
+        ? "Picture in Picture failed to close"
+        : "Picture in Picture closed";
+    }
 
-    // Reset seeking state after a delay
-    setTimeout(() => {
-      setState("isSeeking", false);
-    }, 1000);
+    return isVisible
+      ? "Picture in Picture opened"
+      : "Picture in Picture failed to open";
   };
 
   const handleOpenPip = async () => {
+    let wasVisible = false;
+    let isOpeningPip = false;
+
     try {
+      wasVisible = await syncPipVisibility();
+
+      if (wasVisible) {
+        await commands.hidePipWindow();
+        const isStillVisible = await syncPipVisibility();
+        showOSD(
+          "pip",
+          null,
+          isStillVisible
+            ? "Picture in Picture failed to close"
+            : "Picture in Picture closed"
+        );
+        return;
+      }
+
+      isOpeningPip = true;
+      setVideoState("isPipTransitioning", true);
       await commands.showPipWindow();
-      showOSD("play", null, "Picture in Picture opened");
-    } catch (error) {
-      showOSD("play", null, "Picture in Picture failed to open");
+      const isVisible = await syncPipVisibility();
+      showOSD(
+        "pip",
+        null,
+        isVisible
+          ? "Picture in Picture opened"
+          : "Picture in Picture failed to open"
+      );
+    } catch (_error) {
+      const isVisible = await syncPipVisibility();
+      showOSD("pip", null, getPipToggleLabel(wasVisible, isVisible));
+    } finally {
+      if (isOpeningPip) {
+        setVideoState("isPipTransitioning", false);
+      }
     }
   };
 
@@ -275,28 +405,53 @@ export function useVideoPlayback(
     setState("isLoading", true);
     setState("isBuffering", false);
     setState("isSeeking", false);
+    setState("playbackError", null);
     commands.playbackLoad(url);
   };
 
   const handleControlMouseEnter = () => {
     setState("isHoveringControls", true);
-    // Clear any existing timeout when entering control area
-    const existing = hideControlsTimeout();
-    if (existing) {
-      clearTimeout(existing);
-    }
+    clearHideControlsTimeout();
   };
 
   const handleControlMouseLeave = () => {
     setState("isHoveringControls", false);
-    // Start timeout to hide controls when leaving control area
-    if (!state.controlsLocked) {
-      const timeout = setTimeout(() => {
-        setState("showControls", false);
-        commands.toggleTitlebarHide(true);
-      }, 1000);
-      setHideControlsTimeout(timeout);
+    scheduleHideControls();
+  };
+
+  const handleControlInteractionEnd = () => {
+    removeControlInteractionListeners();
+    setState("isInteractingControls", false);
+    scheduleHideControls();
+  };
+
+  const handleControlInteractionStart = () => {
+    removeControlInteractionListeners();
+    setState("isInteractingControls", true);
+    setState("showControls", true);
+    commands.toggleTitlebarHide(false);
+    clearHideControlsTimeout();
+
+    window.addEventListener("pointerup", handleControlInteractionEnd);
+    window.addEventListener("pointercancel", handleControlInteractionEnd);
+  };
+
+  const resetTransientUiState = () => {
+    clearHideControlsTimeout();
+    if (openPanel()) {
+      setOpenPanel(null);
     }
+    setState("showControls", true);
+    setState("controlsLocked", false);
+    setState("isHoveringControls", false);
+    setState("isInteractingControls", false);
+    setState("showHelp", false);
+    setState("osd", "visible", false);
+    setState("isBuffering", false);
+    setState("isSeeking", false);
+    setState("playbackError", null);
+    commands.toggleTitlebarHide(false);
+    removeControlInteractionListeners();
   };
 
   createEffect(async () => {
@@ -318,9 +473,17 @@ export function useVideoPlayback(
     setState("currentItemId", currentItemId);
     setState("currentTime", "0");
     setState("duration", 0);
+    setState("playbackError", null);
 
     await commands.playbackLoad(url);
     await commands.playbackPlay();
+    setVideoState("pause", false);
+  });
+
+  createEffect(() => {
+    syncPipVisibility().catch(() => {
+      // Do nothing
+    });
   });
 
   createEffect(() => {
@@ -341,6 +504,20 @@ export function useVideoPlayback(
   });
 
   createEffect(async () => {
+    const setupVersion = ++listenerSetupVersion;
+    const nextUnlistenFuncs: UnlistenFn[] = [];
+    const registerListener = async (
+      listenerPromise: Promise<UnlistenFn>
+    ): Promise<boolean> => {
+      const unlisten = await listenerPromise;
+      if (setupVersion !== listenerSetupVersion) {
+        unlisten();
+        return false;
+      }
+      nextUnlistenFuncs.push(unlisten);
+      return true;
+    };
+
     const currentItemId = itemId();
     // Clean up existing listeners when itemId changes
     unlistenFuncs.forEach((unlisten) => {
@@ -348,227 +525,331 @@ export function useVideoPlayback(
     });
     unlistenFuncs = [];
 
-    const fileLoaded = await listen("file-loaded", async (event) => {
-      // Reset loading state when file is loaded
-      setState("isLoading", false);
-      setState("isBuffering", false);
-      commands.playbackPlay();
+    if (
+      !(await registerListener(
+        events.fileLoadedChange.listen(async ({ payload }) => {
+          // Reset loading state when file is loaded
+          setState("isLoading", false);
+          setBufferingState(false, 0);
+          clearPlaybackError();
+          commands.playbackPlay();
+          setVideoState("pause", false);
 
-      const [currentTime, duration] = event.payload as [number, number];
+          const currentTime = payload.current_time;
+          const duration = payload.duration;
+          setState("duration", duration);
 
-      if (Number(state.currentTime) > 0) {
-        commands.playbackSeek(Number(state.currentTime));
-      } else {
-        const userProgress = itemDetails()?.UserData?.PlaybackPositionTicks
-          ? (itemDetails()?.UserData?.PlaybackPositionTicks as number) /
-            10_000_000
-          : 0;
+          if (Number(state.currentTime) > 0) {
+            beginAbsoluteSeek(Number(state.currentTime));
+          } else {
+            const userProgress = itemDetails()?.UserData?.PlaybackPositionTicks
+              ? (itemDetails()?.UserData?.PlaybackPositionTicks as number) /
+                10_000_000
+              : 0;
 
-        if (userProgress > 0 && userProgress !== Number(currentTime)) {
-          commands.playbackSeek(userProgress);
-        }
-      }
+            if (userProgress > 0 && userProgress !== Number(currentTime)) {
+              beginAbsoluteSeek(userProgress);
+            }
+          }
 
-      try {
-        if (!jf.api) {
-          return;
-        }
-        const playstateApi = getPlaystateApi(jf.api);
-        await playstateApi.reportPlaybackStart({
-          playbackStartInfo: {
-            ItemId: currentItemId,
-            PlaySessionId: playSessionId,
-            CanSeek: true,
-            IsPaused: false,
-            IsMuted: state.isMuted,
-            VolumeLevel: Math.min(state.volume, 100), // Clamp to 100 for Jellyfin
-            PlayMethod: PlayMethod.DirectStream,
-            AudioStreamIndex:
-              state.audioIndex >= 0 ? state.audioIndex : undefined,
-            SubtitleStreamIndex:
-              state.subtitleIndex > 0 ? state.subtitleIndex : undefined,
-          },
-        });
+          try {
+            if (!jf.api) {
+              return;
+            }
+            const playstateApi = getPlaystateApi(jf.api);
+            await playstateApi.reportPlaybackStart({
+              playbackStartInfo: {
+                ItemId: currentItemId,
+                PlaySessionId: playSessionId,
+                CanSeek: true,
+                IsPaused: false,
+                IsMuted: state.isMuted,
+                VolumeLevel: Math.min(state.volume, 100), // Clamp to 100 for Jellyfin
+                PlayMethod: PlayMethod.DirectStream,
+                AudioStreamIndex:
+                  state.audioIndex >= 0 ? state.audioIndex : undefined,
+                SubtitleStreamIndex:
+                  state.subtitleIndex > 0 ? state.subtitleIndex : undefined,
+              },
+            });
 
-        // Initialize last progress report time
-        lastProgressReportTime = Date.now();
-      } catch (_error) {
-        // Do nothing
-      }
-    });
+            // Initialize last progress report time
+            lastProgressReportTime = Date.now();
+          } catch (_error) {
+            // Do nothing
+          }
+        })
+      ))
+    ) {
+      return;
+    }
 
-    unlistenFuncs.push(fileLoaded);
+    if (
+      !(await registerListener(
+        events.playBackTimeChange.listen(async ({ payload }) => {
+          const newTime = payload.position;
+          const parsedTime = Number(newTime);
 
-    const playbackTime = await listen("playback-time", async (event) => {
-      const newTime = event.payload as string;
+          if (Number.isNaN(parsedTime)) {
+            return;
+          }
 
-      // Batch state updates for better performance
-      setState({
-        currentTime: newTime,
-        // Reset seeking state if we're getting time updates
-        isSeeking: false,
-      });
+          const now = Date.now();
+          if (
+            localSeekTarget !== null &&
+            now <= localSeekGuardUntil &&
+            Math.abs(parsedTime - localSeekTarget) >
+              SEEK_CONFIRM_TOLERANCE_SECONDS
+          ) {
+            return;
+          }
 
-      // Report progress to Jellyfin every 3 seconds
-      const now = Date.now();
-      if (now - lastProgressReportTime >= 3000 && jf.api) {
-        lastProgressReportTime = now;
-        try {
-          const playstateApi = getPlaystateApi(jf.api);
-          await playstateApi.reportPlaybackProgress({
-            playbackProgressInfo: {
-              ItemId: currentItemId,
-              PlaySessionId: playSessionId,
-              PositionTicks: Math.floor(Number(newTime) * 10_000_000),
-              IsPaused: !state.playing,
-              IsMuted: state.isMuted,
-              VolumeLevel: Math.min(state.volume, 100),
-              CanSeek: true,
-              PlayMethod: PlayMethod.DirectStream,
-              AudioStreamIndex:
-                state.audioIndex >= 0 ? state.audioIndex : undefined,
-              SubtitleStreamIndex:
-                state.subtitleIndex > 0 ? state.subtitleIndex : undefined,
-            },
+          if (localSeekTarget !== null) {
+            const matchedSeek =
+              Math.abs(parsedTime - localSeekTarget) <=
+              SEEK_CONFIRM_TOLERANCE_SECONDS;
+            const seekGuardExpired = now > localSeekGuardUntil;
+            if (matchedSeek || seekGuardExpired) {
+              localSeekTarget = null;
+              localSeekGuardUntil = 0;
+            }
+          }
+
+          // Batch state updates for better performance
+          setState({
+            currentTime: newTime,
+            isLoading: false,
+            isSeeking: false,
           });
-        } catch (_error) {
-          // Do nothing
-        }
-      }
-    });
 
-    unlistenFuncs.push(playbackTime);
+          if (state.playing) {
+            setBufferingState(false);
+          }
 
-    const pause = await listen("pause", (event) => {
-      setState("playing", !(event.payload as boolean));
-    });
+          // Report progress to Jellyfin every 3 seconds
+          if (now - lastProgressReportTime >= 3000 && jf.api) {
+            lastProgressReportTime = now;
+            try {
+              const playstateApi = getPlaystateApi(jf.api);
+              await playstateApi.reportPlaybackProgress({
+                playbackProgressInfo: {
+                  ItemId: currentItemId,
+                  PlaySessionId: playSessionId,
+                  PositionTicks: Math.floor(Number(newTime) * 10_000_000),
+                  IsPaused: !state.playing,
+                  IsMuted: state.isMuted,
+                  VolumeLevel: Math.min(state.volume, 100),
+                  CanSeek: true,
+                  PlayMethod: PlayMethod.DirectStream,
+                  AudioStreamIndex:
+                    state.audioIndex >= 0 ? state.audioIndex : undefined,
+                  SubtitleStreamIndex:
+                    state.subtitleIndex > 0 ? state.subtitleIndex : undefined,
+                },
+              });
+            } catch (_error) {
+              // Do nothing
+            }
+          }
+        })
+      ))
+    ) {
+      return;
+    }
 
-    unlistenFuncs.push(pause);
+    if (
+      !(await registerListener(
+        events.playBackStateChange.listen(({ payload }) => {
+          const isPaused = payload.pause;
+          setState("playing", !isPaused);
+          setVideoState("pause", isPaused);
+          if (!isPaused) {
+            setBufferingState(false);
+          }
+        })
+      ))
+    ) {
+      return;
+    }
 
-    const audioList = await listen("audio-list", async (event) => {
-      setState("audioList", event.payload as Track[]);
-      if (state.audioIndex > -1) {
-        return;
-      }
-      const defaultAudio = (event.payload as Track[]).find((track) =>
-        DEFAULT_AUDIO_LANG.includes(track.lang ?? "")
-      );
-      if (defaultAudio) {
-        await commands.playbackChangeAudio(defaultAudio.id.toString());
-        setState("audioIndex", defaultAudio.id as number);
-      } else if ((event.payload as Track[]).length > 0) {
-        await commands.playbackChangeAudio(state.audioList[0].id.toString());
-        setState("audioIndex", state.audioList[0].id);
-      }
-    });
+    if (
+      !(await registerListener(
+        events.audioTrackChange.listen(async ({ payload }) => {
+          setState("audioList", payload.tracks as Track[]);
+          if (state.audioIndex > -1) {
+            return;
+          }
+          const defaultAudio = (payload.tracks as Track[]).find((track) =>
+            DEFAULT_AUDIO_LANG.includes(track.lang ?? "")
+          );
+          if (defaultAudio) {
+            await commands.playbackChangeAudio(defaultAudio.id.toString());
+            setState("audioIndex", defaultAudio.id as number);
+          } else if ((payload.tracks as Track[]).length > 0) {
+            await commands.playbackChangeAudio(
+              state.audioList[0].id.toString()
+            );
+            setState("audioIndex", state.audioList[0].id);
+          }
+        })
+      ))
+    ) {
+      return;
+    }
 
-    unlistenFuncs.push(audioList);
+    if (
+      !(await registerListener(
+        events.subtitleTrackChange.listen(async ({ payload }) => {
+          setState("subtitleList", payload.tracks as Track[]);
+          if (state.subtitleIndex > -1) {
+            return;
+          }
+          const defaultSubtitle = (payload.tracks as Track[]).find((track) =>
+            DEFAULT_SUBTITLE_LANG.includes(track.lang ?? "")
+          );
+          if (defaultSubtitle) {
+            await commands.playbackChangeSubtitle(
+              defaultSubtitle.id.toString()
+            );
+            setState("subtitleIndex", defaultSubtitle.id);
+          } else if ((payload.tracks as Track[]).length > 0) {
+            await commands.playbackChangeSubtitle(
+              state.subtitleList[0].id.toString()
+            );
+            setState("subtitleIndex", state.subtitleList[0].id);
+          }
+        })
+      ))
+    ) {
+      return;
+    }
 
-    const subtitleList = await listen("subtitle-list", async (event) => {
-      setState("subtitleList", event.payload as Track[]);
-      if (state.subtitleIndex > -1) {
-        return;
-      }
-      const defaultSubtitle = (event.payload as Track[]).find((track) =>
-        DEFAULT_SUBTITLE_LANG.includes(track.lang ?? "")
-      );
-      if (defaultSubtitle) {
-        await commands.playbackChangeSubtitle(defaultSubtitle.id.toString());
-        setState("subtitleIndex", defaultSubtitle.id);
-      } else if ((event.payload as Track[]).length > 0) {
-        await commands.playbackChangeSubtitle(
-          state.subtitleList[0].id.toString()
-        );
-        setState("subtitleIndex", state.subtitleList[0].id);
-      }
-    });
+    if (
+      !(await registerListener(
+        events.audioChangeEvent.listen(({ payload }) => {
+          setState("audioIndex", Number(payload.index));
+        })
+      ))
+    ) {
+      return;
+    }
 
-    unlistenFuncs.push(subtitleList);
+    if (
+      !(await registerListener(
+        events.subtitleChangeEvent.listen(({ payload }) => {
+          setState("subtitleIndex", Number(payload.index));
+        })
+      ))
+    ) {
+      return;
+    }
 
-    const duration = await listen("duration", (event) => {
-      setState("duration", Number(event.payload as string));
-    });
-
-    unlistenFuncs.push(duration);
-
-    const aid = await listen("aid", (event) => {
-      setState("audioIndex", Number(event.payload as string));
-    });
-
-    unlistenFuncs.push(aid);
-
-    const sid = await listen("sid", (event) => {
-      setState("subtitleIndex", Number(event.payload as string));
-    });
-
-    unlistenFuncs.push(sid);
-
-    const speed = await listen("speed", (event) => {
-      setState("playbackSpeed", Number(event.payload as string));
-    });
-
-    unlistenFuncs.push(speed);
+    if (
+      !(await registerListener(
+        events.speedEventChange.listen(({ payload }) => {
+          setState("playbackSpeed", Number(payload.speed));
+        })
+      ))
+    ) {
+      return;
+    }
 
     // Cache and buffering event listeners with debouncing
     let cacheUpdateTimeout: NodeJS.Timeout;
-    const cacheTime = await listen("cache-time", (event) => {
-      const currentTime = Number(state.currentTime);
-      const bufferedDuration = Number(event.payload as number);
+    if (
+      !(await registerListener(
+        events.cacheTimeChange.listen(({ payload }) => {
+          const currentTime = Number(state.currentTime);
+          const bufferedDuration = Number(payload.time);
 
-      // Debounce cache updates to prevent excessive re-renders
-      clearTimeout(cacheUpdateTimeout);
-      cacheUpdateTimeout = setTimeout(() => {
-        setState("bufferedTime", Math.max(0, currentTime + bufferedDuration));
+          // Debounce cache updates to prevent excessive re-renders
+          clearTimeout(cacheUpdateTimeout);
+          cacheUpdateTimeout = setTimeout(() => {
+            setState(
+              "bufferedTime",
+              Math.max(0, currentTime + bufferedDuration)
+            );
 
-        // Update loading state based on buffer
-        if (state.isLoading && bufferedDuration > 0) {
-          setState("isLoading", false);
-        }
-      }, 100);
-    });
+            // Update loading state based on buffer
+            if (state.isLoading && bufferedDuration > 0) {
+              setState("isLoading", false);
+            }
+          }, 100);
+        })
+      ))
+    ) {
+      return;
+    }
 
-    unlistenFuncs.push(cacheTime);
+    if (
+      !(await registerListener(
+        events.bufferingStateChange.listen(({ payload }) => {
+          const percentage = Number(payload.buffered);
+          const clampedPercentage = Math.max(0, Math.min(100, percentage));
+          const previousPercentage = state.bufferingPercentage;
 
-    const bufferingState = await listen("buffering-state", (event) => {
-      const percentage = Number(event.payload as number);
+          // Only update if percentage changed significantly to reduce re-renders
+          if (Math.abs(clampedPercentage - previousPercentage) > 1) {
+            setState("bufferingPercentage", clampedPercentage);
+          }
 
-      // Only update if percentage changed significantly to reduce re-renders
-      const currentPercentage = state.bufferingPercentage;
-      if (Math.abs(percentage - currentPercentage) > 1) {
-        setState("bufferingPercentage", Math.max(0, Math.min(100, percentage)));
+          const transitionedToEmptyBuffer =
+            clampedPercentage === 0 && previousPercentage > 0;
 
-        // Determine if we're actively buffering
-        const wasBuffering = state.isBuffering;
-        const isNowBuffering = percentage < 100 && percentage > 0;
+          const shouldShowBuffering =
+            (clampedPercentage > 0 && clampedPercentage < 100
+              ? true
+              : transitionedToEmptyBuffer) &&
+            state.playing &&
+            !state.isLoading &&
+            !state.isSeeking;
 
-        if (isNowBuffering !== wasBuffering) {
-          setState("isBuffering", isNowBuffering);
+          setBufferingState(shouldShowBuffering);
+        })
+      ))
+    ) {
+      return;
+    }
 
-          // Show controls when buffering starts
-          if (isNowBuffering) {
+    if (
+      !(await registerListener(
+        events.pauseForCacheChange.listen(({ payload }) => {
+          const isPaused = payload.pause;
+
+          setBufferingState(isPaused);
+
+          // Show controls when paused for cache
+          if (isPaused) {
+            setState("isLoading", false);
             showControls();
           }
-        }
-      }
-    });
+        })
+      ))
+    ) {
+      return;
+    }
 
-    unlistenFuncs.push(bufferingState);
+    if (
+      !(await registerListener(
+        events.errorEventChange.listen(({ payload }) => {
+          let message = "Playback failed";
+          if (typeof payload?.message === "string") {
+            message = String(payload.message);
+          }
 
-    const pausedForCache = await listen("paused-for-cache", (event) => {
-      const isPaused = event.payload as boolean;
-
-      // Only update if state actually changed
-      if (state.isBuffering !== isPaused) {
-        setState("isBuffering", isPaused);
-
-        // Show controls when paused for cache
-        if (isPaused) {
+          setState("playbackError", message);
+          setState("isLoading", false);
+          setBufferingState(false, 0);
           showControls();
-        }
-      }
-    });
+        })
+      ))
+    ) {
+      return;
+    }
 
-    unlistenFuncs.push(pausedForCache);
+    if (setupVersion === listenerSetupVersion) {
+      unlistenFuncs = nextUnlistenFuncs;
+    }
   });
 
   const offFullscreenIfOnWhenCleanup = async () => {
@@ -579,16 +860,29 @@ export function useVideoPlayback(
   };
 
   onCleanup(async () => {
+    listenerSetupVersion++;
     const itemId = state.currentItemId;
     const currentTime = state.currentTime;
-    commands.hidePipWindow();
+    const ownsActivePlaybackSession =
+      videoContext.activePlaybackSessionId === playbackSessionId;
+    const isPipActive = await syncPipVisibility().catch(() => false);
+
+    if (!isPipActive && ownsActivePlaybackSession) {
+      setVideoState("pause", true);
+    }
+
+    resetTransientUiState();
     offFullscreenIfOnWhenCleanup();
-    commands.toggleTitlebarHide(false);
-    commands.playbackClear();
+    if (!isPipActive) {
+      await clearPlaybackIfActiveSession();
+    }
     unlistenFuncs.forEach((unlisten) => {
       unlisten();
     });
-    clearTimeout(hideControlsTimeout());
+    clearHideControlsTimeout();
+    clearTimeout(seekGuardTimeout);
+    clearTimeout(bufferingResetTimeout);
+    removeControlInteractionListeners();
 
     // Report playback stopped to Jellyfin
     if (jf.api) {
@@ -601,13 +895,6 @@ export function useVideoPlayback(
             PositionTicks: Math.floor(Number(currentTime) * 10_000_000),
           },
         });
-        const queryKey = [
-          library.query.getItem.key,
-          library.query.getItem.keyFor(itemId, currentUser.data?.Id),
-        ];
-        await queryClient.invalidateQueries({
-          queryKey,
-        });
       } catch (_error) {
         // Do nothing
       }
@@ -615,14 +902,6 @@ export function useVideoPlayback(
   });
 
   const onEndOfFile = async () => {
-    const queryKey = [
-      library.query.getItem.key,
-      library.query.getItem.keyFor(itemId(), currentUser.data?.Id),
-    ];
-    await queryClient.invalidateQueries({
-      queryKey,
-    });
-
     if (!jf.api) {
       return;
     }
@@ -653,6 +932,7 @@ export function useVideoPlayback(
     loadNewVideo,
     handleControlMouseEnter,
     handleControlMouseLeave,
+    handleControlInteractionStart,
     navigateToChapter,
     // OSD and help functions
     showOSD,
@@ -661,6 +941,9 @@ export function useVideoPlayback(
     updateLoadingStage,
     updateNetworkQuality,
     updateBufferHealth,
+    resetTransientUiState,
+    clearPlaybackError,
+    retryPlayback,
     onEndOfFile,
   };
 }

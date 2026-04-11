@@ -1,7 +1,7 @@
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 import { type RouteSectionProps, useNavigate } from "@solidjs/router";
-import { ArrowLeft, Eye, EyeOff } from "lucide-solid";
-import { createEffect, onCleanup, onMount, Show, splitProps } from "solid-js";
+import { AlertTriangle, ArrowLeft, Eye, EyeOff, RefreshCw } from "lucide-solid";
+import { createEffect, onCleanup, Show, splitProps } from "solid-js";
 import {
   AutoplayOverlay,
   BufferingIndicator,
@@ -13,7 +13,7 @@ import {
   VideoInfoOverlay,
   VideoSettingsPanels,
 } from "~/components/video";
-import { AuthOperations } from "~/effect/services/auth/operations";
+import { useVideoContext } from "~/contexts/video-context";
 import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
 import type { WithImage } from "~/effect/services/jellyfin/service";
 import { useAutoplay } from "~/hooks/useAutoplay";
@@ -24,8 +24,6 @@ import { commands } from "~/lib/tauri";
 export default function Page(props: RouteSectionProps) {
   const [{ params: routeParams }] = splitProps(props, ["params"]);
   const navigate = useNavigate();
-  // const routeParams = useParams();
-  const currentUser = AuthOperations.currentUser();
 
   const itemDetails = JellyfinOperations.getItem(
     () => routeParams.id,
@@ -33,8 +31,8 @@ export default function Page(props: RouteSectionProps) {
       fields: ["Overview", "ParentId"],
     },
     () => ({
+      enabled: !!routeParams.id,
       refetchOnWindowFocus: false,
-      refetchOnMount: false,
       refetchOnReconnect: false,
     })
   );
@@ -46,9 +44,7 @@ export default function Page(props: RouteSectionProps) {
     },
     () => ({
       enabled:
-        !!itemDetails.data?.ParentId &&
-        itemDetails.data?.Type !== "Movie" &&
-        !!currentUser.data?.Id,
+        !!itemDetails.data?.ParentId && itemDetails.data?.Type !== "Movie",
       refetchOnWindowFocus: false,
     })
   );
@@ -70,30 +66,52 @@ export default function Page(props: RouteSectionProps) {
     loadNewVideo,
     handleControlMouseEnter,
     handleControlMouseLeave,
+    handleControlInteractionStart,
     navigateToChapter,
     showOSD,
     hideOSD,
     toggleHelp,
+    retryPlayback,
+    onEndOfFile,
+    resetTransientUiState,
   } = useVideoPlayback(
     () => routeParams.id,
     () => itemDetails.data
   );
 
+  const [videoContext] = useVideoContext();
+
+  const exitPlayer = () => {
+    resetTransientUiState();
+    if (!videoContext.isPip) {
+      commands.playbackClear();
+    }
+    navigate(-1);
+  };
+
+  onCleanup(() => {
+    resetTransientUiState();
+  });
+
   // Use autoplay hook - don't destructure to maintain reactivity
   const autoplayHook = useAutoplay({
     currentItem: () => itemDetails.data,
     onLoadNewVideo: loadNewVideo,
+    onEndOfFile,
     playbackState: {
       currentTime: () => state.currentTime,
       duration: () => state.duration,
+      paused: () => !state.playing,
     },
-    // onEndOfFile,
   });
 
   let audioBtnRef!: HTMLButtonElement;
   let subsBtnRef!: HTMLButtonElement;
   let speedBtnRef!: HTMLButtonElement;
-  let panelRef!: HTMLButtonElement;
+  let panelRef!: HTMLDivElement;
+  const setPanelRef = (el: HTMLDivElement) => {
+    panelRef = el;
+  };
 
   // Use keyboard shortcuts hook
   useVideoKeyboardShortcuts({
@@ -107,7 +125,9 @@ export default function Page(props: RouteSectionProps) {
     showControls,
     navigateToChapter,
     toggleHelp,
+    isHelpOpen: () => state.showHelp,
     showOSD,
+    handleOpenPip,
   });
 
   // Close panel when clicking outside
@@ -150,91 +170,52 @@ export default function Page(props: RouteSectionProps) {
     onCleanup(() => document.removeEventListener("wheel", handleWheel));
   });
 
-  // Add mouse enter/leave handlers to all control elements
-  onMount(() => {
-    let cleanupFunctions: (() => void)[] = [];
+  const isInsideControlSurface = (target: EventTarget | null) => {
+    if (!(target instanceof Element)) {
+      return false;
+    }
 
-    const addControlListeners = () => {
-      // Clean up existing listeners first
-      cleanupFunctions.forEach((cleanup) => {
-        cleanup();
-      });
-      cleanupFunctions = [];
-
-      const controlElements = document.querySelectorAll(".control-element");
-      controlElements.forEach((element) => {
-        element.addEventListener("mouseenter", handleControlMouseEnter);
-        element.addEventListener("mouseleave", handleControlMouseLeave);
-
-        // Store cleanup function for this element
-        cleanupFunctions.push(() => {
-          element.removeEventListener("mouseenter", handleControlMouseEnter);
-          element.removeEventListener("mouseleave", handleControlMouseLeave);
-        });
-      });
-    };
-
-    // Add listeners after a short delay to ensure DOM is ready
-    const timeout = setTimeout(addControlListeners, 100);
-
-    // Re-add listeners when controls visibility changes (DOM updates)
-    createEffect(() => {
-      if (state.showControls) {
-        // Small delay to ensure DOM is updated
-        setTimeout(addControlListeners, 50);
-      }
-    });
-
-    onCleanup(() => {
-      clearTimeout(timeout);
-      cleanupFunctions.forEach((cleanup) => {
-        cleanup();
-      });
-    });
-  });
+    return (
+      panelRef?.contains(target) ||
+      audioBtnRef?.contains(target) ||
+      subsBtnRef?.contains(target) ||
+      speedBtnRef?.contains(target) ||
+      target.classList.contains("control-element") ||
+      !!target.closest(".control-element")
+    );
+  };
 
   const handleMouseMove = (e: MouseEvent) => {
-    if (!state.controlsLocked) {
-      // Check if mouse is over any control element
-      const target = e.target as HTMLElement;
-      if (
-        target.classList.contains("control-element") ||
-        target.closest(".control-element")
-      ) {
-        return; // Don't show controls when hovering over control elements
-      }
-      showControls();
+    if (state.controlsLocked) {
+      return;
+    }
+
+    if (isInsideControlSurface(e.target)) {
+      handleControlMouseEnter();
+      return;
+    }
+
+    handleControlMouseLeave();
+    showControls();
+  };
+
+  const handlePointerDown = (e: PointerEvent) => {
+    if (isInsideControlSurface(e.target)) {
+      handleControlInteractionStart();
     }
   };
 
   const handleWindowClick = (e: MouseEvent) => {
-    // Check if clicking on any control element
-    const target = e.target as HTMLElement;
-    if (panelRef?.contains(target)) {
-      return;
-    }
-    if (audioBtnRef?.contains(target)) {
-      return;
-    }
-    if (subsBtnRef?.contains(target)) {
-      return;
-    }
-    if (speedBtnRef?.contains(target)) {
-      return;
-    }
-    if (
-      target.classList.contains("control-element") ||
-      target.closest(".control-element")
-    ) {
+    const target = e.target;
+    // Ignore clicks inside any control surface
+    if (isInsideControlSurface(target)) {
       return;
     }
 
     if (state.showControls) {
-      // Hide controls immediately
       setState("showControls", false);
       commands.toggleTitlebarHide(true);
     } else {
-      // Show controls
       showControls();
     }
   };
@@ -244,68 +225,138 @@ export default function Page(props: RouteSectionProps) {
       class="dark relative flex h-full w-full flex-col gap-2 overflow-hidden bg-transparent"
       onClick={handleWindowClick}
       onMouseMove={handleMouseMove}
+      onPointerDown={handlePointerDown}
       role="button"
     >
-      {/* Initial Loading Overlay */}
+      {/* ── Initial Loading Overlay ── */}
       <Show when={state.isLoading}>
-        <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <LoadingSpinner
-            loadingStage={state.loadingStage}
-            progress={state.bufferingPercentage}
-            size="lg"
-            text="Loading video..."
-          />
+        <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-[2px]">
+          <div class="flex flex-col items-center gap-5">
+            <LoadingSpinner
+              loadingStage={state.loadingStage}
+              progress={state.bufferingPercentage}
+              size="lg"
+              text="Loading video…"
+            />
+            <Show when={state.bufferingPercentage > 0}>
+              {/* Amber progress bar */}
+              <div class="h-[2px] w-44 overflow-hidden rounded-full bg-white/[0.08]">
+                <div
+                  class="h-full rounded-full bg-amber-400/70 transition-[width] duration-500"
+                  style={{ width: `${state.bufferingPercentage}%` }}
+                />
+              </div>
+              <span class="font-mono text-[11px] text-white/30 tabular-nums">
+                {Math.round(state.bufferingPercentage)}%
+              </span>
+            </Show>
+          </div>
         </div>
       </Show>
 
-      {/* Buffering Overlay */}
-      <Show when={state.isBuffering && !state.isLoading}>
-        <div class="absolute inset-0 z-40 flex items-center justify-center">
-          <BufferingIndicator
-            bufferHealth={state.bufferHealth}
-            bufferingPercentage={state.bufferingPercentage}
-            isBuffering={state.isBuffering}
-            networkQuality={state.networkQuality}
-            showText
-            variant="overlay"
-          />
+      {/* ── Buffering Overlay — only when not initial loading ── */}
+      <Show
+        when={state.isBuffering && !state.isLoading && !state.playbackError}
+      >
+        <BufferingIndicator
+          bufferHealth={state.bufferHealth}
+          bufferingPercentage={state.bufferingPercentage}
+          isBuffering={state.isBuffering}
+          networkQuality={state.networkQuality}
+          showText
+          variant="overlay"
+        />
+      </Show>
+
+      {/* ── Playback Error Overlay ── */}
+      <Show when={state.playbackError}>
+        <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div class="flex max-w-sm flex-col items-center gap-5 rounded-2xl border border-white/[0.08] bg-black/90 px-8 py-7 shadow-[0_24px_64px_rgba(0,0,0,0.8)]">
+            <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/[0.12] ring-1 ring-red-500/25">
+              <AlertTriangle class="h-6 w-6 text-red-400" />
+            </div>
+            <div class="text-center">
+              <p class="font-semibold text-base text-white tracking-tight">
+                Playback failed
+              </p>
+              <p class="mt-1.5 line-clamp-3 text-[13px] text-white/50 leading-relaxed">
+                {state.playbackError}
+              </p>
+            </div>
+            <div class="flex w-full gap-2.5">
+              <button
+                class="flex flex-1 items-center justify-center gap-1.5 rounded-xl bg-white px-4 py-2.5 font-semibold text-black text-sm transition-opacity duration-150 hover:opacity-90 active:scale-[0.97]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  retryPlayback();
+                }}
+              >
+                <RefreshCw class="h-3.5 w-3.5" />
+                Retry
+              </button>
+              <button
+                class="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/[0.12] bg-white/[0.05] px-4 py-2.5 font-medium text-sm text-white/65 transition-colors duration-150 hover:bg-white/[0.1] hover:text-white active:scale-[0.97]"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  exitPlayer();
+                }}
+              >
+                Go back
+              </button>
+            </div>
+          </div>
         </div>
       </Show>
-      {/* Lock Button - Always Visible */}
+
+      {/* ── Lock Button — always visible ── */}
       <button
         aria-label={
           state.controlsLocked ? "Unlock controls" : "Lock controls hidden"
         }
-        class="control-element fixed top-6 right-4 z-50 rounded-full bg-black/60 p-3 text-white transition-all hover:bg-black/80"
+        class="control-element fixed top-6 right-4 z-50 rounded-full bg-black/55 p-2.5 text-white/70 shadow-[0_4px_16px_rgba(0,0,0,0.4)] transition-all duration-150 hover:bg-black/75 hover:text-white"
         onClick={(e) => {
           e.stopPropagation();
           toggleControlsLock();
         }}
       >
-        <Show fallback={<Eye class="h-5 w-5" />} when={state.controlsLocked}>
-          <EyeOff class="h-5 w-5" />
+        <Show
+          fallback={<Eye class="h-[18px] w-[18px]" />}
+          when={state.controlsLocked}
+        >
+          <EyeOff class="h-[18px] w-[18px]" />
         </Show>
       </button>
 
       <Show when={state.showControls}>
-        {/* Item Info Overlay */}
+        {/* ── Item Info Overlay ── */}
         <VideoInfoOverlay
           itemDetails={itemDetails}
           parentDetails={parentDetails}
         />
 
-        {/* Bottom Controls */}
+        {/* ── Bottom Controls ── */}
         <div
           class="control-element pointer-events-none fixed right-0 bottom-0 left-0 p-4"
           onClick={(e) => e.stopPropagation()}
-          role="button"
+          onMouseEnter={(e) => {
+            e.stopPropagation();
+            handleControlMouseEnter();
+          }}
+          onMouseLeave={(e) => {
+            e.stopPropagation();
+            handleControlMouseLeave();
+          }}
+          role="group"
         >
-          <div class="pointer-events-auto relative mx-auto flex w-full max-w-4xl flex-col gap-3">
+          {/* Soft vignette gradient behind controls */}
+          <div class="pointer-events-none absolute right-0 bottom-0 left-0 h-56 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+
+          <div class="pointer-events-auto relative mx-auto flex w-full max-w-4xl flex-col gap-2.5">
             {/* Dropdown Panels */}
             <VideoSettingsPanels
               onNavigateToChapter={navigateToChapter}
               openPanel={openPanel()}
-              panelRef={panelRef}
+              panelRef={setPanelRef}
               setOpenPanel={setOpenPanel}
               setState={setState}
               state={state}
@@ -314,6 +365,7 @@ export default function Page(props: RouteSectionProps) {
             {/* Main Control Bar */}
             <VideoControls
               audioBtnRef={audioBtnRef}
+              isPip={videoContext.isPip}
               onNavigateToChapter={navigateToChapter}
               onOpenPip={handleOpenPip}
               onProgressClick={handleProgressClick}
@@ -330,25 +382,20 @@ export default function Page(props: RouteSectionProps) {
           </div>
         </div>
 
-        {/* Back Button */}
+        {/* ── Back Button ── */}
         <button
-          class="control-element fixed top-6 left-4 z-50 rounded-full p-3 text-white transition-all"
+          class="control-element fixed top-6 left-4 z-50 rounded-full bg-black/55 p-2.5 text-white/70 shadow-[0_4px_16px_rgba(0,0,0,0.4)] transition-all duration-150 hover:bg-black/75 hover:text-white"
           onClick={(e) => {
             e.stopPropagation();
-            commands.playbackClear();
-            navigate(-1);
+            exitPlayer();
           }}
         >
-          <ArrowLeft class="h-6 w-6" />
+          <ArrowLeft class="h-[18px] w-[18px]" />
         </button>
 
-        {/* IINA Button */}
-        <Show when={state.url.length}>
-          <div
-            class="control-element fixed top-8 right-20 z-50"
-            onClick={(e) => e.stopPropagation()}
-            role="button"
-          >
+        {/* ── IINA Button ── */}
+          <Show when={state.url.length}>
+            <div class="control-element fixed top-8 right-20 z-50">
             <OpenInIINAButton
               beforePlaying={() => {
                 commands.playbackPause();
@@ -359,21 +406,15 @@ export default function Page(props: RouteSectionProps) {
         </Show>
       </Show>
 
-      {/* Autoplay Overlay */}
+      {/* ── Autoplay Overlay ── */}
       <Show when={autoplayHook().nextEpisode}>
-        <div
-          class="control-element"
-          onClick={(e) => e.stopPropagation()}
-          role="button"
-        >
+        <div class="control-element">
           <AutoplayOverlay
             isCollapsed={autoplayHook().isCollapsed()}
             isVisible={autoplayHook().showAutoplay()}
             nextEpisode={autoplayHook().nextEpisode as WithImage<BaseItemDto>}
             onCancel={autoplayHook().cancelAutoplay}
             onPlayNext={() => {
-              // before playing the next episode, clear the current video
-              commands.playbackPause();
               autoplayHook().playNextEpisode();
             }}
             setIsCollapsed={autoplayHook().setIsCollapsed}
@@ -381,10 +422,10 @@ export default function Page(props: RouteSectionProps) {
         </div>
       </Show>
 
-      {/* OSD (On-Screen Display) */}
+      {/* ── OSD (On-Screen Display) ── */}
       <OSD onHide={hideOSD} state={state.osd} />
 
-      {/* Keyboard Shortcuts Help Overlay */}
+      {/* ── Keyboard Shortcuts Help ── */}
       <KeyboardShortcutsHelp onClose={toggleHelp} visible={state.showHelp} />
     </div>
   );

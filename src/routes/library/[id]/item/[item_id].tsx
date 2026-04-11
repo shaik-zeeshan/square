@@ -1,29 +1,31 @@
 import {
-  ItemFilter,
-  type ItemsApiGetItemsRequest,
+	ItemFilter,
+	type ItemsApiGetItemsRequest,
 } from "@jellyfin/sdk/lib/generated-client";
 import { type RouteSectionProps, useNavigate } from "@solidjs/router";
 import { Effect } from "effect";
 import {
-  ArrowUp,
-  Calendar,
-  ChevronDown,
-  ChevronUp,
-  Clock,
-  Filter,
-  Library as LibraryIcon,
-  Star,
+	AlertCircle,
+	ArrowUp,
+	Calendar,
+	ChevronDown,
+	ChevronUp,
+	Clock,
+	Filter,
+	Library as LibraryIcon,
+	RefreshCw,
+	Star,
 } from "lucide-solid";
 import { create } from "mutative";
 import {
-  createSignal,
-  For,
-  Match,
-  onCleanup,
-  onMount,
-  Show,
-  Switch,
-  splitProps,
+	createSignal,
+	For,
+	Match,
+	onCleanup,
+	onMount,
+	Show,
+	Switch,
+	splitProps,
 } from "solid-js";
 import { ItemActions } from "~/components/ItemActions";
 import { EpisodeCard, SeriesCard } from "~/components/media-card";
@@ -34,592 +36,703 @@ import { InlineLoading } from "~/components/ui/loading";
 import { useRuntime } from "~/effect/runtime/use-runtime";
 import { AuthService } from "~/effect/services/auth";
 import {
-  JellyfinOperations,
-  type JellyfinOperationsType,
+	JellyfinOperations,
+	type JellyfinOperationsType,
 } from "~/effect/services/jellyfin/operations";
 import { JellyfinService } from "~/effect/services/jellyfin/service";
 import {
-  createEffectQuery,
-  type ExtractQueryData,
+	createEffectQuery,
+	type ExtractQueryData,
 } from "~/effect/tanstack/query";
 
 export default function Page(props: RouteSectionProps) {
-  const [{ params }] = splitProps(props, ["params"]);
-  const runtime = useRuntime();
-  const jf = runtime.runSync(
-    Effect.gen(function* () {
-      const auth = yield* AuthService;
-      const api = yield* auth.getApi();
-      return { api };
-    })
-  );
+	const [{ params }] = splitProps(props, ["params"]);
+	const runtime = useRuntime();
+	const jf = runtime.runSync(
+		Effect.gen(function* () {
+			const auth = yield* AuthService;
+			const api = yield* auth.getApi();
+			return { api };
+		}),
+	);
 
-  const navigate = useNavigate();
+	const navigate = useNavigate();
 
-  const [isOverviewExpanded, setIsOverviewExpanded] = createSignal(false);
-  const [showScrollTop, setShowScrollTop] = createSignal(false);
-  const [searchTerm, setSearchTerm] = createSignal("");
-  const [activeFilter, setActiveFilter] = createSignal<
-    "all" | "unplayed" | "played" | "resumable"
-  >("all");
+	const [isOverviewExpanded, setIsOverviewExpanded] = createSignal(false);
+	const [showScrollTop, setShowScrollTop] = createSignal(false);
+	const [searchTerm, setSearchTerm] = createSignal("");
+	const [activeFilter, setActiveFilter] = createSignal<
+		"all" | "unplayed" | "played" | "resumable"
+	>("all");
 
-  const parentLibrary = JellyfinOperations.getItem(() => params.id, {
-    fields: ["ParentId"],
-  });
+	const parentLibrary = JellyfinOperations.getItem(() => params.id, {
+		fields: ["ParentId"],
+	});
 
-  const itemDetails = JellyfinOperations.getItem(
-    () => params.item_id,
-    {
-      fields: ["Overview", "Studios", "People"],
-    },
-    () => ({
-      enabled: !!parentLibrary.data?.Id,
-    })
-  );
+	const itemDetails = JellyfinOperations.getItem(
+		() => params.item_id,
+		{
+			fields: ["Overview", "Studios", "People"],
+		},
+		() => ({
+			enabled: !!parentLibrary.data?.Id,
+		}),
+	);
 
-  const childrens = createEffectQuery(() => ({
-    queryKey: JellyfinOperations.itemsQueryKey({
-      parentId: params.item_id,
-      searchItem: [searchTerm(), activeFilter()],
-    }),
-    queryFn: () =>
-      Effect.gen(function* () {
-        const parentId = params.item_id;
-        const client = yield* JellyfinService;
+	const childrens = createEffectQuery(() => ({
+		queryKey: JellyfinOperations.itemsQueryKey({
+			parentId: params.item_id,
+			searchTerm: `${searchTerm()}::${activeFilter()}`,
+		}),
+		queryFn: () =>
+			Effect.gen(function* () {
+				const parentId = params.item_id;
+				const client = yield* JellyfinService;
 
-        const filters: (typeof ItemFilter)[keyof typeof ItemFilter][] = [];
-        const filter = activeFilter();
-        if (filter === "unplayed") {
-          filters.push(ItemFilter.IsUnplayed);
-        } else if (filter === "played") {
-          filters.push(ItemFilter.IsPlayed);
-        } else if (filter === "resumable") {
-          filters.push(ItemFilter.IsResumable);
-        }
+				const filters: (typeof ItemFilter)[keyof typeof ItemFilter][] = [];
+				const filter = activeFilter();
+				if (filter === "unplayed") {
+					filters.push(ItemFilter.IsUnplayed);
+				} else if (filter === "played") {
+					filters.push(ItemFilter.IsPlayed);
+				} else if (filter === "resumable") {
+					filters.push(ItemFilter.IsResumable);
+				}
 
-        const itemsParams: ItemsApiGetItemsRequest = create(
-          {
-            parentId,
-            fields: ["Overview", "MediaStreams"],
-          } as ItemsApiGetItemsRequest,
-          (data) => {
-            if (searchTerm()) {
-              data.searchTerm = searchTerm();
-              data.recursive = true;
-              data.includeItemTypes = ["Season", "Episode"];
-            }
+				const itemsParams: ItemsApiGetItemsRequest = create(
+					{
+						parentId,
+						fields: ["Overview", "MediaStreams"],
+					} as ItemsApiGetItemsRequest,
+					(data) => {
+						if (searchTerm()) {
+							data.searchTerm = searchTerm();
+							data.recursive = true;
+							data.includeItemTypes = ["Season", "Episode"];
+						}
 
-            data.filters = filters.length > 0 ? filters : undefined;
-          }
-        );
+						data.filters = filters.length > 0 ? filters : undefined;
+					},
+				);
 
-        const items = yield* client.getItems(itemsParams);
-        if (!items || items.length === 0) {
-          return [];
-        }
+				const items = yield* client.getItems(itemsParams);
+				if (!items || items.length === 0) {
+					return [];
+				}
 
-        items.forEach((item) =>
-          JellyfinOperations.itemQueryDataHelpers.setData(
-            { id: item.Id as string },
-            item
-          )
-        );
+				items.forEach((item) =>
+					JellyfinOperations.itemQueryDataHelpers.setData(
+						{ id: item.Id as string },
+						item,
+					),
+				);
 
-        return items;
-      }),
-    enabled: !!itemDetails.data?.ChildCount && itemDetails.data.ChildCount > 0, // Will be enabled conditionally in QueryBoundary
-  }));
-  //
+				return items;
+			}),
+		enabled: !!itemDetails.data?.ChildCount && itemDetails.data.ChildCount > 0,
+	}));
 
-  // Scroll to top handler
-  let contentAreaRef!: HTMLDivElement;
+	// Scroll to top handler
+	let contentAreaRef!: HTMLDivElement;
 
-  const scrollToTop = () => {
-    if (contentAreaRef) {
-      contentAreaRef.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  };
+	const scrollToTop = () => {
+		if (contentAreaRef) {
+			contentAreaRef.scrollTo({ top: 0, behavior: "smooth" });
+		}
+	};
 
-  // Show/hide scroll to top button
-  onMount(() => {
-    const handleScroll = () => {
-      if (contentAreaRef) {
-        setShowScrollTop(contentAreaRef.scrollTop > 400);
-      }
-    };
+	// Show/hide scroll to top button
+	onMount(() => {
+		const handleScroll = () => {
+			if (contentAreaRef) {
+				setShowScrollTop(contentAreaRef.scrollTop > 400);
+			}
+		};
 
-    if (contentAreaRef) {
-      contentAreaRef.addEventListener("scroll", handleScroll);
-      onCleanup(() =>
-        contentAreaRef?.removeEventListener("scroll", handleScroll)
-      );
-    }
-  });
+		if (contentAreaRef) {
+			contentAreaRef.addEventListener("scroll", handleScroll);
+			onCleanup(() =>
+				contentAreaRef?.removeEventListener("scroll", handleScroll),
+			);
+		}
+	});
 
-  onMount(() => {
-    document.body.style.setProperty("--item-color", "white");
-  });
+	onMount(() => {
+		document.body.style.setProperty("--item-color", "white");
+	});
 
-  onCleanup(() => {
-    document.body.style.removeProperty("--item-color");
-  });
+	onCleanup(() => {
+		document.body.style.removeProperty("--item-color");
+	});
 
-  const getImage = (id: string) =>
-    `${jf.api.basePath}/Items/${id}/Images/Backdrop?quality=10`;
+	const getImage = (id: string) =>
+		`${jf.api.basePath}/Items/${id}/Images/Backdrop?quality=10`;
 
-  return (
-    <section class="relative flex min-h-screen flex-col">
-      <div class="fixed top-0 left-0 h-screen w-full">
-        <img
-          alt={"Backdrop Imaage"}
-          class="h-full w-full object-cover"
-          onError={(e) => {
-            e.currentTarget.src = getImage(params.id);
-          }}
-          src={getImage(params.item_id)}
-        />
-        <div class="absolute inset-0 bg-linear-to-b from-black/60 via-black/70 to-black/90" />
-        <div class="absolute inset-0 backdrop-blur-sm" />
-      </div>
-      <QueryBoundary
-        errorFallback={(err, retry) => (
-          <div class="z-10 flex h-full w-full items-center justify-center">
-            <div class="text-center">
-              <div class="mb-4 text-red-400">
-                Error loading item: {err?.message}
-              </div>
-              <button
-                class="rounded bg-blue-500 px-4 py-2 text-white hover:bg-blue-600"
-                onClick={retry}
-              >
-                Retry
-              </button>
-            </div>
-          </div>
-        )}
-        loadingFallback={
-          <div class="z-10 flex h-full w-full items-center justify-center">
-            <div class="text-white">Loading item details...</div>
-          </div>
-        }
-        query={itemDetails}
-      >
-        {(item) => (
-          <div>
-            {/* Navigation Bar */}
-            <Nav
-              breadcrumbs={[
-                {
-                  label: (() => {
-                    const itemType = item?.Type;
-                    // For Season, show Series name; for Episode, show Season name; otherwise show Library name
-                    if (itemType === "Season" || itemType === "Episode") {
-                      return (
-                        item?.SeriesName || parentLibrary.data?.Name || "Parent"
-                      );
-                    }
-                    return parentLibrary.data?.Name || "Library";
-                  })(),
-                  icon: <LibraryIcon class="h-4 w-4 shrink-0 opacity-70" />,
-                  onClick: () => {
-                    const itemType = item?.Type;
-                    const parentId =
-                      itemType === "Movie"
-                        ? item.ParentId
-                        : parentLibrary.data?.ParentId;
+	return (
+		<section class="relative flex min-h-screen flex-col">
+			{/* ── Cinematic backdrop ── */}
+			<div class="fixed top-0 left-0 h-screen w-full">
+				<img
+					alt="Backdrop"
+					class="h-full w-full object-cover"
+					onError={(e) => {
+						e.currentTarget.src = getImage(params.id);
+					}}
+					src={getImage(params.item_id)}
+				/>
+				{/* Multi-layer gradient for cinema depth */}
+				<div class="absolute inset-0 bg-gradient-to-b from-black/50 via-[oklch(0.1_0_0)]/75 to-[oklch(0.085_0_0)]" />
+				<div class="absolute inset-0 bg-gradient-to-r from-black/40 via-transparent to-transparent" />
+				<div class="absolute inset-0 backdrop-blur-[2px]" />
+			</div>
 
-                    if (!parentId) {
-                      return;
-                    }
+			{/* ── Error fallback ── */}
+			<QueryBoundary
+				errorFallback={(err, retry) => (
+					<div
+						class="relative z-10 flex h-screen w-full flex-col items-center justify-center gap-6"
+						style={{
+							animation: "fadeSlideUp 350ms cubic-bezier(0.22,1,0.36,1) both",
+						}}
+					>
+						<div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 ring-1 ring-red-500/20 ring-inset">
+							<AlertCircle class="h-7 w-7 text-red-400" />
+						</div>
+						<div class="space-y-1 text-center">
+							<p class="font-semibold text-white/80">Failed to load item</p>
+							<p class="max-w-xs break-words text-red-400/70 text-sm">
+								{err?.message}
+							</p>
+						</div>
+						<button
+							class="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.07] px-5 py-2.5 text-sm text-white/80 transition-all duration-150 hover:border-amber-400/40 hover:bg-amber-400/[0.08] hover:text-white active:scale-95"
+							onClick={retry}
+							type="button"
+						>
+							<RefreshCw class="h-3.5 w-3.5" />
+							Retry
+						</button>
+					</div>
+				)}
+				loadingFallback={
+					<div class="relative z-10 flex h-screen w-full items-center justify-center">
+						<InlineLoading message="Loading…" size="lg" />
+					</div>
+				}
+				query={itemDetails}
+			>
+				{(item) => (
+					<div>
+						{/* ── Navigation ── */}
+						<Nav
+							breadcrumbs={[
+								{
+									label: (() => {
+										const itemType = item?.Type;
+										if (itemType === "Season" || itemType === "Episode") {
+											return (
+												item?.SeriesName || parentLibrary.data?.Name || "Parent"
+											);
+										}
+										return parentLibrary.data?.Name || "Library";
+									})(),
+									icon: <LibraryIcon class="h-4 w-4 shrink-0 opacity-70" />,
+									onClick: () => {
+										const itemType = item?.Type;
 
-                    // If current item is Season or Episode, navigate to parent item page
-                    // If current item is Series or Movie, navigate to library page
-                    if (itemType === "Season" || itemType === "Episode") {
-                      const seriesID = item?.SeriesId;
-                      navigate(`/library/${parentId}/item/${seriesID}`);
-                    } else {
-                      navigate(`/library/${params.id}`);
-                    }
-                  },
-                },
-              ]}
-              class="relative z-50"
-              currentPage={item?.Name || "Loading..."}
-              onSearchChange={setSearchTerm}
-              searchValue={searchTerm()}
-              showSearch={true}
-            />
+										if (itemType === "Season" || itemType === "Episode") {
+											const seriesID = item?.SeriesId;
+											if (!seriesID) {
+												return;
+											}
+											// params.id is always the library id in this route
+											navigate(`/library/${params.id}/item/${seriesID}`);
+										} else if (itemType === "Movie") {
+											navigate(`/library/${params.id}`);
+										} else {
+											navigate(`/library/${params.id}`);
+										}
+									},
+								},
+							]}
+							class="relative z-50 mt-4"
+							currentPage={item?.Name || "Loading..."}
+							onSearchChange={setSearchTerm}
+							searchValue={searchTerm()}
+							showSearch={true}
+						/>
 
-            <div
-              class="relative z-20 flex-1 px-8 py-8 text-white"
-              ref={contentAreaRef}
-            >
-              <div class="mx-auto flex h-full max-w-7xl flex-col">
-                {/* Hero Section */}
-                <div class="space-y-4">
-                  <Show when={["Series", "Movie"].includes(item?.Type || "")}>
-                    <div class="max-w-xs">
-                      <img
-                        alt={item?.Name ?? ""}
-                        class="h-auto w-full object-contain drop-shadow-xl"
-                        src={item?.Images?.Logo as string}
-                      />
-                    </div>
-                  </Show>
+						{/* ── Main content ── */}
+						<div
+							class="relative z-20 flex-1 overflow-y-auto px-8 py-8 text-white"
+							ref={contentAreaRef}
+						>
+							<div
+								class="mx-auto flex h-full max-w-7xl flex-col"
+								style={{
+									animation:
+										"fadeSlideUp 400ms cubic-bezier(0.22,1,0.36,1) both",
+								}}
+							>
+								{/* ── Hero Section ── */}
+								<div class="space-y-5">
+									{/* Logo or title */}
+									<Show
+										fallback={
+											<h1
+												class="font-bold text-3xl text-white tracking-tight drop-shadow-lg"
+												style={{
+													animation:
+														"fadeSlideUp 350ms 60ms cubic-bezier(0.22,1,0.36,1) both",
+												}}
+											>
+												{item?.Name}
+											</h1>
+										}
+										when={
+											["Series", "Movie"].includes(item?.Type || "") &&
+											item?.Images?.Logo
+										}
+									>
+										<div
+											class="max-w-xs"
+											style={{
+												animation:
+													"fadeSlideUp 350ms 60ms cubic-bezier(0.22,1,0.36,1) both",
+											}}
+										>
+											<img
+												alt={item?.Name ?? ""}
+												class="h-auto w-full object-contain drop-shadow-2xl"
+												src={item?.Images?.Logo as string}
+											/>
+										</div>
+									</Show>
 
-                  <Show when={!item?.Images?.Logo}>
-                    <h1 class="font-bold text-2xl tracking-tight">
-                      {item?.Name}
-                    </h1>
-                  </Show>
+									{/* ── Metadata chips ── */}
+									<div
+										class="flex flex-wrap items-center gap-2"
+										style={{
+											animation:
+												"fadeSlideUp 350ms 100ms cubic-bezier(0.22,1,0.36,1) both",
+										}}
+									>
+										<Show when={item?.CommunityRating}>
+											<div class="flex items-center gap-1.5 rounded-lg bg-amber-400/15 px-2.5 py-1 ring-1 ring-amber-400/25 ring-inset">
+												<Star class="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+												<span class="font-semibold text-amber-300 text-xs">
+													{item?.CommunityRating?.toFixed(1)}
+												</span>
+											</div>
+										</Show>
 
-                  {/* Metadata Section - Compact style */}
-                  <div class="flex flex-wrap items-center gap-2 text-xs">
-                    <Show when={item?.CommunityRating}>
-                      <div class="flex items-center gap-1 rounded-md bg-yellow-500/20 px-2 py-0.5">
-                        <Star class="h-3.5 w-3.5 fill-yellow-400 text-yellow-400" />
-                        <span class="font-semibold text-yellow-400">
-                          {item?.CommunityRating?.toFixed(1)}
-                        </span>
-                      </div>
-                    </Show>
+										<Show when={item?.PremiereDate}>
+											<div class="flex items-center gap-1.5 rounded-lg bg-white/[0.07] px-2.5 py-1 ring-1 ring-white/[0.1] ring-inset">
+												<Calendar class="h-3.5 w-3.5 text-white/50" />
+												<span class="font-medium text-white/70 text-xs">
+													{new Date(item?.PremiereDate || "").getFullYear()}
+												</span>
+											</div>
+										</Show>
 
-                    <Show when={item?.PremiereDate}>
-                      <div class="flex items-center gap-1 opacity-70">
-                        <Calendar class="h-3.5 w-3.5" />
-                        <span class="font-medium">
-                          {new Date(item?.PremiereDate || "").getFullYear()}
-                        </span>
-                      </div>
-                    </Show>
+										<Show when={item?.RunTimeTicks}>
+											<div class="flex items-center gap-1.5 rounded-lg bg-white/[0.07] px-2.5 py-1 ring-1 ring-white/[0.1] ring-inset">
+												<Clock class="h-3.5 w-3.5 text-white/50" />
+												<span class="font-medium text-white/70 text-xs">
+													{Math.round((item?.RunTimeTicks || 0) / 600_000_000)}{" "}
+													min
+												</span>
+											</div>
+										</Show>
 
-                    <Show when={item?.RunTimeTicks}>
-                      <div class="flex items-center gap-1 opacity-70">
-                        <Clock class="h-3.5 w-3.5" />
-                        <span class="font-medium">
-                          {Math.round((item?.RunTimeTicks || 0) / 600_000_000)}{" "}
-                          min
-                        </span>
-                      </div>
-                    </Show>
+										<Show when={item?.OfficialRating}>
+											<div class="rounded-lg border border-white/20 bg-white/[0.05] px-2.5 py-1">
+												<span class="font-semibold text-white/60 text-xs tracking-wider">
+													{item?.OfficialRating}
+												</span>
+											</div>
+										</Show>
+									</div>
 
-                    <Show when={item?.OfficialRating}>
-                      <div class="rounded-md border border-white/30 px-2 py-0.5">
-                        <span class="font-semibold">
-                          {item?.OfficialRating}
-                        </span>
-                      </div>
-                    </Show>
-                  </div>
+									{/* ── Primary CTA ── */}
+									<div
+										class="flex items-center gap-3 pt-1"
+										style={{
+											animation:
+												"fadeSlideUp 350ms 140ms cubic-bezier(0.22,1,0.36,1) both",
+										}}
+									>
+										<ItemActions
+											item={item}
+											itemId={item.Id || ""}
+											onDone={() => {
+												JellyfinOperations.itemsQueryDataHelpers.invalidateAllQueries();
+											}}
+											variant="detail"
+										/>
+									</div>
 
-                  {/* Item Actions */}
-                  <div class="flex items-center gap-2 pt-2">
-                    <ItemActions
-                      item={item}
-                      itemId={item.Id || ""}
-                      onDone={() => {
-                        JellyfinOperations.itemsQueryDataHelpers.invalidateAllQueries();
-                      }}
-                      variant="detail"
-                    />
-                  </div>
+									{/* ── Genre pills ── */}
+									<Show when={item?.Genres?.length}>
+										<div
+											class="flex flex-wrap gap-1.5"
+											style={{
+												animation:
+													"fadeSlideUp 350ms 180ms cubic-bezier(0.22,1,0.36,1) both",
+											}}
+										>
+											<For each={item.Genres?.slice(0, 5)}>
+												{(genre) => (
+													<span class="rounded-full border border-white/10 bg-white/[0.06] px-3 py-0.5 font-medium text-white/60 text-xs transition-all duration-150 hover:border-amber-400/30 hover:bg-amber-400/[0.08] hover:text-white/90">
+														{genre}
+													</span>
+												)}
+											</For>
+										</div>
+									</Show>
 
-                  {/* Genres - Compact pills */}
-                  <Show when={item?.Genres?.length}>
-                    <div class="flex flex-wrap gap-1.5">
-                      <For each={item.Genres?.slice(0, 4)}>
-                        {(genre) => (
-                          <span class="rounded-full bg-white/10 px-2.5 py-0.5 font-medium text-xs transition-colors hover:bg-white/15">
-                            {genre}
-                          </span>
-                        )}
-                      </For>
-                    </div>
-                  </Show>
+									{/* ── Overview ── */}
+									<Show when={item?.Overview}>
+										<div
+											class="max-w-2xl space-y-2 pt-1"
+											style={{
+												animation:
+													"fadeSlideUp 350ms 220ms cubic-bezier(0.22,1,0.36,1) both",
+											}}
+										>
+											<div class="flex items-center justify-between">
+												<h3 class="font-semibold text-white/40 text-xs uppercase tracking-widest">
+													Overview
+												</h3>
+												<button
+													class="flex items-center gap-1 rounded-md px-2 py-0.5 text-white/40 text-xs transition-all duration-150 hover:bg-white/[0.06] hover:text-white/70"
+													onClick={() =>
+														setIsOverviewExpanded(!isOverviewExpanded())
+													}
+													type="button"
+												>
+													<Show
+														fallback={
+															<>
+																<span>More</span>
+																<ChevronDown class="h-3 w-3" />
+															</>
+														}
+														when={isOverviewExpanded()}
+													>
+														<span>Less</span>
+														<ChevronUp class="h-3 w-3" />
+													</Show>
+												</button>
+											</div>
+											<p
+												class={`text-sm text-white/65 leading-relaxed transition-all duration-300 ${
+													isOverviewExpanded() ? "" : "line-clamp-3"
+												}`}
+											>
+												{item?.Overview}
+											</p>
+										</div>
+									</Show>
 
-                  {/* Synopsis Section - Refined */}
-                  <Show when={item?.Overview}>
-                    <div class="space-y-2 pt-2">
-                      <div class="flex items-center justify-between">
-                        <h3 class="font-semibold opacity-70">Overview</h3>
-                        <button
-                          class="flex items-center gap-1 text-sm opacity-60 transition-opacity hover:opacity-100"
-                          onClick={() =>
-                            setIsOverviewExpanded(!isOverviewExpanded())
-                          }
-                        >
-                          <Show
-                            fallback={
-                              <>
-                                <span>More</span>
-                                <ChevronDown class="h-3 w-3" />
-                              </>
-                            }
-                            when={isOverviewExpanded()}
-                          >
-                            <span>Less</span>
-                            <ChevronUp class="h-3 w-3" />
-                          </Show>
-                        </button>
-                      </div>
-                      <p
-                        class={`text-sm leading-relaxed opacity-70 transition-all duration-300 ${
-                          isOverviewExpanded() ? "" : "line-clamp-3"
-                        }`}
-                      >
-                        {item?.Overview}
-                      </p>
-                    </div>
-                  </Show>
+									{/* ── Studio + Cast ── */}
+									<Show when={item?.Studios?.length || item?.People?.length}>
+										<div
+											class="grid grid-cols-1 gap-3 pt-2 md:grid-cols-2"
+											style={{
+												animation:
+													"fadeSlideUp 350ms 260ms cubic-bezier(0.22,1,0.36,1) both",
+											}}
+										>
+											<Show when={item?.Studios?.length}>
+												<div class="rounded-xl border border-white/[0.08] bg-white/[0.04] p-4 backdrop-blur-sm">
+													<h4 class="mb-2 font-semibold text-white/35 text-xs uppercase tracking-widest">
+														Studio
+													</h4>
+													<p class="font-medium text-sm text-white/80">
+														{item?.Studios?.map((s) => s.Name).join(", ")}
+													</p>
+												</div>
+											</Show>
 
-                  {/* Additional Info - Compact Cards */}
-                  <Show when={item?.Studios?.length || item?.People?.length}>
-                    <div class="grid grid-cols-1 gap-4 pt-2 md:grid-cols-2">
-                      <Show when={item?.Studios?.length}>
-                        <div class="rounded-lg border border-white/10 bg-white/5 p-3">
-                          <h4 class="mb-2 font-semibold text-xs uppercase tracking-wider opacity-50">
-                            Studio
-                          </h4>
-                          <p class="font-medium text-sm">
-                            {item?.Studios?.map((s) => s.Name).join(", ")}
-                          </p>
-                        </div>
-                      </Show>
+											<Show when={item?.People?.slice(0, 4).length}>
+												<div class="rounded-xl border border-white/[0.08] bg-white/[0.04] p-4 backdrop-blur-sm">
+													<h4 class="mb-2 font-semibold text-white/35 text-xs uppercase tracking-widest">
+														Cast
+													</h4>
+													<div class="space-y-1.5">
+														<For each={item.People?.slice(0, 4)}>
+															{(person) => (
+																<div class="flex items-baseline gap-2 text-sm">
+																	<span class="truncate font-medium text-white/80">
+																		{person.Name}
+																	</span>
+																	<Show when={person.Role}>
+																		<span class="truncate text-white/35 text-xs">
+																			{person.Role}
+																		</span>
+																	</Show>
+																</div>
+															)}
+														</For>
+													</div>
+												</div>
+											</Show>
+										</div>
+									</Show>
+								</div>
 
-                      <Show when={item?.People?.slice(0, 4).length}>
-                        <div class="rounded-lg border border-white/10 bg-white/5 p-3">
-                          <h4 class="mb-2 font-semibold text-xs uppercase tracking-wider opacity-50">
-                            Cast
-                          </h4>
-                          <div class="space-y-1.5">
-                            <For each={item.People?.slice(0, 4)}>
-                              {(person) => (
-                                <div class="flex items-baseline gap-2 text-sm">
-                                  <span class="truncate font-medium">
-                                    {person.Name}
-                                  </span>
-                                  <Show when={person.Role}>
-                                    <span class="truncate text-xs opacity-50">
-                                      {person.Role}
-                                    </span>
-                                  </Show>
-                                </div>
-                              )}
-                            </For>
-                          </div>
-                        </div>
-                      </Show>
-                    </div>
-                  </Show>
-                </div>
+								{/* ── Children / Content Section ── */}
+								<div
+									class="mt-14 flex-1 border-white/[0.08] border-t pt-8"
+									style={{
+										animation:
+											"fadeSlideUp 400ms 300ms cubic-bezier(0.22,1,0.36,1) both",
+									}}
+								>
+									<QueryBoundary
+										errorFallback={(err, retry) => (
+											<div class="flex flex-col items-center gap-4 rounded-xl border border-red-500/[0.15] bg-red-500/[0.04] px-6 py-10 text-center">
+												<div class="flex h-10 w-10 items-center justify-center rounded-2xl bg-red-500/[0.12] ring-1 ring-red-500/[0.2] ring-inset">
+													<AlertCircle class="h-5 w-5 text-red-400" />
+												</div>
+												<div class="space-y-1">
+													<p class="font-medium text-sm text-white/70">
+														Failed to load content
+													</p>
+													<p class="text-red-400/70 text-xs">{err?.message}</p>
+												</div>
+												<button
+													class="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.1] bg-white/[0.07] px-4 py-2 text-sm text-white/80 transition-all duration-150 hover:border-amber-400/40 hover:bg-amber-400/[0.08] hover:text-white active:scale-95"
+													onClick={retry}
+													type="button"
+												>
+													<RefreshCw class="h-3.5 w-3.5" />
+													Retry
+												</button>
+											</div>
+										)}
+										loadingFallback={
+											<div class="flex items-center justify-center py-16">
+												<InlineLoading message="Loading content…" size="md" />
+											</div>
+										}
+										notStartedFallback={
+											<ItemsRender
+												activeFilter={activeFilter()}
+												items={[]}
+												onFilterChange={setActiveFilter}
+												parentId={params.item_id}
+												parentItem={item}
+											/>
+										}
+										query={childrens}
+									>
+										{(items) => (
+											<ItemsRender
+												activeFilter={activeFilter()}
+												items={items}
+												onFilterChange={setActiveFilter}
+												parentId={params.item_id}
+												parentItem={item}
+											/>
+										)}
+									</QueryBoundary>
+								</div>
+							</div>
+						</div>
+					</div>
+				)}
+			</QueryBoundary>
 
-                {/* Content Section */}
-                <div class="mt-12 flex-1 border-white/10 border-t pt-8">
-                  <QueryBoundary
-                    errorFallback={(err) => (
-                      <div class="rounded-lg border border-red-500/20 bg-red-500/10 p-4">
-                        <div class="text-red-400 text-sm">
-                          Error: {err?.message}
-                        </div>
-                      </div>
-                    )}
-                    loadingFallback={
-                      <InlineLoading class="grid h-full place-items-center text-white/80" />
-                    }
-                    notStartedFallback={
-                      <ItemsRender
-                        activeFilter={activeFilter()}
-                        items={[]}
-                        onFilterChange={setActiveFilter}
-                        parentId={params.item_id}
-                        parentItem={item}
-                      />
-                    }
-                    query={childrens}
-                  >
-                    {(items) => (
-                      <ItemsRender
-                        activeFilter={activeFilter()}
-                        items={items}
-                        onFilterChange={setActiveFilter}
-                        parentId={params.item_id}
-                        parentItem={item}
-                      />
-                    )}
-                  </QueryBoundary>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </QueryBoundary>
-
-      {/* Scroll to Top Button */}
-      <Show when={showScrollTop()}>
-        <GlassButton
-          class="fade-in slide-in-from-bottom-4 fixed right-8 bottom-8 z-50 animate-in text-white"
-          onClick={scrollToTop}
-          size="icon-lg"
-        >
-          <ArrowUp class="h-6 w-6" />
-        </GlassButton>
-      </Show>
-    </section>
-  );
+			{/* ── Scroll to top ── */}
+			<Show when={showScrollTop()}>
+				<GlassButton
+					class="fade-in slide-in-from-bottom-4 fixed right-8 bottom-8 z-50 animate-in text-white shadow-xl"
+					onClick={scrollToTop}
+					size="icon-lg"
+				>
+					<ArrowUp class="h-5 w-5" />
+				</GlassButton>
+			</Show>
+		</section>
+	);
 }
 
 interface ItemsRenderProsp {
-  parentItem: ExtractQueryData<ReturnType<JellyfinOperationsType["getItem"]>>;
-  items:
-    | ExtractQueryData<ReturnType<JellyfinOperationsType["getItems"]>>
-    | undefined;
-  parentId: string;
-  activeFilter: "all" | "unplayed" | "played" | "resumable";
-  onFilterChange: (filter: "all" | "unplayed" | "played" | "resumable") => void;
+	parentItem: ExtractQueryData<ReturnType<JellyfinOperationsType["getItem"]>>;
+	items:
+		| ExtractQueryData<ReturnType<JellyfinOperationsType["getItems"]>>
+		| undefined;
+	parentId: string;
+	activeFilter: "all" | "unplayed" | "played" | "resumable";
+	onFilterChange: (filter: "all" | "unplayed" | "played" | "resumable") => void;
 }
 
 const FilterButton = (props: {
-  filter: ItemsRenderProsp["activeFilter"];
-  label: string;
-  activeFilter: ItemsRenderProsp["activeFilter"];
-  onFilterChange: ItemsRenderProsp["onFilterChange"];
+	filter: ItemsRenderProsp["activeFilter"];
+	label: string;
+	activeFilter: ItemsRenderProsp["activeFilter"];
+	onFilterChange: ItemsRenderProsp["onFilterChange"];
 }) => (
-  <button
-    class={`rounded-full px-3 py-1 font-medium text-xs transition-all ${
-      props.activeFilter === props.filter
-        ? "border border-blue-500/50 bg-blue-500/30 text-blue-300"
-        : "border border-white/10 bg-white/5 hover:bg-white/10"
-    }`}
-    onClick={() => props.onFilterChange(props.filter)}
-  >
-    {props.label}
-  </button>
+	<button
+		class={`rounded-full px-3 py-1 font-medium text-xs transition-all duration-150 ${
+			props.activeFilter === props.filter
+				? "border border-amber-400/40 bg-amber-400/15 text-amber-300 shadow-[0_0_12px_rgba(251,191,36,0.15)]"
+				: "border border-white/[0.08] bg-white/[0.05] text-white/50 hover:border-white/20 hover:bg-white/10 hover:text-white/80"
+		}`}
+		onClick={() => props.onFilterChange(props.filter)}
+		type="button"
+	>
+		{props.label}
+	</button>
 );
 
 function ItemsRender(props: ItemsRenderProsp) {
-  const [{ parentItem, items, parentId, activeFilter, onFilterChange }] =
-    splitProps(props, [
-      "parentItem",
-      "items",
-      "parentId",
-      "activeFilter",
-      "onFilterChange",
-    ]);
+	const [{ parentItem, items, parentId, activeFilter, onFilterChange }] =
+		splitProps(props, [
+			"parentItem",
+			"items",
+			"parentId",
+			"activeFilter",
+			"onFilterChange",
+		]);
 
-  return (
-    <Switch
-      fallback={
-        <div class="space-y-4">
-          <h2 class="font-semibold text-lg">No item</h2>
-        </div>
-      }
-    >
-      <Match when={!parentItem}>
-        <div class="space-y-4">
-          <h2 class="font-semibold text-lg">No item</h2>
-        </div>
-      </Match>
-      <Match when={!parentItem?.Type}>
-        <div class="space-y-4">
-          <h2 class="font-semibold text-lg">No seasons</h2>
-        </div>
-      </Match>
-      <Match when={parentItem?.Type === "Series"}>
-        <div class="space-y-4">
-          <div class="flex items-center justify-between gap-4">
-            <div class="flex items-baseline gap-2">
-              <h2 class="font-semibold text-lg">Seasons</h2>
-              <span class="font-medium text-xs opacity-50">
-                {items?.length} {items?.length === 1 ? "Season" : "Seasons"}
-              </span>
-            </div>
+	return (
+		<Switch
+			fallback={
+				<div class="flex flex-col items-center gap-3 py-16 text-center">
+					<p class="font-medium text-sm text-white/40">Nothing to show here</p>
+				</div>
+			}
+		>
+			<Match when={!parentItem}>
+				<div class="flex flex-col items-center gap-3 py-16 text-center">
+					<p class="font-medium text-sm text-white/40">Item not found</p>
+				</div>
+			</Match>
+			<Match when={!parentItem?.Type}>
+				<div class="flex flex-col items-center gap-3 py-16 text-center">
+					<p class="font-medium text-sm text-white/40">No content available</p>
+				</div>
+			</Match>
 
-            <div class="flex items-center gap-2">
-              <Filter class="h-4 w-4 opacity-50" />
-              <FilterButton
-                activeFilter={activeFilter}
-                filter="all"
-                label="All"
-                onFilterChange={onFilterChange}
-              />
-              <FilterButton
-                activeFilter={activeFilter}
-                filter="unplayed"
-                label="Unwatched"
-                onFilterChange={onFilterChange}
-              />
-              <FilterButton
-                activeFilter={activeFilter}
-                filter="played"
-                label="Watched"
-                onFilterChange={onFilterChange}
-              />
-              <FilterButton
-                activeFilter={activeFilter}
-                filter="resumable"
-                label="In Progress"
-                onFilterChange={onFilterChange}
-              />
-            </div>
-          </div>
-          <div class="grid grid-cols-3 gap-6 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-            <For each={items}>
-              {(item) => <SeriesCard item={item} parentId={parentId} />}
-            </For>
-          </div>
-        </div>
-      </Match>
+			<Match when={parentItem?.Type === "Series"}>
+				<div class="space-y-6">
+					{/* Section header */}
+					<div class="flex items-center justify-between gap-4">
+						<div class="flex items-baseline gap-2">
+							<h2 class="font-semibold text-lg text-white/90">Seasons</h2>
+							<span class="font-medium text-white/35 text-xs">
+								{items?.length} {items?.length === 1 ? "Season" : "Seasons"}
+							</span>
+						</div>
 
-      <Match when={parentItem?.Type === "Movie"}>
-        <div class="space-y-4">
-          <h2 class="font-semibold text-lg">Watch Movie</h2>
-          <EpisodeCard item={parentItem} />
-        </div>
-      </Match>
+						<div class="flex items-center gap-1.5">
+							<Filter class="h-3.5 w-3.5 text-white/30" />
+							<FilterButton
+								activeFilter={activeFilter}
+								filter="all"
+								label="All"
+								onFilterChange={onFilterChange}
+							/>
+							<FilterButton
+								activeFilter={activeFilter}
+								filter="unplayed"
+								label="Unwatched"
+								onFilterChange={onFilterChange}
+							/>
+							<FilterButton
+								activeFilter={activeFilter}
+								filter="played"
+								label="Watched"
+								onFilterChange={onFilterChange}
+							/>
+							<FilterButton
+								activeFilter={activeFilter}
+								filter="resumable"
+								label="In Progress"
+								onFilterChange={onFilterChange}
+							/>
+						</div>
+					</div>
 
-      <Match when={parentItem?.Type === "Season"}>
-        <div class="space-y-4">
-          <div class="flex items-center justify-between gap-4">
-            <div class="flex items-baseline gap-2">
-              <h2 class="font-semibold text-lg">Episodes</h2>
-              <span class="font-medium text-xs opacity-50">
-                {items?.length} {items?.length === 1 ? "Episode" : "Episodes"}
-              </span>
-            </div>
+					{/* Empty state */}
+					<Show when={!items?.length}>
+						<div class="flex flex-col items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] py-16 text-center">
+							<p class="font-medium text-sm text-white/40">No seasons found</p>
+							<p class="text-white/25 text-xs">Try changing the filter above</p>
+						</div>
+					</Show>
 
-            <div class="flex items-center gap-2">
-              <Filter class="h-4 w-4 opacity-50" />
-              <FilterButton
-                activeFilter={activeFilter}
-                filter="all"
-                label="All"
-                onFilterChange={onFilterChange}
-              />
-              <FilterButton
-                activeFilter={activeFilter}
-                filter="unplayed"
-                label="Unwatched"
-                onFilterChange={onFilterChange}
-              />
-              <FilterButton
-                activeFilter={activeFilter}
-                filter="played"
-                label="Watched"
-                onFilterChange={onFilterChange}
-              />
-              <FilterButton
-                activeFilter={activeFilter}
-                filter="resumable"
-                label="In Progress"
-                onFilterChange={onFilterChange}
-              />
-            </div>
-          </div>
-          <div class="space-y-4">
-            <For each={items}>{(item) => <EpisodeCard item={item} />}</For>
-          </div>
-        </div>
-      </Match>
-    </Switch>
-  );
+					<div class="grid grid-cols-3 gap-6 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+						<For each={items}>
+							{(item) => <SeriesCard item={item} parentId={parentId} />}
+						</For>
+					</div>
+				</div>
+			</Match>
+
+			<Match when={parentItem?.Type === "Movie"}>
+				<div class="space-y-5">
+					<h2 class="font-semibold text-lg text-white/90">Watch Movie</h2>
+					<EpisodeCard item={parentItem} />
+				</div>
+			</Match>
+
+			<Match when={parentItem?.Type === "Season"}>
+				<div class="space-y-6">
+					{/* Section header */}
+					<div class="flex items-center justify-between gap-4">
+						<div class="flex items-baseline gap-2">
+							<h2 class="font-semibold text-lg text-white/90">Episodes</h2>
+							<span class="font-medium text-white/35 text-xs">
+								{items?.length} {items?.length === 1 ? "Episode" : "Episodes"}
+							</span>
+						</div>
+
+						<div class="flex items-center gap-1.5">
+							<Filter class="h-3.5 w-3.5 text-white/30" />
+							<FilterButton
+								activeFilter={activeFilter}
+								filter="all"
+								label="All"
+								onFilterChange={onFilterChange}
+							/>
+							<FilterButton
+								activeFilter={activeFilter}
+								filter="unplayed"
+								label="Unwatched"
+								onFilterChange={onFilterChange}
+							/>
+							<FilterButton
+								activeFilter={activeFilter}
+								filter="played"
+								label="Watched"
+								onFilterChange={onFilterChange}
+							/>
+							<FilterButton
+								activeFilter={activeFilter}
+								filter="resumable"
+								label="In Progress"
+								onFilterChange={onFilterChange}
+							/>
+						</div>
+					</div>
+
+					{/* Empty state */}
+					<Show when={!items?.length}>
+						<div class="flex flex-col items-center gap-3 rounded-xl border border-white/[0.06] bg-white/[0.03] py-16 text-center">
+							<p class="font-medium text-sm text-white/40">No episodes found</p>
+							<p class="text-white/25 text-xs">Try changing the filter above</p>
+						</div>
+					</Show>
+
+					<div class="space-y-4">
+						<For each={items}>{(item) => <EpisodeCard item={item} />}</For>
+					</div>
+				</div>
+			</Match>
+		</Switch>
+	);
 }

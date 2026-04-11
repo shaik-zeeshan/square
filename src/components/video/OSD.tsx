@@ -5,6 +5,7 @@ import {
   Gauge,
   type LucideIcon,
   Pause,
+  PictureInPicture2,
   Play,
   SkipBack,
   SkipForward,
@@ -33,7 +34,8 @@ export function OSD(props: OSDProps) {
   let iconRef!: HTMLDivElement;
   let valueRef!: HTMLDivElement;
 
-  let hideTimeout!: NodeJS.Timeout;
+  let hideTimeout: ReturnType<typeof setTimeout> | undefined;
+  let deferTimeout: ReturnType<typeof setTimeout> | undefined;
 
   const getIcon = (): LucideIcon => {
     switch (props.state.type) {
@@ -58,6 +60,8 @@ export function OSD(props: OSDProps) {
         return VolumeX;
       case "unmute":
         return Volume2;
+      case "pip":
+        return PictureInPicture2;
       default:
         return Play;
     }
@@ -68,12 +72,12 @@ export function OSD(props: OSDProps) {
       case "volume":
         return `${props.state.value}%`;
       case "speed":
-        return `${props.state.value ?? ""}x`;
+        return `${props.state.value ?? ""}×`;
       case "seek": {
         const value =
           typeof props.state.value === "number" ? props.state.value : 0;
         const seconds = Math.abs(value);
-        const sign = value > 0 ? "+" : "-";
+        const sign = value > 0 ? "+" : "−";
         return `${sign}${seconds}s`;
       }
       case "audio":
@@ -84,6 +88,8 @@ export function OSD(props: OSDProps) {
       case "mute":
       case "unmute":
         return props.state.label || "";
+      case "pip":
+        return props.state.label || "Picture in Picture";
       default:
         return props.state.value?.toString() || "";
     }
@@ -98,60 +104,111 @@ export function OSD(props: OSDProps) {
     return "0%";
   };
 
+  const hasTextValue = () => {
+    const t = props.state.type;
+    return t !== "play" && t !== "pause";
+  };
+
+  // Is this a "seek" type — shows directional indicator
+  const isSeek = () => props.state.type === "seek";
+
+  // Accent tinting for specific types
+  const iconBgClass = () => {
+    if (props.state.type === "seek") {
+      return "bg-amber-400/[0.12] ring-amber-400/[0.14]";
+    }
+    if (props.state.type === "play") {
+      return "bg-green-400/[0.1] ring-green-400/[0.12]";
+    }
+    if (props.state.type === "mute") {
+      return "bg-red-400/[0.1] ring-red-400/[0.12]";
+    }
+    return "bg-white/[0.1] ring-white/[0.08]";
+  };
+
+  const iconColorClass = () => {
+    if (props.state.type === "seek") {
+      return "text-amber-300";
+    }
+    if (props.state.type === "play") {
+      return "text-green-300";
+    }
+    if (props.state.type === "mute") {
+      return "text-red-300";
+    }
+    return "text-white";
+  };
+
+  const seekSign = () => {
+    if (props.state.type !== "seek") {
+      return null;
+    }
+    const value = typeof props.state.value === "number" ? props.state.value : 0;
+    return value > 0 ? "+" : "−";
+  };
+
   createEffect(() => {
+    // Track all meaningful OSD state fields
+    const _track = `${props.state.type}|${props.state.value}|${props.state.label}`;
+
     if (prefersReducedMotion() || !props.state.visible) {
       return;
     }
 
-    // Use setTimeout to ensure refs are assigned
-    setTimeout(() => {
+    clearTimeout(hideTimeout);
+    hideTimeout = undefined;
+    clearTimeout(deferTimeout);
+
+    deferTimeout = setTimeout(() => {
+      deferTimeout = undefined;
+
       if (!(containerRef && iconRef && valueRef)) {
         return;
       }
 
-      // Create slide in animation
-      const slideInAnimation = createAnimeInstance(containerRef, {
+      const slideIn = createAnimeInstance(containerRef, {
         ...animationPresets.slideIn,
-        translateY: [-30, 0],
-        duration: 400,
-        easing: "easeOutBack",
+        translateY: [-14, 0],
+        scale: [0.84, 1],
+        opacity: [0, 1],
+        duration: 260,
+        easing: "easeOutCubic",
       });
 
-      // Create icon bounce
-      const iconAnimation = createAnimeInstance(iconRef, {
+      const iconBounce = createAnimeInstance(iconRef, {
         ...animationPresets.elasticBounce,
-        duration: 600,
-        delay: 100,
+        duration: 420,
+        delay: 40,
       });
 
-      // Create value fade in
-      const valueAnimation = createAnimeInstance(valueRef, {
+      const valueFade = createAnimeInstance(valueRef, {
         ...animationPresets.fadeInScale,
-        delay: 200,
-        duration: 300,
+        translateY: [5, 0],
+        opacity: [0, 1],
+        delay: 60,
+        duration: 220,
+        easing: "easeOutCubic",
       });
 
-      setAnimationInstance([slideInAnimation, iconAnimation, valueAnimation]);
+      setAnimationInstance([slideIn, iconBounce, valueFade]);
 
-      // Auto hide after 1.5 seconds
+      clearTimeout(hideTimeout);
       hideTimeout = setTimeout(() => {
         hideOSD();
-      }, 1500);
+      }, 1400);
     }, 0);
   });
 
   onCleanup(() => {
     clearTimeout(hideTimeout);
+    clearTimeout(deferTimeout);
   });
 
   onCleanup(() => {
-    const instances = animationInstance();
-    if (instances) {
-      instances.forEach((instance: JSAnimation) => {
-        if (instance && typeof instance.pause === "function") {
-          instance.pause();
-        }
-      });
+    for (const instance of animationInstance()) {
+      if (instance && typeof instance.pause === "function") {
+        instance.pause();
+      }
     }
   });
 
@@ -161,18 +218,18 @@ export function OSD(props: OSDProps) {
       return;
     }
 
-    // Create fade out animation
-    const fadeOutAnimation = createAnimeInstance(containerRef, {
+    const fadeOut = createAnimeInstance(containerRef, {
       opacity: [1, 0],
-      scale: [1, 0.9],
-      duration: 200,
-      easing: "easeInQuart",
+      scale: [1, 0.86],
+      translateY: [0, -6],
+      duration: 180,
+      easing: "easeInCubic",
       complete: () => {
         props.onHide?.();
       },
     });
 
-    setAnimationInstance([fadeOutAnimation]);
+    setAnimationInstance([fadeOut]);
   };
 
   const Icon = getIcon();
@@ -180,37 +237,62 @@ export function OSD(props: OSDProps) {
   return (
     <Show when={props.state.visible}>
       <div
-        class="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-50 transform"
+        class="-translate-x-1/2 -translate-y-1/2 fixed top-1/2 left-1/2 z-50"
         ref={containerRef}
       >
-        <div class="flex flex-col items-center gap-3 rounded-xl border border-white/20 bg-black/80 px-6 py-4 shadow-2xl backdrop-blur-md">
+        {/* Cinematic pill OSD */}
+        <div class="flex min-w-[96px] flex-col items-center gap-3 rounded-[20px] border border-white/[0.09] bg-black/86 px-6 py-5 shadow-[0_20px_64px_rgba(0,0,0,0.75),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-[32px]">
           {/* Icon */}
           <div
-            class="flex h-12 w-12 items-center justify-center rounded-full bg-white/10"
+            class={`flex h-11 w-11 items-center justify-center rounded-2xl ring-1 ring-inset ${iconBgClass()}`}
             ref={iconRef}
           >
-            <Icon class="h-6 w-6 text-white" />
+            <Icon class={`h-5 w-5 ${iconColorClass()}`} />
           </div>
 
-          {/* Value display */}
-          <div class="text-center" ref={valueRef}>
-            <div class="font-semibold text-lg text-white">
-              {getDisplayValue()}
-            </div>
+          {/* Value + optional sub-content */}
+          <div class="flex flex-col items-center gap-1.5" ref={valueRef}>
+            <Show when={hasTextValue()}>
+              <div
+                class={`font-mono font-semibold text-[15px] tabular-nums tracking-tight ${
+                  isSeek() ? "text-amber-300" : "text-white"
+                }`}
+              >
+                <Show when={isSeek()}>
+                  <span class="mr-0.5 text-[13px] text-amber-400/60">
+                    {seekSign()}
+                  </span>
+                </Show>
+                {isSeek()
+                  ? `${Math.abs(typeof props.state.value === "number" ? props.state.value : 0)}s`
+                  : getDisplayValue()}
+              </div>
+            </Show>
 
-            {/* Volume bar for volume changes */}
+            {/* Volume bar */}
             <Show when={props.state.type === "volume"}>
-              <div class="mt-2 h-1 w-24 overflow-hidden rounded-full bg-white/20">
+              <div class="mt-1 h-[3px] w-[72px] overflow-hidden rounded-full bg-white/[0.12]">
                 <div
-                  class="h-full bg-white/80 transition-all duration-300"
+                  class="h-full rounded-full bg-white/85 transition-[width] duration-200"
                   style={{ width: getVolumeBarWidth() }}
                 />
               </div>
             </Show>
 
-            {/* Label */}
-            <Show when={props.state.label && props.state.type !== "volume"}>
-              <div class="mt-1 text-sm text-white/70">{props.state.label}</div>
+            {/* Label for audio/subtitle/speed */}
+            <Show
+              when={
+                props.state.label &&
+                props.state.type !== "volume" &&
+                props.state.type !== "seek" &&
+                props.state.type !== "play" &&
+                props.state.type !== "pause" &&
+                props.state.type !== "pip"
+              }
+            >
+              <div class="max-w-[140px] truncate text-[11px] text-white/45">
+                {props.state.label}
+              </div>
             </Show>
           </div>
         </div>

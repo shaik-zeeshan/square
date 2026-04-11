@@ -1,2 +1,0 @@
-npx ultracite fix
-cd src-tauri && cargo check

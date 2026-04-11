@@ -50,15 +50,61 @@ function onMoveEnd(
   callback: (event: Event<PhysicalPosition>) => Promise<void>,
   delay = 200
 ) {
-  let timeout: NodeJS.Timeout;
-  return (event: Event<PhysicalPosition>) => {
-    clearTimeout(timeout);
+  let timeout: NodeJS.Timeout | null = null;
+
+  const listener = (event: Event<PhysicalPosition>) => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
     timeout = setTimeout(() => callback(event), delay);
   };
+
+  const cancel = () => {
+    if (timeout) {
+      clearTimeout(timeout);
+      timeout = null;
+    }
+  };
+
+  return { listener, cancel };
 }
 
 export default function PipPage() {
   const [state, setState] = useVideoContext();
+  let isRecoveringFromPip = false;
+  let cancelPendingMoveEnd: (() => void) | null = null;
+
+  const recoverFromPip = async () => {
+    if (isRecoveringFromPip) {
+      return;
+    }
+
+    cancelPendingMoveEnd?.();
+    isRecoveringFromPip = true;
+    setState("isPipTransitioning", true);
+    try {
+      setState("isPip", false);
+
+      try {
+        await commands.hidePipWindow();
+      } catch {
+        // window may already be destroyed from external PiP controls
+      }
+
+      const windows = await getAllWindows();
+      const main = windows.find((win) => win.label === "main");
+
+      if (!main) {
+        return;
+      }
+
+      await main.setFocus();
+      await main.show();
+    } finally {
+      isRecoveringFromPip = false;
+      setState("isPipTransitioning", false);
+    }
+  };
 
   onMount(async () => {
     const window = getCurrentWindow();
@@ -75,9 +121,12 @@ export default function PipPage() {
         return;
       }
 
+      const monitorOriginX = monitor.position.x;
+      const monitorOriginY = monitor.position.y;
+
       const [x, y] = nearestCorner(
-        event.payload.x,
-        event.payload.y,
+        event.payload.x - monitorOriginX,
+        event.payload.y - monitorOriginY,
         monitor.size.width,
         monitor.size.height,
         windowSize.width,
@@ -85,27 +134,53 @@ export default function PipPage() {
         16 // padding
       );
 
-      window.setPosition(new PhysicalPosition(x, y));
+      window.setPosition(
+        new PhysicalPosition(x + monitorOriginX, y + monitorOriginY)
+      );
     };
 
-    const unlisten = await window.onMoved(onMoveEnd(onMoveWindow, 300));
+    const { listener: onMovedListener, cancel: cancelMoveEnd } = onMoveEnd(
+      onMoveWindow,
+      300
+    );
+    cancelPendingMoveEnd = cancelMoveEnd;
+
+    const unlistenMoved = await window.onMoved(onMovedListener);
+    const unlistenCloseRequested = await window.onCloseRequested((event) => {
+      event.preventDefault();
+
+      recoverFromPip().catch(() => {
+        // no-op: close/destroy recovery should not block teardown
+      });
+    });
+    const unlistenDestroyed = await window.listen("tauri://destroyed", () => {
+      recoverFromPip().catch(() => {
+        // no-op: close/destroy recovery should not block teardown
+      });
+    });
 
     onCleanup(() => {
-      unlisten();
+      cancelPendingMoveEnd?.();
+      cancelPendingMoveEnd = null;
+      unlistenMoved();
+      unlistenCloseRequested();
+      unlistenDestroyed();
     });
   });
 
   const handleClose = async () => {
-    setState("isPip", () => false);
-    await commands.hidePipWindow();
-    const windows = await getAllWindows();
-    const main = windows.find((win) => win.label === "main");
+    await recoverFromPip();
+  };
 
-    if (!main) {
+  const handleTogglePlay = async () => {
+    if (state.pause) {
+      await commands.playbackPlay();
+      setState("pause", false);
       return;
     }
-    await main.setFocus();
-    await main.show();
+
+    await commands.playbackPause();
+    setState("pause", true);
   };
 
   return (
@@ -113,7 +188,7 @@ export default function PipPage() {
       <PipControls
         isPlaying={!state.pause}
         onClose={handleClose}
-        onTogglePlay={() => setState("pause", (value) => !value)}
+        onTogglePlay={handleTogglePlay}
       />
     </div>
   );
