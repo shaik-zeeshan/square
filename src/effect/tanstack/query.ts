@@ -271,18 +271,21 @@ export function createEffectQuery<
     return effect.pipe(effectRunner(spanName as string));
   };
 
-  return useQuery<A, E, A, QueryKeyType>(() => ({
-    // enabled: () =>
-    //   runtime.runSync(
-    //     AuthService.pipe(
-    //       Effect.flatMap((auth) => auth.getUser()),
-    //       Effect.isSuccess
-    //     )
-    //   ),
-    ...opts(),
-    initialData: (opts().initialData ?? undefined) as A | (() => A),
-    queryFn,
-  }));
+  return useQuery<A, E, A, QueryKeyType>(
+    () => ({
+      // enabled: () =>
+      //   runtime.runSync(
+      //     AuthService.pipe(
+      //       Effect.flatMap((auth) => auth.getUser()),
+      //       Effect.isSuccess
+      //     )
+      //   ),
+      ...opts(),
+      initialData: (opts().initialData ?? undefined) as A | (() => A),
+      queryFn,
+    }),
+    () => queryClient
+  );
 }
 
 /*
@@ -321,8 +324,11 @@ export function createEffectMutation<
     return effect.pipe(effectRunner(spanName as string));
   };
 
-  return useMutation<A, E, MutationVariables, MutationContext>(() => ({
-    ...opts(),
-    mutationFn,
-  }));
+  return useMutation<A, E, MutationVariables, MutationContext>(
+    () => ({
+      ...opts(),
+      mutationFn,
+    }),
+    () => queryClient
+  );
 }

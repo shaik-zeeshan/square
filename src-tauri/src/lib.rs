@@ -172,24 +172,34 @@ fn playback_clear(app: tauri::AppHandle) {
 #[tauri::command]
 fn show_pip_window(app: tauri::AppHandle) -> Result<(), String> {
     let app_clone = app.clone();
-    let app_state = app.state::<AppState>();
-    let pip_window_guard = app_state.pip_window.lock().unwrap();
+    let pip_window = get_or_create_pip_window(&app)?;
 
-    if let Some(pip_window) = pip_window_guard.as_ref() {
-        pip_window
-            .show()
-            .map_err(|e| format!("Failed to show PiP window: {}", e))?;
-        log::info!("PiP window shown");
-        switch_render_window(app_clone, "pip".to_string()).unwrap();
-        Ok(())
-    } else {
-        Err("PiP window not available".to_string())
-    }
+    pip_window
+        .show()
+        .map_err(|e| format!("Failed to show PiP window: {}", e))?;
+    log::info!("PiP window shown");
+    switch_render_window(app_clone, "pip".to_string()).unwrap();
+    Ok(())
 }
 
 fn switch_render_window(app: tauri::AppHandle, target: String) -> Result<(), String> {
     let _ = send_render_event(&app, PlaybackEvent::SwitchTarget(target));
     Ok(())
+}
+
+fn get_or_create_pip_window(app: &tauri::AppHandle) -> Result<tauri::Window, String> {
+    let app_state = app.state::<AppState>();
+    let mut pip_window_guard = app_state.pip_window.lock().unwrap();
+
+    if let Some(pip_window) = pip_window_guard.as_ref() {
+        return Ok(pip_window.clone());
+    }
+
+    let pip_window = create_pip_window(app)?;
+    *pip_window_guard = Some(pip_window.clone());
+    log::info!("PiP window recreated");
+
+    Ok(pip_window)
 }
 
 /// Hide PiP window (makes it invisible)
@@ -217,31 +227,26 @@ fn hide_pip_window(app: tauri::AppHandle) -> Result<(), String> {
 #[tauri::command]
 fn toggle_pip_window(app: tauri::AppHandle) -> Result<(), String> {
     let app_clone = app.clone();
-    let app_state = app.state::<AppState>();
-    let pip_window_guard = app_state.pip_window.lock().unwrap();
+    let pip_window = get_or_create_pip_window(&app)?;
 
-    if let Some(pip_window) = pip_window_guard.as_ref() {
-        let is_visible = pip_window
-            .is_visible()
-            .map_err(|e| format!("Failed to get PiP window visibility: {}", e))?;
+    let is_visible = pip_window
+        .is_visible()
+        .map_err(|e| format!("Failed to get PiP window visibility: {}", e))?;
 
-        if is_visible {
-            pip_window
-                .hide()
-                .map_err(|e| format!("Failed to hide PiP window: {}", e))?;
-            log::info!("PiP window hidden");
-            switch_render_window(app_clone, "main".to_string()).unwrap();
-        } else {
-            pip_window
-                .show()
-                .map_err(|e| format!("Failed to show PiP window: {}", e))?;
-            log::info!("PiP window shown");
-            switch_render_window(app_clone, "pip".to_string()).unwrap();
-        }
-        Ok(())
+    if is_visible {
+        pip_window
+            .hide()
+            .map_err(|e| format!("Failed to hide PiP window: {}", e))?;
+        log::info!("PiP window hidden");
+        switch_render_window(app_clone, "main".to_string()).unwrap();
     } else {
-        Err("PiP window not available".to_string())
+        pip_window
+            .show()
+            .map_err(|e| format!("Failed to show PiP window: {}", e))?;
+        log::info!("PiP window shown");
+        switch_render_window(app_clone, "pip".to_string()).unwrap();
     }
+    Ok(())
 }
 
 // ===== WINDOW CONTROL COMMANDS =====
@@ -596,23 +601,6 @@ pub async fn run() {
             });
 
             let playback_tx = tx.clone();
-            RequestSpeedEvent::listen_any(&app_clone, move |event| {
-                playback_tx
-                    .send(PlaybackEvent::Speed(event.payload.speed))
-                    .ok();
-            });
-
-            let playback_tx = tx.clone();
-            RequestFileLoad::listen_any(&app_clone, move |event| {
-                playback_tx
-                    .send(PlaybackEvent::Load(
-                        event.payload.url,
-                        event.payload.start_time,
-                    ))
-                    .ok();
-            });
-
-            let playback_tx = tx.clone();
             RequestFileLoad::listen_any(&app_clone, move |event| {
                 playback_tx
                     .send(PlaybackEvent::Load(
@@ -710,6 +698,23 @@ pub async fn run() {
                         };
                     }
                     tauri::WindowEvent::Destroyed => {
+                        if label == "pip" {
+                            let mut pip_window_guard = app_state.pip_window.lock().unwrap();
+                            *pip_window_guard = None;
+
+                            if let Err(e) = app_state
+                                .render_tx
+                                .send(PlaybackEvent::SwitchTarget("main".to_string()))
+                            {
+                                log::error!(
+                                    "Failed to switch render target to main after PiP destroy: {}",
+                                    e
+                                );
+                            }
+
+                            return;
+                        }
+
                         if label != "main".to_string() {
                             return;
                         };

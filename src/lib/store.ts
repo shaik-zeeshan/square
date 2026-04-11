@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/solid-query";
 import { Store } from "@tauri-apps/plugin-store";
 import { onCleanup } from "solid-js";
-
+import { queryClient } from "~/effect/tanstack/query";
 import type { GeneralSettings } from "~/lib/tauri";
 
 let _store: Promise<Store> | undefined;
@@ -58,10 +58,13 @@ function declareStore<T extends object>(name: string) {
       await s.save();
     },
     createQuery: () => {
-      const query = useQuery(() => ({
-        queryKey: ["store", name],
-        queryFn: async () => (await getAll()) ?? null,
-      }));
+      const query = useQuery(
+        () => ({
+          queryKey: ["store", name],
+          queryFn: async () => (await getAll()) ?? null,
+        }),
+        () => queryClient
+      );
 
       const cleanup = listen(() => {
         query.refetch();

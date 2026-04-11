@@ -3,6 +3,7 @@
 use std::{
     collections::HashMap,
     sync::mpsc::{Receiver, Sender},
+    sync::Once,
     time::Duration,
 };
 
@@ -53,16 +54,20 @@ impl OpenGLContext {
     }
 
     pub fn clear_to_transparent(&self, window: &Window) {
+        static GL_LOADED: Once = Once::new();
+
         let (width, height): (u32, u32) = window
             .inner_size()
             .unwrap_or(PhysicalSize::new(1920, 1080))
             .into();
 
         unsafe {
-            // Load OpenGL functions
-            gl::load_with(|s| {
-                let c_str = std::ffi::CString::new(s).unwrap();
-                self.context.display().get_proc_address(&c_str) as *const _
+            GL_LOADED.call_once(|| {
+                // Load OpenGL functions once for this process
+                gl::load_with(|s| {
+                    let c_str = std::ffi::CString::new(s).unwrap();
+                    self.context.display().get_proc_address(&c_str) as *const _
+                });
             });
 
             // Set viewport
@@ -185,10 +190,14 @@ impl MpvPlayer {
                 self.mpv.set_property("aid", audio).unwrap();
             }
             PlaybackEvent::Load(url, start_time) => {
-                self.mpv.command("loadfile", &[&url, "replace"]).unwrap();
-                self.mpv
-                    .set_property("start", start_time.unwrap_or(0.0).to_string())
-                    .unwrap();
+                if let Some(start_time) = start_time {
+                    let start_option = format!("start={}", start_time);
+                    self.mpv
+                        .command("loadfile", &[&url, "replace", &start_option])
+                        .unwrap();
+                } else {
+                    self.mpv.command("loadfile", &[&url, "replace"]).unwrap();
+                }
                 self.mpv.set_property("pause", false).unwrap();
             }
             PlaybackEvent::FileLoaded => {
@@ -254,7 +263,9 @@ impl RenderManager {
         let mut rm = RenderManager {
             gl_contexts,
             mpv_player,
-            active_window: "main".to_string(),
+            // PiP context creation can leave that context current; initialize as PiP
+            // so the startup switch to main always performs make_current.
+            active_window: "pip".to_string(),
         };
 
         rm.switch_target_window("main".to_string());
@@ -262,24 +273,32 @@ impl RenderManager {
         Ok(rm)
     }
 
-    pub fn render(&self, window: &Window) {
-        self.render_to_window(&self.active_window, window);
+    pub fn render(&mut self, window: &Window) {
+        let active_window = self.active_window.clone();
+        self.render_to_window(&active_window, window);
     }
 
     pub fn switch_target_window(&mut self, window_id: String) {
-        log::info!("Switching target window to {}", window_id);
-        let gl_context = self.gl_contexts.get(&window_id).unwrap();
+        if self.active_window == window_id {
+            return;
+        }
 
-        gl_context
-            .context
-            .make_current(&gl_context.surface)
-            .unwrap();
+        log::info!("Switching target window to {}", window_id);
+        let Some(gl_context) = self.gl_contexts.get(&window_id) else {
+            log::warn!("Window context '{}' not found, cannot switch target", window_id);
+            return;
+        };
+
+        if let Err(e) = gl_context.context.make_current(&gl_context.surface) {
+            log::error!("Failed to switch context for '{}': {}", window_id, e);
+            return;
+        }
 
         self.active_window = window_id.to_string();
         log::info!("Switched to window context '{}'", window_id);
     }
 
-    pub fn render_to_window(&self, window_id: &str, window: &Window) {
+    pub fn render_to_window(&mut self, window_id: &str, window: &Window) {
         let gl_context = match self.gl_contexts.get(window_id) {
             Some(ctx) => ctx,
             None => {
@@ -288,10 +307,22 @@ impl RenderManager {
             }
         };
 
+        if self.active_window != window_id {
+            if let Err(e) = gl_context.context.make_current(&gl_context.surface) {
+                log::error!("Failed to make context current for '{}': {}", window_id, e);
+                return;
+            }
+            self.active_window = window_id.to_string();
+        }
+
         let (width, height): (u32, u32) = window
             .inner_size()
             .unwrap_or(PhysicalSize::new(1920, 1080))
             .into();
+
+        if width == 0 || height == 0 {
+            return;
+        }
 
         // Try to render with timeout
         match self.mpv_player.render_context.render::<OpenGLContext>(
@@ -876,7 +907,8 @@ pub async fn run_render_thread(
         }
 
         // Check for render signals (non-blocking)
-        if let Ok(event) = render_rx.recv() {
+        match render_rx.recv_timeout(Duration::from_millis(8)) {
+            Ok(event) => {
             match event {
                 PlaybackEvent::Redraw => {
                     // Render to the active window
@@ -888,6 +920,7 @@ pub async fn run_render_thread(
                             log::info!(
                                 "PiP window no longer exists, switching back to main window"
                             );
+                            render_manager.switch_target_window("main".to_string());
                             render_manager.render_to_window("main", &window);
                         }
                     } else {
@@ -913,6 +946,12 @@ pub async fn run_render_thread(
                     }
                 }
                 _ => render_manager.mpv_player.handle_playback_event(event),
+            }
+            }
+            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
+                log::warn!("Render channel disconnected, stopping render thread");
+                break;
             }
         }
 

@@ -1,5 +1,6 @@
 import { useMutation } from "@tanstack/solid-query";
 import { batch, createMemo } from "solid-js";
+import { queryClient } from "~/effect/tanstack/query";
 import { strongholdService } from "~/lib/jellyfin/stronghold";
 import { user } from "~/lib/jellyfin/user";
 import { useServerStore } from "~/lib/store-hooks";
@@ -15,123 +16,131 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
   const { store: serverStore, setStore: setServerStore } = useServerStore();
 
   // Login mutation
-  const loginMutation = useMutation(() => ({
-    mutationKey: ["login"],
-    mutationFn: async (credentials: AuthCredentials) => {
-      try {
-        const token = await user.mutation.login(
-          credentials.username,
-          credentials.password,
-          credentials.server
-        );
-
-        return { token, credentials };
-      } catch (inner_error) {
-        if (inner_error instanceof Error) {
-          throw inner_error;
-        }
-        throw new Error(
-          "Login failed. Please check your credentials and try again."
-        );
-      }
-    },
-    onSuccess: async ({ credentials }) => {
-      // Optimistic update: Update server store immediately for better UX
-      batch(() => {
-        const existingServerIndex = serverStore.servers.findIndex(
-          (s) => s.info.address === credentials.server.address
-        );
-
-        const now = Date.now();
-        const newUser = {
-          username: credentials.username,
-          savedAt: now,
-        };
-
-        let updatedServers: ServerConnection[] = [];
-        if (existingServerIndex >= 0) {
-          // Update existing server
-          updatedServers = [...serverStore.servers];
-          const existingServer = updatedServers[existingServerIndex];
-
-          // Add user if not already present
-          const userExists = existingServer.users.some(
-            (u) => u.username === credentials.username
+  const loginMutation = useMutation(
+    () => ({
+      mutationKey: ["login"],
+      mutationFn: async (credentials: AuthCredentials) => {
+        try {
+          const token = await user.mutation.login(
+            credentials.username,
+            credentials.password,
+            credentials.server
           );
-          const updatedUsers = userExists
-            ? existingServer.users.map((u) =>
-                u.username === credentials.username ? { ...u, savedAt: now } : u
-              )
-            : [...existingServer.users, newUser];
 
-          updatedServers[existingServerIndex] = {
-            ...existingServer,
-            users: updatedUsers,
-            lastConnected: new Date(),
-            isOnline: true,
-            currentUser: credentials.username,
-          };
-        } else {
-          // Add new server
-          const serverConnection: ServerConnection = {
-            info: credentials.server,
-            users: [newUser],
-            lastConnected: new Date(),
-            isOnline: true,
-            currentUser: credentials.username,
-          };
-          updatedServers = [...serverStore.servers, serverConnection];
+          return { token, credentials };
+        } catch (inner_error) {
+          if (inner_error instanceof Error) {
+            throw inner_error;
+          }
+          throw new Error(
+            "Login failed. Please check your credentials and try again."
+          );
         }
+      },
+      onSuccess: async ({ credentials }) => {
+        // Optimistic update: Update server store immediately for better UX
+        batch(() => {
+          const existingServerIndex = serverStore.servers.findIndex(
+            (s) => s.info.address === credentials.server.address
+          );
 
-        setServerStore({
-          servers: updatedServers,
-          current:
-            updatedServers[
-              existingServerIndex >= 0
-                ? existingServerIndex
-                : updatedServers.length - 1
-            ],
+          const now = Date.now();
+          const newUser = {
+            username: credentials.username,
+            savedAt: now,
+          };
+
+          let updatedServers: ServerConnection[] = [];
+          if (existingServerIndex >= 0) {
+            // Update existing server
+            updatedServers = [...serverStore.servers];
+            const existingServer = updatedServers[existingServerIndex];
+
+            // Add user if not already present
+            const userExists = existingServer.users.some(
+              (u) => u.username === credentials.username
+            );
+            const updatedUsers = userExists
+              ? existingServer.users.map((u) =>
+                  u.username === credentials.username
+                    ? { ...u, savedAt: now }
+                    : u
+                )
+              : [...existingServer.users, newUser];
+
+            updatedServers[existingServerIndex] = {
+              ...existingServer,
+              users: updatedUsers,
+              lastConnected: new Date(),
+              isOnline: true,
+              currentUser: credentials.username,
+            };
+          } else {
+            // Add new server
+            const serverConnection: ServerConnection = {
+              info: credentials.server,
+              users: [newUser],
+              lastConnected: new Date(),
+              isOnline: true,
+              currentUser: credentials.username,
+            };
+            updatedServers = [...serverStore.servers, serverConnection];
+          }
+
+          setServerStore({
+            servers: updatedServers,
+            current:
+              updatedServers[
+                existingServerIndex >= 0
+                  ? existingServerIndex
+                  : updatedServers.length - 1
+              ],
+          });
         });
-      });
 
-      showSuccessToast("Successfully signed in");
-      options.onSuccess?.(credentials);
+        showSuccessToast("Successfully signed in");
+        options.onSuccess?.(credentials);
 
-      // Save password to Stronghold in background (non-blocking)
-      try {
-        await strongholdService.saveCredentials(
-          credentials.server,
-          credentials.username,
-          credentials.password
-        );
-      } catch (_error) {
-        // Don't show error to user since login was successful
-      }
-    },
-    onError: (inner_error: Error) => {
-      const errorMessage =
-        inner_error.message ||
-        "Login failed. Please check your credentials and try again.";
+        // Save password to Stronghold in background (non-blocking)
+        try {
+          await strongholdService.saveCredentials(
+            credentials.server,
+            credentials.username,
+            credentials.password
+          );
+        } catch (_error) {
+          // Don't show error to user since login was successful
+        }
+      },
+      onError: (inner_error: Error) => {
+        const errorMessage =
+          inner_error.message ||
+          "Login failed. Please check your credentials and try again.";
 
-      showErrorToast(errorMessage);
+        showErrorToast(errorMessage);
 
-      options.onError?.(inner_error);
-    },
-  }));
+        options.onError?.(inner_error);
+      },
+    }),
+    () => queryClient
+  );
 
   // Logout mutation
-  const logoutMutation = useMutation(() => ({
-    mutationFn: () => {
-      user.mutation.logout();
-      return Promise.resolve();
-    },
-    onSuccess: () => {
-      showSuccessToast("Successfully signed out");
-    },
-    onError: (_error: Error) => {
-      showErrorToast("Failed to sign out");
-    },
-  }));
+  const logoutMutation = useMutation(
+    () => ({
+      mutationFn: () => {
+        user.mutation.logout();
+        return Promise.resolve();
+      },
+      onSuccess: () => {
+        showSuccessToast("Successfully signed out");
+      },
+      onError: (_error: Error) => {
+        showErrorToast("Failed to sign out");
+      },
+    }),
+    () => queryClient
+  );
 
   // Authentication state
   const authState = createMemo<AuthState>(() => ({

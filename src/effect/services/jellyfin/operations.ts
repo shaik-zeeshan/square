@@ -71,7 +71,7 @@ class Jellyfin {
     createEffectQuery(() => ({
       queryKey: this.latestMoviesQueryKey({ search: searchTerm() }),
       queryFn: () =>
-        Effect.if(Boolean(searchTerm), {
+        Effect.if(Boolean(searchTerm()), {
           onTrue: () =>
             JellyfinService.pipe(
               Effect.bind("parentId", () => {
@@ -131,7 +131,7 @@ class Jellyfin {
     createEffectQuery(() => ({
       queryKey: this.latestTVShowsQueryKey({ search: searchTerm() }),
       queryFn: () =>
-        Effect.if(Boolean(searchTerm), {
+        Effect.if(Boolean(searchTerm()), {
           onTrue: () =>
             JellyfinService.pipe(
               Effect.bind("parentId", () => {
@@ -215,37 +215,47 @@ class Jellyfin {
 
   itemsQueryKey = createQueryKey<
     "getItems",
-    { parentId?: string; ids?: string[]; searchItem?: string[] }
+    { parentId?: string; ids?: string[]; searchTerm?: string }
   >("getItems");
   itemsQueryDataHelpers = createQueryDataHelpers(this.itemsQueryKey);
 
-  getItems = (params?: ItemsApiGetItemsRequest) =>
-    createEffectQuery(() => ({
-      queryKey: this.itemsQueryKey({
-        parentId: params?.parentId,
-        ids: params?.ids,
-      }),
-      queryFn: () =>
-        JellyfinService.pipe(
-          Effect.flatMap((jf) =>
-            jf.getItems({
-              enableImages: true,
-              ...params,
-            })
-          )
-        ),
-    }));
+  getItems = (
+    params?:
+      | ItemsApiGetItemsRequest
+      | Accessor<ItemsApiGetItemsRequest | undefined>
+  ) =>
+    createEffectQuery(() => {
+      const request = typeof params === "function" ? params() : params;
 
-  getNextEpisode = (item: WithImage<BaseItemDto> | undefined) =>
+      return {
+        queryKey: this.itemsQueryKey({
+          parentId: request?.parentId,
+          ids: request?.ids,
+          searchTerm: request?.searchTerm,
+        }),
+        queryFn: () =>
+          JellyfinService.pipe(
+            Effect.flatMap((jf) =>
+              jf.getItems({
+                enableImages: true,
+                ...request,
+              })
+            )
+          ),
+      };
+    });
+
+  getNextEpisode = (item: () => WithImage<BaseItemDto> | undefined) =>
     createEffectQuery(() => ({
-      queryKey: ["getNextEpisode", { id: item?.Id }],
+      queryKey: ["getNextEpisode", { id: item()?.Id }],
       queryFn: () =>
         pipe(
-          Effect.fromNullable(item),
+          Effect.fromNullable(item()),
           Effect.flatMap((i) =>
             JellyfinService.pipe(Effect.flatMap((jf) => jf.getNextEpisode(i)))
           )
         ),
+      enabled: () => Boolean(item()?.Id),
     }));
 
   playstateKey = createQueryKey<"getPlaystate", { id: string }>("getPlaystate");

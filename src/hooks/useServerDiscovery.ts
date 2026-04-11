@@ -2,6 +2,7 @@ import type { RecommendedServerInfo } from "@jellyfin/sdk";
 import { useMutation, useQuery } from "@tanstack/solid-query";
 import { createMemo, createSignal } from "solid-js";
 import { createStore } from "solid-js/store";
+import { queryClient } from "~/effect/tanstack/query";
 import { getServers } from "~/lib/jellyfin";
 import { showErrorToast, showSuccessToast } from "~/lib/toast";
 import {
@@ -46,67 +47,73 @@ export function useServerDiscovery(options: UseServerDiscoveryOptions = {}) {
   );
 
   // Server discovery query
-  const serversQuery = useQuery(() => ({
-    queryKey: ["discover-servers", formData.url.value],
-    queryFn: async () => {
-      const url = formData.url.value.trim();
-      if (!url) {
-        throw new Error("Server URL is required");
-      }
-
-      if (!isUrlValid()) {
-        throw new Error(formData.url.error || "Invalid server URL");
-      }
-
-      setSearchAttempted(true);
-
-      try {
-        const foundServers = await getServers(url);
-
-        if (foundServers.length === 0) {
-          throw new Error(
-            "No Jellyfin servers found at this address. Please check the URL and try again."
-          );
+  const serversQuery = useQuery(
+    () => ({
+      queryKey: ["discover-servers", formData.url.value],
+      queryFn: async () => {
+        const url = formData.url.value.trim();
+        if (!url) {
+          throw new Error("Server URL is required");
         }
 
-        return foundServers;
-      } catch (error) {
-        if (error instanceof Error) {
-          throw error;
+        if (!isUrlValid()) {
+          throw new Error(formData.url.error || "Invalid server URL");
         }
-        throw new Error("Failed to discover servers. Please try again.");
-      }
-    },
-    enabled: false, // Manually triggered
-    retry: false,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  }));
+
+        setSearchAttempted(true);
+
+        try {
+          const foundServers = await getServers(url);
+
+          if (foundServers.length === 0) {
+            throw new Error(
+              "No Jellyfin servers found at this address. Please check the URL and try again."
+            );
+          }
+
+          return foundServers;
+        } catch (error) {
+          if (error instanceof Error) {
+            throw error;
+          }
+          throw new Error("Failed to discover servers. Please try again.");
+        }
+      },
+      enabled: false, // Manually triggered
+      retry: false,
+      staleTime: 5 * 60 * 1000, // 5 minutes
+    }),
+    () => queryClient
+  );
 
   // Search mutation
-  const searchMutation = useMutation(() => ({
-    mutationFn: () => {
-      // Validate URL first
-      const field = touchFormField(
-        formData.url,
-        commonRules.serverUrl,
-        "server-url"
-      );
-      setFormData("url", field);
+  const searchMutation = useMutation(
+    () => ({
+      mutationFn: () => {
+        // Validate URL first
+        const field = touchFormField(
+          formData.url,
+          commonRules.serverUrl,
+          "server-url"
+        );
+        setFormData("url", field);
 
-      if (field.error) {
-        throw new Error(field.error);
-      }
+        if (field.error) {
+          throw new Error(field.error);
+        }
 
-      return serversQuery.refetch();
-    },
-    onError: (error: Error) => {
-      showErrorToast(error.message || "Failed to discover servers");
-      options.onError?.(error);
-    },
-    onSuccess: () => {
-      showSuccessToast("Servers discovered successfully");
-    },
-  }));
+        return serversQuery.refetch();
+      },
+      onError: (error: Error) => {
+        showErrorToast(error.message || "Failed to discover servers");
+        options.onError?.(error);
+      },
+      onSuccess: () => {
+        showSuccessToast("Servers discovered successfully");
+      },
+    }),
+    () => queryClient
+  );
 
   // Form handlers
   const handleUrlChange = (value: string) => {

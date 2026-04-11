@@ -1,12 +1,16 @@
-import { AuthOperations } from "../auth/operations";
+import {
+  useCurrentServerQuery,
+  useCurrentUserQuery,
+  useLoginMutation,
+} from "../auth/operations";
 
 export const useAuth = () => {
-  const getCurrentUser = AuthOperations.currentUser;
-  const getCurrentServer = AuthOperations.currentServer;
+  const getCurrentUser = useCurrentUserQuery;
+  const getCurrentServer = useCurrentServerQuery;
 
   return {
     getCurrentUser,
     getCurrentServer,
-    login: AuthOperations.login(),
+    login: useLoginMutation,
   };
 };
