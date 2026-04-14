@@ -37,14 +37,14 @@ export default function Page(props: RouteSectionProps) {
     })
   );
 
-  const parentDetails = JellyfinOperations.getItem(
-    () => itemDetails.data?.ParentId as string,
+  const seriesDetails = JellyfinOperations.getItem(
+    () => itemDetails.data?.SeriesId as string,
     {
-      fields: ["Overview", "ParentId"],
+      fields: ["ParentId"],
     },
     () => ({
       enabled:
-        !!itemDetails.data?.ParentId && itemDetails.data?.Type !== "Movie",
+        !!itemDetails.data?.SeriesId && itemDetails.data?.Type === "Episode",
       refetchOnWindowFocus: false,
     })
   );
@@ -63,7 +63,6 @@ export default function Page(props: RouteSectionProps) {
     setSpeed,
     handleProgressClick,
     handleOpenPip,
-    loadNewVideo,
     handleControlMouseEnter,
     handleControlMouseLeave,
     handleControlInteractionStart,
@@ -96,7 +95,6 @@ export default function Page(props: RouteSectionProps) {
   // Use autoplay hook - don't destructure to maintain reactivity
   const autoplayHook = useAutoplay({
     currentItem: () => itemDetails.data,
-    onLoadNewVideo: loadNewVideo,
     onEndOfFile,
     playbackState: {
       currentTime: () => state.currentTime,
@@ -230,7 +228,7 @@ export default function Page(props: RouteSectionProps) {
     >
       {/* ── Initial Loading Overlay ── */}
       <Show when={state.isLoading}>
-        <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-[2px]">
+        <div class="absolute inset-0 z-50 flex items-center justify-center bg-[#080c16]/95 backdrop-blur-[2px]">
           <div class="flex flex-col items-center gap-5">
             <LoadingSpinner
               loadingStage={state.loadingStage}
@@ -239,10 +237,10 @@ export default function Page(props: RouteSectionProps) {
               text="Loading video…"
             />
             <Show when={state.bufferingPercentage > 0}>
-              {/* Amber progress bar */}
+              {/* Blue progress bar */}
               <div class="h-[2px] w-44 overflow-hidden rounded-full bg-white/[0.08]">
                 <div
-                  class="h-full rounded-full bg-amber-400/70 transition-[width] duration-500"
+                  class="h-full rounded-full bg-blue-400/70 transition-[width] duration-500"
                   style={{ width: `${state.bufferingPercentage}%` }}
                 />
               </div>
@@ -270,8 +268,8 @@ export default function Page(props: RouteSectionProps) {
 
       {/* ── Playback Error Overlay ── */}
       <Show when={state.playbackError}>
-        <div class="absolute inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-          <div class="flex max-w-sm flex-col items-center gap-5 rounded-2xl border border-white/[0.08] bg-black/90 px-8 py-7 shadow-[0_24px_64px_rgba(0,0,0,0.8)]">
+        <div class="absolute inset-0 z-50 flex items-center justify-center bg-[#080c16]/85 backdrop-blur-sm">
+          <div class="flex max-w-sm flex-col items-center gap-5 rounded-2xl border border-white/[0.08] bg-[#0d1220]/95 px-8 py-7 shadow-[0_24px_64px_rgba(0,0,0,0.8)]">
             <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/[0.12] ring-1 ring-red-500/25">
               <AlertTriangle class="h-6 w-6 text-red-400" />
             </div>
@@ -313,7 +311,7 @@ export default function Page(props: RouteSectionProps) {
         aria-label={
           state.controlsLocked ? "Unlock controls" : "Lock controls hidden"
         }
-        class="control-element fixed top-6 right-4 z-50 rounded-full bg-black/55 p-2.5 text-white/70 shadow-[0_4px_16px_rgba(0,0,0,0.4)] transition-all duration-150 hover:bg-black/75 hover:text-white"
+        class="control-element fixed top-6 right-4 z-50 rounded-full bg-[#0d1220]/70 p-2.5 text-white/70 shadow-[0_4px_16px_rgba(0,0,0,0.4)] ring-1 ring-white/[0.06] ring-inset transition-all duration-150 hover:bg-[#0d1220]/90 hover:text-white"
         onClick={(e) => {
           e.stopPropagation();
           toggleControlsLock();
@@ -330,8 +328,9 @@ export default function Page(props: RouteSectionProps) {
       <Show when={state.showControls}>
         {/* ── Item Info Overlay ── */}
         <VideoInfoOverlay
+          isStale={itemDetails.data?.Id !== routeParams.id}
           itemDetails={itemDetails}
-          parentDetails={parentDetails}
+          seriesDetails={seriesDetails}
         />
 
         {/* ── Bottom Controls ── */}
@@ -348,8 +347,8 @@ export default function Page(props: RouteSectionProps) {
           }}
           role="group"
         >
-          {/* Soft vignette gradient behind controls */}
-          <div class="pointer-events-none absolute right-0 bottom-0 left-0 h-56 bg-gradient-to-t from-black/80 via-black/25 to-transparent" />
+          {/* Soft vignette gradient behind controls — deep navy */}
+          <div class="pointer-events-none absolute right-0 bottom-0 left-0 h-60 bg-gradient-to-t from-[#080c16]/90 via-[#080c16]/30 to-transparent" />
 
           <div class="pointer-events-auto relative mx-auto flex w-full max-w-4xl flex-col gap-2.5">
             {/* Dropdown Panels */}
@@ -384,7 +383,7 @@ export default function Page(props: RouteSectionProps) {
 
         {/* ── Back Button ── */}
         <button
-          class="control-element fixed top-6 left-4 z-50 rounded-full bg-black/55 p-2.5 text-white/70 shadow-[0_4px_16px_rgba(0,0,0,0.4)] transition-all duration-150 hover:bg-black/75 hover:text-white"
+          class="control-element fixed top-6 left-4 z-50 rounded-full bg-[#0d1220]/70 p-2.5 text-white/70 shadow-[0_4px_16px_rgba(0,0,0,0.4)] ring-1 ring-white/[0.06] ring-inset transition-all duration-150 hover:bg-[#0d1220]/90 hover:text-white"
           onClick={(e) => {
             e.stopPropagation();
             exitPlayer();
@@ -394,8 +393,8 @@ export default function Page(props: RouteSectionProps) {
         </button>
 
         {/* ── IINA Button ── */}
-          <Show when={state.url.length}>
-            <div class="control-element fixed top-8 right-20 z-50">
+        <Show when={state.url.length}>
+          <div class="control-element fixed top-8 right-20 z-50">
             <OpenInIINAButton
               beforePlaying={() => {
                 commands.playbackPause();

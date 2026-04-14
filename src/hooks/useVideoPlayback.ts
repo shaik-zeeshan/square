@@ -454,6 +454,7 @@ export function useVideoPlayback(
     removeControlInteractionListeners();
   };
 
+  let loadVersion = 0;
   createEffect(async () => {
     const currentItemId = itemId();
     const token = jf.api?.accessToken;
@@ -468,6 +469,7 @@ export function useVideoPlayback(
       return;
     }
 
+    const thisLoad = ++loadVersion;
     const url = `${basePath}/Videos/${currentItemId}/Stream?api_key=${token}&container=mp4&static=true`;
     setState("url", url);
     setState("currentItemId", currentItemId);
@@ -475,8 +477,31 @@ export function useVideoPlayback(
     setState("duration", 0);
     setState("playbackError", null);
 
+    // Stale-guard helper: returns true when a newer effect run has started,
+    // meaning this run must stop issuing player commands immediately.
+    const isStale = () => thisLoad !== loadVersion;
+
+    // Each step checks staleness *before* sending a command so that a
+    // superseded run never issues playbackClear / playbackLoad / playbackPlay
+    // after a newer run has already taken ownership of the player.
+    if (isStale()) {
+      return;
+    }
+    await commands.playbackClear();
+
+    if (isStale()) {
+      return;
+    }
     await commands.playbackLoad(url);
+
+    if (isStale()) {
+      return;
+    }
     await commands.playbackPlay();
+
+    if (isStale()) {
+      return;
+    }
     setVideoState("pause", false);
   });
 
