@@ -11,7 +11,6 @@ import { commands, events } from "~/lib/tauri";
 
 type UseAutoplayProps = {
   currentItem: () => WithImage<BaseItemDto> | undefined;
-  onLoadNewVideo: (url: string, itemId: string) => void;
   onEndOfFile?: () => Promise<void>;
   playbackState: {
     currentTime: () => string;
@@ -49,6 +48,9 @@ export function useAutoplay(props: UseAutoplayProps) {
       return;
     }
 
+    // Clear stale nextEpisode immediately so the previous autoplay card does
+    // not linger while we fetch the next episode for the new item.
+    setNextEpisode(undefined);
     setIsNextEpisodeLoading(true);
 
     runtime
@@ -119,15 +121,6 @@ export function useAutoplay(props: UseAutoplayProps) {
     setDidPauseForAutoplay(false);
   };
 
-  // Used by Play Now path: dismiss the overlay without resuming the old item.
-  const dismissAutoplayForNavigation = () => {
-    setShowAutoplay(false);
-    setIsCollapsed(false);
-    setIsCancelled(true);
-    setDidPauseForAutoplay(false);
-    // Do NOT call commands.playbackPlay() – we are navigating away immediately.
-  };
-
   const resetAutoplay = () => {
     setShowAutoplay(false);
     setIsCollapsed(false);
@@ -142,8 +135,13 @@ export function useAutoplay(props: UseAutoplayProps) {
     }
 
     try {
-      // Dismiss overlay without resuming the old item before navigation.
-      dismissAutoplayForNavigation();
+      // Eagerly reset all autoplay state (including isCancelled) so the new
+      // episode starts with a clean slate.  The item-change effect would
+      // eventually do this once refreshed metadata arrives, but resetting now
+      // closes the transient window where the new episode could inherit
+      // isCancelled=true from the outgoing episode.
+      // NOTE: we do NOT call commands.playbackPlay() — we are navigating away.
+      resetAutoplay();
 
       // Navigate to the new episode
       navigate(`/video/${next.Id}`, { replace: true });
