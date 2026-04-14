@@ -83,12 +83,14 @@ function createPosterMotion() {
 type SeriesCardProps = {
   item: WithImage<BaseItemDto>;
   parentId?: string;
+  search?: string;
 };
 
 export function SeriesCard(props: SeriesCardProps) {
-  const [{ item: initialItem, parentId }] = splitProps(props, [
+  const [{ item: initialItem, parentId, search }] = splitProps(props, [
     "item",
     "parentId",
+    "search",
   ]);
 
   const item = createEffectQuery(() => ({
@@ -110,7 +112,7 @@ export function SeriesCard(props: SeriesCardProps) {
   return (
     <a
       class="group block"
-      href={`/library/${parentId || item.data?.ParentId}/item/${item.data?.Id}`}
+      href={`/library/${parentId || item.data?.ParentId}/item/${item.data?.Id}${search || ""}`}
       onMouseLeave={motion.onLeave}
       onMouseMove={motion.onMove}
     >

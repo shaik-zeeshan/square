@@ -2,7 +2,11 @@ import {
   ItemFilter,
   type ItemsApiGetItemsRequest,
 } from "@jellyfin/sdk/lib/generated-client";
-import { type RouteSectionProps, useNavigate } from "@solidjs/router";
+import {
+  type RouteSectionProps,
+  useNavigate,
+  useSearchParams,
+} from "@solidjs/router";
 import { Effect } from "effect";
 import {
   AlertCircle,
@@ -45,6 +49,17 @@ import {
   type ExtractQueryData,
 } from "~/effect/tanstack/query";
 
+const itemPageFilters = ["all", "unplayed", "played", "resumable"] as const;
+type ItemPageFilter = (typeof itemPageFilters)[number];
+
+const getItemPageFilter = (filter?: string): ItemPageFilter =>
+  itemPageFilters.includes(filter as ItemPageFilter)
+    ? (filter as ItemPageFilter)
+    : "all";
+
+const getItemFilterSearch = (filter: ItemPageFilter) =>
+  filter === "all" ? "" : `?filter=${filter}`;
+
 export default function Page(props: RouteSectionProps) {
   const [{ params }] = splitProps(props, ["params"]);
   const runtime = useRuntime();
@@ -57,13 +72,21 @@ export default function Page(props: RouteSectionProps) {
   );
 
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams<{ filter?: string }>();
 
   const [isOverviewExpanded, setIsOverviewExpanded] = createSignal(false);
   const [showScrollTop, setShowScrollTop] = createSignal(false);
   const [searchTerm, setSearchTerm] = createSignal("");
-  const [activeFilter, setActiveFilter] = createSignal<
-    "all" | "unplayed" | "played" | "resumable"
-  >("all");
+  const activeFilter = () => getItemPageFilter(searchParams.filter);
+  const setActiveFilter = (filter: ItemPageFilter) => {
+    setSearchParams(
+      {
+        filter: filter === "all" ? undefined : filter,
+      },
+      { replace: true }
+    );
+  };
+  const itemFilterSearch = () => getItemFilterSearch(activeFilter());
 
   const parentLibrary = JellyfinOperations.getItem(() => params.id, {
     fields: ["ParentId"],
@@ -246,7 +269,9 @@ export default function Page(props: RouteSectionProps) {
                         return;
                       }
                       // params.id is always the library id in this route
-                      navigate(`/library/${params.id}/item/${seriesID}`);
+                      navigate(
+                        `/library/${params.id}/item/${seriesID}${itemFilterSearch()}`
+                      );
                     } else if (itemType === "Movie") {
                       navigate(`/library/${params.id}`);
                     } else {
@@ -517,6 +542,15 @@ export default function Page(props: RouteSectionProps) {
                         <InlineLoading message="Loading content…" size="md" />
                       </div>
                     }
+                    notFoundFallback={
+                      <ItemsRender
+                        activeFilter={activeFilter()}
+                        items={[]}
+                        onFilterChange={setActiveFilter}
+                        parentId={params.item_id}
+                        parentItem={item}
+                      />
+                    }
                     notStartedFallback={
                       <ItemsRender
                         activeFilter={activeFilter()}
@@ -565,8 +599,8 @@ interface ItemsRenderProsp {
     | ExtractQueryData<ReturnType<JellyfinOperationsType["getItems"]>>
     | undefined;
   parentId: string;
-  activeFilter: "all" | "unplayed" | "played" | "resumable";
-  onFilterChange: (filter: "all" | "unplayed" | "played" | "resumable") => void;
+  activeFilter: ItemPageFilter;
+  onFilterChange: (filter: ItemPageFilter) => void;
 }
 
 const FilterButton = (props: {
@@ -667,7 +701,13 @@ function ItemsRender(props: ItemsRenderProsp) {
 
           <div class="grid grid-cols-3 gap-6 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
             <For each={items}>
-              {(item) => <SeriesCard item={item} parentId={parentId} />}
+              {(item) => (
+                <SeriesCard
+                  item={item}
+                  parentId={parentId}
+                  search={getItemFilterSearch(activeFilter)}
+                />
+              )}
             </For>
           </div>
         </div>
