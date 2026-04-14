@@ -70,10 +70,10 @@ function StepIndicator(props: { stage: AuthStage }) {
         {(_step, i) => {
           const stepClass = () => {
             if (i() < currentIdx()) {
-              return "bg-amber-400 text-black";
+              return "bg-blue-400 text-slate-950";
             }
             if (i() === currentIdx()) {
-              return "bg-amber-400/20 text-amber-300 ring-1 ring-amber-400/40 ring-inset";
+              return "bg-blue-400/20 text-blue-300 ring-1 ring-blue-400/40 ring-inset";
             }
             return "bg-white/[0.06] text-white/30";
           };
@@ -91,7 +91,7 @@ function StepIndicator(props: { stage: AuthStage }) {
                 <div
                   class={cn(
                     "h-px w-8 rounded-full transition-all duration-300",
-                    i() < currentIdx() ? "bg-amber-400/60" : "bg-white/[0.1]"
+                    i() < currentIdx() ? "bg-blue-400/60" : "bg-white/[0.1]"
                   )}
                 />
               </Show>
@@ -136,55 +136,116 @@ export default function Home() {
 
   return (
     <section
-      class="grid h-full w-full place-items-center bg-background"
+      class="relative flex h-full w-full flex-col items-center overflow-y-auto bg-background"
       style={{
         animation: "fadeSlideUp 350ms cubic-bezier(0.22,1,0.36,1) both",
       }}
     >
-      {/* Ambient amber glow at top */}
+      {/* ── Cinematic hero backdrop ── */}
       <div
         aria-hidden="true"
-        class="pointer-events-none fixed inset-x-0 top-0 h-64 bg-gradient-to-b from-amber-400/[0.04] to-transparent"
-      />
+        class="pointer-events-none absolute inset-x-0 top-0 h-[45vh] max-h-[480px] min-h-[320px]"
+      >
+        {/* Primary radial glow — cool blue streaming accent */}
+        <div
+          class="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse 120% 80% at 50% 0%, rgba(60,130,246,0.12) 0%, rgba(40,80,180,0.06) 40%, transparent 70%)",
+          }}
+        />
+        {/* Secondary warm accent — subtle asymmetric depth */}
+        <div
+          class="absolute inset-0"
+          style={{
+            background:
+              "radial-gradient(ellipse 60% 50% at 80% 10%, rgba(100,160,255,0.06) 0%, transparent 50%)",
+          }}
+        />
+        {/* Film grain texture overlay — cinematic atmosphere */}
+        <div
+          class="absolute inset-0 opacity-[0.03]"
+          style={{
+            "background-image":
+              "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E\")",
+          }}
+        />
+        {/* Bottom dissolve into page background */}
+        <div class="absolute inset-0 bg-gradient-to-t from-[var(--app-bg)] via-[var(--app-bg)]/40 to-transparent" />
+      </div>
 
-      <Suspense>
-        {/* Step indicator only for main flow (not server-search) */}
-        <Show when={step.stage !== "server-search"}>
+      {/* ── Centered content wrapper — my-auto centres when viewport is tall, scrolls safely when short ── */}
+      <div class="relative z-10 my-auto flex w-full flex-col items-center px-4 py-8">
+        {/* ── Branded welcome mark ── */}
+        <div
+          class="mb-2 flex flex-col items-center gap-4"
+          style={{
+            animation:
+              "heroReveal 600ms cubic-bezier(0.22,1,0.36,1) 100ms both",
+          }}
+        >
+          <div class="flex h-16 w-16 items-center justify-center rounded-2xl bg-blue-400/10 shadow-[0_0_40px_rgba(60,130,246,0.15)] ring-1 ring-blue-400/20 ring-inset">
+            <ServerStack class="h-8 w-8 text-blue-400" />
+          </div>
+          <div class="text-center">
+            <h1 class="font-bold text-2xl text-white/90 tracking-tight drop-shadow-[0_2px_12px_rgba(0,0,0,0.4)]">
+              Welcome to Square
+            </h1>
+            <p class="mt-1.5 text-sm text-white/35">
+              Connect your Jellyfin server to get started
+            </p>
+          </div>
+        </div>
+
+        {/* ── Step indicator — floats below hero mark ── */}
+        <Suspense>
+          <Show when={step.stage !== "server-search"}>
+            <div
+              class="mt-6 mb-2"
+              style={{
+                animation:
+                  "fadeSlideUp 300ms cubic-bezier(0.22,1,0.36,1) 200ms both",
+              }}
+            >
+              <StepIndicator stage={step.stage} />
+            </div>
+          </Show>
+
+          {/* ── Stage content — glass card surface ── */}
           <div
-            class="-translate-x-1/2 absolute top-8 left-1/2"
+            class="mt-4 w-full max-w-sm rounded-2xl border border-white/[0.08] bg-white/[0.03] px-6 py-8 shadow-[0_8px_40px_rgba(0,0,0,0.3)] backdrop-blur-sm"
             style={{
-              animation: "fadeSlideUp 300ms cubic-bezier(0.22,1,0.36,1) both",
+              animation:
+                "fadeSlideUp 400ms cubic-bezier(0.22,1,0.36,1) 250ms both",
             }}
           >
-            <StepIndicator stage={step.stage} />
+            <Switch>
+              <Match when={step.stage === "server-selection"}>
+                <ServerSelection setStage={setStep} />
+              </Match>
+              <Match when={step.stage === "server-search"}>
+                <ServerSearch setStage={setStep} />
+              </Match>
+              <Match when={step.stage === "user-selection"}>
+                <Show when={step.payload}>
+                  <UserSelection
+                    server={step.payload as RecommendedServerInfo}
+                    setStage={setStep}
+                  />
+                </Show>
+              </Match>
+              <Match when={step.stage === "user-login"}>
+                <Show when={step.payload}>
+                  <UserLogin
+                    server={step.payload as RecommendedServerInfo}
+                    setStage={setStep}
+                  />
+                </Show>
+              </Match>
+            </Switch>
           </div>
-        </Show>
-
-        <Switch>
-          <Match when={step.stage === "server-selection"}>
-            <ServerSelection setStage={setStep} />
-          </Match>
-          <Match when={step.stage === "server-search"}>
-            <ServerSearch setStage={setStep} />
-          </Match>
-          <Match when={step.stage === "user-selection"}>
-            <Show when={step.payload}>
-              <UserSelection
-                server={step.payload as RecommendedServerInfo}
-                setStage={setStep}
-              />
-            </Show>
-          </Match>
-          <Match when={step.stage === "user-login"}>
-            <Show when={step.payload}>
-              <UserLogin
-                server={step.payload as RecommendedServerInfo}
-                setStage={setStep}
-              />
-            </Show>
-          </Match>
-        </Switch>
-      </Suspense>
+        </Suspense>
+      </div>
     </section>
   );
 }
@@ -244,7 +305,7 @@ const UserCard = (
       class={cn(
         "group flex w-full cursor-pointer items-center gap-4 overflow-hidden rounded-xl border bg-white/[0.04] px-5 py-3.5 text-left transition-all duration-200",
         isActive()
-          ? "border-amber-400/40 bg-amber-400/[0.07]"
+          ? "border-blue-400/40 bg-blue-400/[0.07]"
           : "border-white/[0.08] hover:border-white/[0.16] hover:bg-white/[0.07]",
         className
       )}
@@ -262,14 +323,14 @@ const UserCard = (
         class={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition-all duration-200",
           isActive()
-            ? "bg-amber-400/20 ring-1 ring-amber-400/40 ring-inset"
+            ? "bg-blue-400/20 ring-1 ring-blue-400/40 ring-inset"
             : "bg-white/[0.07] group-hover:bg-white/[0.1]"
         )}
       >
         <User
           class={cn(
             "h-4 w-4 transition-colors",
-            isActive() ? "text-amber-300" : "text-white/50"
+            isActive() ? "text-blue-300" : "text-white/50"
           )}
         />
       </div>
@@ -279,7 +340,7 @@ const UserCard = (
           <p
             class={cn(
               "mt-0.5 text-xs transition-colors",
-              props.stage === "error" ? "text-red-400/70" : "text-amber-400/70"
+              props.stage === "error" ? "text-red-400/70" : "text-blue-400/70"
             )}
           >
             {props.stage}
@@ -308,10 +369,10 @@ const Input = (
 ) => {
   const Icon = props.icon;
   return (
-    <div class="flex h-12 w-full items-center gap-3 rounded-xl border border-white/[0.1] bg-white/[0.05] px-4 transition-all duration-150 focus-within:border-amber-400/40 focus-within:bg-amber-400/[0.04] focus-within:ring-1 focus-within:ring-amber-400/20">
+    <div class="flex h-12 w-full items-center gap-3 rounded-xl border border-white/[0.1] bg-white/[0.05] px-4 transition-all duration-150 focus-within:border-blue-400/40 focus-within:bg-blue-400/[0.04] focus-within:ring-1 focus-within:ring-blue-400/20">
       <Icon class="h-4 w-4 shrink-0 text-white/30" />
       <input
-        class="flex-1 bg-transparent text-sm text-white/90 caret-amber-400 outline-none placeholder:text-white/25"
+        class="flex-1 bg-transparent text-sm text-white/90 caret-blue-400 outline-none placeholder:text-white/25"
         {...props}
       />
     </div>
@@ -336,12 +397,7 @@ const UserSelection = (props: {
   }));
 
   return (
-    <div
-      class="flex w-full max-w-sm flex-col items-stretch"
-      style={{
-        animation: "fadeSlideUp 280ms cubic-bezier(0.22,1,0.36,1) both",
-      }}
-    >
+    <div class="flex w-full flex-col items-stretch">
       <StageHeading
         subtitle="Select an account to continue"
         title="Choose Account"
@@ -365,7 +421,7 @@ const UserSelection = (props: {
       {/* Actions */}
       <div class="mt-6 space-y-3">
         <button
-          class="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl bg-amber-400 px-4 py-3 font-semibold text-black text-sm transition-all duration-150 hover:bg-amber-300 active:scale-[0.98]"
+          class="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl bg-blue-400 px-4 py-3 font-semibold text-slate-950 text-sm transition-all duration-150 hover:bg-blue-300 active:scale-[0.98]"
           onClick={() => props.setStage?.("stage", "user-login")}
           type="button"
         >
@@ -453,12 +509,7 @@ const UserLogin = (props: {
   const isPending = () => loginMutation.isPending;
 
   return (
-    <div
-      class="flex w-full max-w-sm flex-col items-stretch"
-      style={{
-        animation: "fadeSlideUp 280ms cubic-bezier(0.22,1,0.36,1) both",
-      }}
-    >
+    <div class="flex w-full flex-col items-stretch">
       <StageHeading
         subtitle="Enter your Jellyfin credentials"
         title="Sign In"
@@ -500,8 +551,8 @@ const UserLogin = (props: {
           class={cn(
             "flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl px-4 py-3 font-semibold text-sm transition-all duration-150",
             isPending()
-              ? "cursor-not-allowed bg-amber-400/50 text-black/60"
-              : "bg-amber-400 text-black hover:bg-amber-300 active:scale-[0.98]"
+              ? "cursor-not-allowed bg-blue-400/50 text-slate-950/60"
+              : "bg-blue-400 text-slate-950 hover:bg-blue-300 active:scale-[0.98]"
           )}
           disabled={isPending()}
           onClick={() => {
@@ -523,7 +574,7 @@ const UserLogin = (props: {
             when={isPending()}
           >
             <span
-              class="h-4 w-4 shrink-0 rounded-full border-2 border-black/30 border-t-black/80"
+              class="h-4 w-4 shrink-0 rounded-full border-2 border-slate-950/30 border-t-slate-950/80"
               style={{ animation: "spinRing 700ms linear infinite" }}
             />
             Signing in…
@@ -603,18 +654,7 @@ const ServerSearch = (props: { setStage?: SetStoreFunction<AuthSteps> }) => {
   }));
 
   return (
-    <div
-      class="flex w-full max-w-sm flex-col items-stretch"
-      style={{
-        animation: "fadeSlideUp 280ms cubic-bezier(0.22,1,0.36,1) both",
-      }}
-    >
-      <div class="mb-8 flex justify-center">
-        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 ring-1 ring-amber-400/20 ring-inset">
-          <ServerStack class="h-7 w-7 text-amber-400" />
-        </div>
-      </div>
-
+    <div class="flex w-full flex-col items-stretch">
       <StageHeading
         subtitle="Enter your Jellyfin server address"
         title="Add Server"
@@ -673,18 +713,7 @@ const ServerSelection = (props: { setStage?: SetStoreFunction<AuthSteps> }) => {
   }));
 
   return (
-    <div
-      class="flex w-full max-w-sm flex-col items-stretch"
-      style={{
-        animation: "fadeSlideUp 280ms cubic-bezier(0.22,1,0.36,1) both",
-      }}
-    >
-      <div class="mb-8 flex justify-center">
-        <div class="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 ring-1 ring-amber-400/20 ring-inset">
-          <ServerStack class="h-7 w-7 text-amber-400" />
-        </div>
-      </div>
-
+    <div class="flex w-full flex-col items-stretch">
       <StageHeading
         subtitle="Select a Jellyfin server to connect"
         title="Choose Server"
@@ -714,7 +743,7 @@ const ServerSelection = (props: { setStage?: SetStoreFunction<AuthSteps> }) => {
       </Show>
 
       <button
-        class="mt-5 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-amber-400/20 bg-amber-400/[0.06] px-4 py-3 text-amber-300 text-sm transition-all duration-150 hover:border-amber-400/40 hover:bg-amber-400/[0.1] active:scale-[0.98]"
+        class="mt-5 flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-xl border border-blue-400/20 bg-blue-400/[0.06] px-4 py-3 text-blue-300 text-sm transition-all duration-150 hover:border-blue-400/40 hover:bg-blue-400/[0.1] active:scale-[0.98]"
         onClick={() => props?.setStage?.("stage", "server-search")}
         type="button"
       >
@@ -729,8 +758,8 @@ const ServerSelection = (props: { setStage?: SetStoreFunction<AuthSteps> }) => {
 // ── Shared server context badge (shows active server during user stages) ──────
 const ServerContextBadge = (props: { server: RecommendedServerInfo }) => (
   <div class="flex items-center gap-2.5 rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-2.5">
-    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-amber-400/10">
-      <Server class="h-3.5 w-3.5 text-amber-400/70" />
+    <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-blue-400/10">
+      <Server class="h-3.5 w-3.5 text-blue-400/70" />
     </div>
     <div class="min-w-0 flex-1">
       <p class="truncate font-medium text-sm text-white/80">
@@ -743,10 +772,10 @@ const ServerContextBadge = (props: { server: RecommendedServerInfo }) => (
 );
 
 const ServerInputSearch = (props: ComponentProps<"input">) => (
-  <div class="flex h-12 w-full items-center gap-3 rounded-xl border border-white/[0.1] bg-white/[0.05] px-4 transition-all duration-150 focus-within:border-amber-400/40 focus-within:bg-amber-400/[0.04] focus-within:ring-1 focus-within:ring-amber-400/20">
+  <div class="flex h-12 w-full items-center gap-3 rounded-xl border border-white/[0.1] bg-white/[0.05] px-4 transition-all duration-150 focus-within:border-blue-400/40 focus-within:bg-blue-400/[0.04] focus-within:ring-1 focus-within:ring-blue-400/20">
     <Server class="h-4 w-4 shrink-0 text-white/30" />
     <input
-      class="flex-1 bg-transparent text-sm text-white/90 caret-amber-400 outline-none placeholder:text-white/25"
+      class="flex-1 bg-transparent text-sm text-white/90 caret-blue-400 outline-none placeholder:text-white/25"
       placeholder="http://192.168.1.x:8096"
       {...props}
     />
@@ -767,14 +796,14 @@ const ServerFinderCard = (
     <button
       class={cn(
         "group flex w-full cursor-pointer items-center gap-4 overflow-hidden rounded-xl border bg-white/[0.04] px-5 py-3.5 text-left transition-all duration-200",
-        "border-white/[0.08] hover:border-amber-400/30 hover:bg-amber-400/[0.06]",
+        "border-white/[0.08] hover:border-blue-400/30 hover:bg-blue-400/[0.06]",
         className
       )}
       type="button"
       {...other}
     >
-      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-400/10 ring-1 ring-amber-400/20 ring-inset">
-        <Server class="h-4 w-4 text-amber-400/70" />
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-400/10 ring-1 ring-blue-400/20 ring-inset">
+        <Server class="h-4 w-4 text-blue-400/70" />
       </div>
       <div class="min-w-0 flex-1">
         <p class="truncate font-medium text-sm text-white/90">
@@ -829,8 +858,8 @@ const ServerCard = (
       tabIndex={0}
       {...other}
     >
-      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.07] transition-all duration-150 group-hover:bg-amber-400/10">
-        <Server class="h-4 w-4 text-white/50 transition-colors group-hover:text-amber-400/70" />
+      <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/[0.07] transition-all duration-150 group-hover:bg-blue-400/10">
+        <Server class="h-4 w-4 text-white/50 transition-colors group-hover:text-blue-400/70" />
       </div>
       <div class="min-w-0 flex-1">
         <p class="truncate font-medium text-sm text-white/90">
