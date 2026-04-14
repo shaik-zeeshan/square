@@ -253,10 +253,10 @@ export default function VideoControls(props: VideoControlsProps) {
 
   const thumbSizeClass = () => {
     if (isDragging()) {
-      return "h-5 w-5 bg-amber-300 shadow-[0_0_0_4px_rgba(251,191,36,0.25),0_0_20px_rgba(251,191,36,0.5)]";
+      return "h-5 w-5 bg-blue-300 shadow-[0_0_0_4px_rgba(96,165,250,0.25),0_0_20px_rgba(96,165,250,0.5)]";
     }
     if (props.state.isSeeking) {
-      return "h-[15px] w-[15px] bg-amber-300 shadow-[0_0_0_3px_rgba(251,191,36,0.2),0_0_14px_rgba(251,191,36,0.4)]";
+      return "h-[15px] w-[15px] bg-blue-300 shadow-[0_0_0_3px_rgba(96,165,250,0.2),0_0_14px_rgba(96,165,250,0.4)]";
     }
     if (props.state.isBuffering) {
       return "h-3 w-3 animate-pulse bg-white/50 shadow-[0_0_0_3px_rgba(255,255,255,0.08)]";
@@ -266,7 +266,7 @@ export default function VideoControls(props: VideoControlsProps) {
 
   const subtitlesBtnClass = () => {
     if (props.openPanel() === "subtitles") {
-      return "bg-amber-400/[0.14] text-amber-300 ring-1 ring-inset ring-amber-400/[0.2]";
+      return "bg-blue-400/[0.14] text-blue-300 ring-1 ring-inset ring-blue-400/[0.2]";
     }
     if (props.state.subtitleIndex > 0) {
       return "text-white/70 hover:bg-white/[0.08] hover:text-white/90";
@@ -276,7 +276,7 @@ export default function VideoControls(props: VideoControlsProps) {
 
   const speedBtnClass = () => {
     if (props.openPanel() === "speed") {
-      return "bg-amber-400/[0.14] text-amber-300 ring-1 ring-inset ring-amber-400/[0.2]";
+      return "bg-blue-400/[0.14] text-blue-300 ring-1 ring-inset ring-blue-400/[0.2]";
     }
     if (props.state.playbackSpeed !== 1) {
       return "text-white/70 hover:bg-white/[0.08] hover:text-white/90";
@@ -285,7 +285,7 @@ export default function VideoControls(props: VideoControlsProps) {
   };
 
   return (
-    <div class="controls-bar-enter rounded-2xl border border-white/[0.09] bg-black/80 shadow-[0_20px_60px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-[28px]">
+    <div class="controls-bar-enter rounded-2xl border border-white/[0.09] bg-[#0d1220]/85 shadow-[0_20px_60px_rgba(0,0,0,0.8),inset_0_1px_0_rgba(255,255,255,0.07)] backdrop-blur-[28px]">
       {/* ── Progress region ── */}
       <div class="px-4 pt-4 pb-1">
         {/* Scrubber */}
@@ -382,7 +382,7 @@ export default function VideoControls(props: VideoControlsProps) {
                       <div
                         class={cn(
                           "h-full",
-                          isCurrent() ? "bg-amber-400/[0.07]" : ""
+                          isCurrent() ? "bg-blue-400/[0.07]" : ""
                         )}
                         style={{ width: `${widthPct()}%` }}
                       >
@@ -420,18 +420,18 @@ export default function VideoControls(props: VideoControlsProps) {
               </Show>
             </div>
 
-            {/* Played range — amber accent */}
+            {/* Played range — cool blue accent */}
             <div
               class={cn(
                 "relative h-full rounded-full transition-none",
-                props.state.isSeeking ? "bg-amber-300/80" : "bg-amber-400"
+                props.state.isSeeking ? "bg-blue-300/80" : "bg-blue-400"
               )}
               style={{ width: `${displayPosition()}%` }}
             >
-              {/* Amber glow at head */}
+              {/* Blue glow at head */}
               <Show when={scrubberActive() && displayPosition() > 0}>
                 <div
-                  class="-translate-y-1/2 absolute top-1/2 right-0 h-[120%] w-6 rounded-full bg-amber-400/40 blur-sm"
+                  class="-translate-y-1/2 absolute top-1/2 right-0 h-[120%] w-6 rounded-full bg-blue-400/40 blur-sm"
                   style={{ animation: "amberPulse 1.8s ease-in-out infinite" }}
                 />
               </Show>
@@ -471,7 +471,7 @@ export default function VideoControls(props: VideoControlsProps) {
                         class={cn(
                           "h-full w-[2px] cursor-pointer rounded-full transition-all duration-150 hover:w-[3px] hover:scale-y-[2.2]",
                           isCurrentChapter()
-                            ? "bg-amber-300"
+                            ? "bg-blue-300"
                             : "bg-white/25 hover:bg-white/55"
                         )}
                         onClick={(e) => {
@@ -480,14 +480,14 @@ export default function VideoControls(props: VideoControlsProps) {
                         }}
                       />
                       {/* Chapter tooltip */}
-                      <div class="-translate-x-1/2 pointer-events-none absolute bottom-full left-1/2 z-20 mb-5 rounded-xl border border-white/[0.1] bg-black/95 px-3 py-2.5 text-white text-xs opacity-0 shadow-[0_12px_40px_rgba(0,0,0,0.7)] backdrop-blur-2xl transition-opacity duration-150 group-hover/chapter:opacity-100">
+                      <div class="-translate-x-1/2 pointer-events-none absolute bottom-full left-1/2 z-20 mb-5 rounded-xl border border-white/[0.1] bg-[#0d1220]/95 px-3 py-2.5 text-white text-xs opacity-0 shadow-[0_12px_40px_rgba(0,0,0,0.7)] backdrop-blur-2xl transition-opacity duration-150 group-hover/chapter:opacity-100">
                         <div class="flex items-center gap-2">
                           <span class="font-semibold tracking-tight">
                             {chapterName()}
                           </span>
                           <Show when={isCurrentChapter()}>
                             <span
-                              class="h-1.5 w-1.5 rounded-full bg-amber-400"
+                              class="h-1.5 w-1.5 rounded-full bg-blue-400"
                               style={{
                                 animation: "liveDot 1.4s ease-in-out infinite",
                               }}
@@ -497,7 +497,7 @@ export default function VideoControls(props: VideoControlsProps) {
                         <div class="mt-0.5 font-mono text-[11px] text-white/40">
                           {chapterTimeFmt()}
                         </div>
-                        <div class="-translate-x-1/2 absolute top-full left-1/2 h-0 w-0 border-transparent border-t-4 border-t-black/95 border-r-4 border-l-4" />
+                        <div class="-translate-x-1/2 absolute top-full left-1/2 h-0 w-0 border-transparent border-t-4 border-t-[#0d1220]/95 border-r-4 border-l-4" />
                       </div>
                     </div>
                   );
@@ -520,12 +520,12 @@ export default function VideoControls(props: VideoControlsProps) {
           {/* Drag time badge */}
           <Show when={isDragging()}>
             <div
-              class="-translate-x-1/2 pointer-events-none absolute bottom-full z-10 mb-5 rounded-lg border border-amber-400/20 bg-black/95 px-2.5 py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.7)] backdrop-blur-2xl"
+              class="-translate-x-1/2 pointer-events-none absolute bottom-full z-10 mb-5 rounded-lg border border-blue-400/20 bg-[#0d1220]/95 px-2.5 py-1.5 shadow-[0_8px_32px_rgba(0,0,0,0.7)] backdrop-blur-2xl"
               style={{
                 left: `${dragPosition() ?? progressPercentage()}%`,
               }}
             >
-              <div class="font-bold font-mono text-amber-300 text-sm tabular-nums tracking-tight">
+              <div class="font-bold font-mono text-blue-200 text-sm tabular-nums tracking-tight">
                 {props.state.duration > 0
                   ? formatTime(
                       ((dragPosition() ?? 0) / 100) * props.state.duration
@@ -543,7 +543,7 @@ export default function VideoControls(props: VideoControlsProps) {
                   </Show>
                 );
               })()}
-              <div class="-translate-x-1/2 absolute top-full left-1/2 h-0 w-0 border-transparent border-t-4 border-t-black/95 border-r-4 border-l-4" />
+              <div class="-translate-x-1/2 absolute top-full left-1/2 h-0 w-0 border-transparent border-t-4 border-t-[#0d1220]/95 border-r-4 border-l-4" />
             </div>
           </Show>
 
@@ -555,7 +555,7 @@ export default function VideoControls(props: VideoControlsProps) {
               const chapterInfo = getChapterAtPosition(hoverPosition() ?? 0);
               return (
                 <div
-                  class="-translate-x-1/2 pointer-events-none absolute bottom-full z-10 mb-5 rounded-xl border border-white/[0.08] bg-black/95 px-3 py-2 text-white text-xs shadow-[0_8px_32px_rgba(0,0,0,0.65)] backdrop-blur-2xl"
+                  class="-translate-x-1/2 pointer-events-none absolute bottom-full z-10 mb-5 rounded-xl border border-white/[0.08] bg-[#0d1220]/95 px-3 py-2 text-white text-xs shadow-[0_8px_32px_rgba(0,0,0,0.65)] backdrop-blur-2xl"
                   style={{
                     left: `${hoverPosition()}%`,
                   }}
@@ -573,7 +573,7 @@ export default function VideoControls(props: VideoControlsProps) {
                         `Chapter ${(chapterInfo?.index ?? 0) + 1}`}
                     </div>
                   </Show>
-                  <div class="-translate-x-1/2 absolute top-full left-1/2 h-0 w-0 border-transparent border-t-4 border-t-black/95 border-r-4 border-l-4" />
+                  <div class="-translate-x-1/2 absolute top-full left-1/2 h-0 w-0 border-transparent border-t-4 border-t-[#0d1220]/95 border-r-4 border-l-4" />
                 </div>
               );
             })()}
@@ -586,7 +586,7 @@ export default function VideoControls(props: VideoControlsProps) {
             {formatTime(Number(props.state.currentTime))}
           </span>
           <Show when={props.state.isBuffering || props.state.isSeeking}>
-            <span class="animate-pulse font-mono text-[10px] text-amber-400/70 tabular-nums">
+            <span class="animate-pulse font-mono text-[10px] text-blue-400/70 tabular-nums">
               {props.state.isSeeking ? "seeking…" : "buffering…"}
             </span>
           </Show>
@@ -623,7 +623,7 @@ export default function VideoControls(props: VideoControlsProps) {
               "mx-1 flex h-10 w-10 items-center justify-center rounded-2xl ring-1 ring-inset transition-all duration-150 active:scale-[0.90]",
               props.state.playing
                 ? "bg-white/[0.13] text-white ring-white/[0.15] hover:bg-white/[0.2] hover:ring-white/[0.22]"
-                : "bg-amber-400/[0.12] text-amber-300 ring-amber-400/[0.18] hover:bg-amber-400/[0.2] hover:ring-amber-400/[0.25]"
+                : "bg-blue-400/[0.12] text-blue-200 ring-blue-400/[0.18] hover:bg-blue-400/[0.2] hover:ring-blue-400/[0.25]"
             )}
             onClick={(e) => {
               e.stopPropagation();
@@ -712,7 +712,7 @@ export default function VideoControls(props: VideoControlsProps) {
               class={cn(
                 "flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-150 active:scale-[0.88]",
                 props.openPanel() === "audio"
-                  ? "bg-amber-400/[0.14] text-amber-300 ring-1 ring-amber-400/[0.2] ring-inset"
+                  ? "bg-blue-400/[0.14] text-blue-300 ring-1 ring-blue-400/[0.2] ring-inset"
                   : "text-white/45 hover:bg-white/[0.08] hover:text-white/90"
               )}
               onClick={(e) => {
@@ -795,7 +795,7 @@ export default function VideoControls(props: VideoControlsProps) {
               class={cn(
                 "flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-150 active:scale-[0.88]",
                 props.openPanel() === "chapters"
-                  ? "bg-amber-400/[0.14] text-amber-300 ring-1 ring-amber-400/[0.2] ring-inset"
+                  ? "bg-blue-400/[0.14] text-blue-300 ring-1 ring-blue-400/[0.2] ring-inset"
                   : "text-white/45 hover:bg-white/[0.08] hover:text-white/90"
               )}
               onClick={(e) => {
@@ -824,7 +824,7 @@ export default function VideoControls(props: VideoControlsProps) {
             class={cn(
               "flex h-8 w-8 items-center justify-center rounded-xl transition-all duration-150 active:scale-[0.88]",
               props.isPip
-                ? "bg-amber-400/[0.14] text-amber-300 ring-1 ring-amber-400/[0.2] ring-inset"
+                ? "bg-blue-400/[0.14] text-blue-300 ring-1 ring-blue-400/[0.2] ring-inset"
                 : "text-white/45 hover:bg-white/[0.08] hover:text-white/90"
             )}
             onClick={async (e) => {
