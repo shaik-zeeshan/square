@@ -96,6 +96,8 @@ export function useVideoPlayback(
   let localSeekTarget: number | null = null;
   let localSeekGuardUntil = 0;
   let hasClearedPlayback = false;
+  let lastConfirmedPlaybackProgressAt = 0;
+  let pausedForCache = false;
 
   const removeControlInteractionListeners = () => {
     window.removeEventListener("pointerup", handleControlInteractionEnd);
@@ -104,6 +106,7 @@ export function useVideoPlayback(
 
   const SEEK_GUARD_MS = 900;
   const SEEK_CONFIRM_TOLERANCE_SECONDS = 1.5;
+  const BUFFERING_PROGRESS_GRACE_MS = 1500;
 
   // Jellyfin playback reporting
   const playSessionId = crypto.randomUUID();
@@ -113,6 +116,9 @@ export function useVideoPlayback(
     state.controlsLocked ||
     state.isHoveringControls ||
     state.isInteractingControls;
+
+  const hasRecentPlaybackProgress = () =>
+    Date.now() - lastConfirmedPlaybackProgressAt < BUFFERING_PROGRESS_GRACE_MS;
 
   const clearHideControlsTimeout = () => {
     const existing = hideControlsTimeout();
@@ -394,6 +400,8 @@ export function useVideoPlayback(
   };
 
   const loadNewVideo = (url: string, newItemId: string) => {
+    lastConfirmedPlaybackProgressAt = 0;
+    pausedForCache = false;
     setState("url", url);
     setState("currentItemId", newItemId);
     setState("currentTime", "0");
@@ -471,6 +479,8 @@ export function useVideoPlayback(
 
     const thisLoad = ++loadVersion;
     const url = `${basePath}/Videos/${currentItemId}/Stream?api_key=${token}&container=mp4&static=true`;
+    lastConfirmedPlaybackProgressAt = 0;
+    pausedForCache = false;
     setState("url", url);
     setState("currentItemId", currentItemId);
     setState("currentTime", "0");
@@ -629,6 +639,11 @@ export function useVideoPlayback(
             return;
           }
 
+          const previousTime = Number(state.currentTime);
+          const hasPlaybackProgress =
+            Number.isNaN(previousTime) ||
+            Math.abs(parsedTime - previousTime) > 0.01;
+
           if (localSeekTarget !== null) {
             const matchedSeek =
               Math.abs(parsedTime - localSeekTarget) <=
@@ -640,6 +655,10 @@ export function useVideoPlayback(
             }
           }
 
+          if (hasPlaybackProgress) {
+            lastConfirmedPlaybackProgressAt = now;
+          }
+
           // Batch state updates for better performance
           setState({
             currentTime: newTime,
@@ -647,8 +666,9 @@ export function useVideoPlayback(
             isSeeking: false,
           });
 
-          if (state.playing) {
-            setBufferingState(false);
+          if (state.playing && hasPlaybackProgress) {
+            pausedForCache = false;
+            setBufferingState(false, 0);
           }
 
           // Report progress to Jellyfin every 3 seconds
@@ -820,16 +840,21 @@ export function useVideoPlayback(
 
           const transitionedToEmptyBuffer =
             clampedPercentage === 0 && previousPercentage > 0;
+          const hasActivePlaybackProgress = hasRecentPlaybackProgress();
 
           const shouldShowBuffering =
-            (clampedPercentage > 0 && clampedPercentage < 100
+            ((clampedPercentage > 0 && clampedPercentage < 100
               ? true
               : transitionedToEmptyBuffer) &&
-            state.playing &&
-            !state.isLoading &&
-            !state.isSeeking;
+              !hasActivePlaybackProgress) ||
+            pausedForCache;
 
-          setBufferingState(shouldShowBuffering);
+          setBufferingState(
+            shouldShowBuffering &&
+              state.playing &&
+              !state.isLoading &&
+              !state.isSeeking
+          );
         })
       ))
     ) {
@@ -840,6 +865,7 @@ export function useVideoPlayback(
       !(await registerListener(
         events.pauseForCacheChange.listen(({ payload }) => {
           const isPaused = payload.pause;
+          pausedForCache = isPaused;
 
           setBufferingState(isPaused);
 
