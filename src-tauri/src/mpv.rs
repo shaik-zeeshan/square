@@ -21,9 +21,11 @@ use libmpv2::{
     Mpv,
 };
 use raw_window_handle::{HasDisplayHandle, HasWindowHandle};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use tauri::{Emitter, Manager, PhysicalSize, Window};
+use serde::{Deserialize, Serialize};
+use tauri::{Manager, PhysicalSize, Window};
 use tauri_specta::Event;
+
+use crate::power::PlaybackSleepBlocker;
 
 // ===== OPENGL CONTEXT MANAGEMENT =====
 
@@ -96,6 +98,7 @@ pub struct MpvPlayer {
     pub mpv: Mpv,
     pub render_context: RenderContext,
     pub window: Window,
+    sleep_blocker: PlaybackSleepBlocker,
 }
 
 impl MpvPlayer {
@@ -147,17 +150,35 @@ impl MpvPlayer {
             mpv,
             render_context,
             window: window.clone(),
+            sleep_blocker: PlaybackSleepBlocker::default(),
         })
     }
 
-    pub fn handle_playback_event(&self, event: PlaybackEvent) {
-        let loaded_file = !self.mpv.get_property::<bool>("idle-active").unwrap();
+    fn should_prevent_sleep(&self) -> bool {
+        let idle_active = self.mpv.get_property::<bool>("idle-active").unwrap_or(true);
+        let paused = self.mpv.get_property::<bool>("pause").unwrap_or(true);
+        !idle_active && !paused
+    }
+
+    pub fn sync_sleep_prevention(&mut self) {
+        self.sleep_blocker
+            .set_enabled(self.should_prevent_sleep(), "Video playback");
+    }
+
+    pub fn release_sleep_prevention(&mut self) {
+        self.sleep_blocker.disable();
+    }
+
+    pub fn handle_playback_event(&mut self, event: PlaybackEvent) {
+        let loaded_file = !self.mpv.get_property::<bool>("idle-active").unwrap_or(true);
         match event {
             PlaybackEvent::Play => {
                 self.mpv.set_property("pause", false).unwrap();
+                self.sync_sleep_prevention();
             }
             PlaybackEvent::Pause => {
                 self.mpv.set_property("pause", true).unwrap();
+                self.sync_sleep_prevention();
             }
             PlaybackEvent::Seek(time) => {
                 if loaded_file {
@@ -178,9 +199,10 @@ impl MpvPlayer {
                 self.mpv.set_property("speed", speed).unwrap();
             }
             PlaybackEvent::EndOfFile => {
-                // self.mpv.set_property("pause", true).unwrap();
+                self.release_sleep_prevention();
             }
             PlaybackEvent::Error(error) => {
+                self.release_sleep_prevention();
                 eprintln!("Error: {}", error);
             }
             PlaybackEvent::ChangeSubtitle(subtitle) => {
@@ -199,6 +221,7 @@ impl MpvPlayer {
                     self.mpv.command("loadfile", &[&url, "replace"]).unwrap();
                 }
                 self.mpv.set_property("pause", false).unwrap();
+                self.sync_sleep_prevention();
             }
             PlaybackEvent::FileLoaded => {
                 // self.mpv.set_property("time-pos", "0").unwrap();
@@ -210,6 +233,7 @@ impl MpvPlayer {
                 }
                 .emit(self.window.app_handle())
                 .unwrap();
+                self.sync_sleep_prevention();
                 //self.window.emit("file-loaded", (time, duration)).unwrap();
             }
             _ => {}
@@ -285,7 +309,10 @@ impl RenderManager {
 
         log::info!("Switching target window to {}", window_id);
         let Some(gl_context) = self.gl_contexts.get(&window_id) else {
-            log::warn!("Window context '{}' not found, cannot switch target", window_id);
+            log::warn!(
+                "Window context '{}' not found, cannot switch target",
+                window_id
+            );
             return;
         };
 
@@ -346,8 +373,9 @@ impl RenderManager {
         }
     }
 
-    pub fn clear(&self, window: &Window) {
+    pub fn clear(&mut self, window: &Window) {
         self.mpv_player.mpv.set_property("pause", true).unwrap();
+        self.mpv_player.sync_sleep_prevention();
         if let Some(gl_context) = self.gl_contexts.get(&self.active_window) {
             gl_context.clear_to_transparent(window);
         }
@@ -376,21 +404,29 @@ impl RenderManager {
     pub fn wait_event(
         &mut self,
         timeout: f64,
-    ) -> Option<Result<libmpv2::events::Event, libmpv2::Error>> {
+    ) -> Option<Result<libmpv2::events::Event<'_>, libmpv2::Error>> {
         self.mpv_player.mpv.wait_event(timeout)
     }
+}
+
+enum SleepAction {
+    None,
+    Sync,
+    Release,
 }
 
 /// Event handler struct
 pub struct EventHandler;
 
 impl EventHandler {
-    pub fn handle_mpv_events(
+    fn handle_mpv_events(
         event: libmpv2::events::Event,
         window: &Window,
         render_tx: Sender<PlaybackEvent>,
-    ) {
+    ) -> SleepAction {
         let app_handle = window.app_handle();
+        let mut sleep_action = SleepAction::None;
+
         match event {
             libmpv2::events::Event::FileLoaded => {
                 //    render_tx.send(PlaybackEvent::FileLoaded).unwrap();
@@ -413,6 +449,7 @@ impl EventHandler {
                 reply_userdata: 1,
             } => {
                 PlayBackStateChange { pause }.emit(app_handle).ok();
+                sleep_action = SleepAction::Sync;
                 //  window.emit("pause", pause).unwrap();
             }
             libmpv2::events::Event::PropertyChange {
@@ -562,6 +599,7 @@ impl EventHandler {
             } => {
                 if reached {
                     log::debug!("end of file is reached");
+                    sleep_action = SleepAction::Release;
                     EOFEventChange.emit(app_handle).ok();
                 };
 
@@ -576,6 +614,8 @@ impl EventHandler {
             //}
             _ => {}
         }
+
+        sleep_action
     }
 }
 
@@ -900,53 +940,67 @@ pub async fn run_render_thread(
     // Combined event loop - handle both MPV events and render signals
     loop {
         // Check for MPV events
-        if let Some(event) = render_manager.wait_event(0.0) {
+        let mpv_sleep_action = if let Some(event) = render_manager.wait_event(0.0) {
             if let Ok(event) = event {
-                EventHandler::handle_mpv_events(event, &window, render_tx.clone());
-            };
+                Some(EventHandler::handle_mpv_events(
+                    event,
+                    &window,
+                    render_tx.clone(),
+                ))
+            } else {
+                None
+            }
+        } else {
+            None
+        };
+
+        match mpv_sleep_action {
+            Some(SleepAction::Sync) => render_manager.mpv_player.sync_sleep_prevention(),
+            Some(SleepAction::Release) => render_manager.mpv_player.release_sleep_prevention(),
+            _ => {}
         }
 
         // Check for render signals (non-blocking)
         match render_rx.recv_timeout(Duration::from_millis(8)) {
             Ok(event) => {
-            match event {
-                PlaybackEvent::Redraw => {
-                    // Render to the active window
-                    if render_manager.active_window == "pip" {
-                        if let Some(pip_window) = get_pip_window() {
-                            render_manager.render_to_window("pip", &pip_window);
+                match event {
+                    PlaybackEvent::Redraw => {
+                        // Render to the active window
+                        if render_manager.active_window == "pip" {
+                            if let Some(pip_window) = get_pip_window() {
+                                render_manager.render_to_window("pip", &pip_window);
+                            } else {
+                                // PiP window no longer exists, switch back to main and render there
+                                log::info!(
+                                    "PiP window no longer exists, switching back to main window"
+                                );
+                                render_manager.switch_target_window("main".to_string());
+                                render_manager.render_to_window("main", &window);
+                            }
                         } else {
-                            // PiP window no longer exists, switch back to main and render there
-                            log::info!(
-                                "PiP window no longer exists, switching back to main window"
-                            );
-                            render_manager.switch_target_window("main".to_string());
                             render_manager.render_to_window("main", &window);
                         }
-                    } else {
-                        render_manager.render_to_window("main", &window);
                     }
-                }
-                PlaybackEvent::Resize(width, height) => {
-                    if let Err(e) =
-                        render_manager.resize(&render_manager.active_window, width, height)
-                    {
-                        log::error!("Failed to resize: {}", e);
+                    PlaybackEvent::Resize(width, height) => {
+                        if let Err(e) =
+                            render_manager.resize(&render_manager.active_window, width, height)
+                        {
+                            log::error!("Failed to resize: {}", e);
+                        }
                     }
-                }
-                PlaybackEvent::Clear => {
-                    render_manager.clear(&window);
-                }
-                PlaybackEvent::SwitchTarget(target) => {
-                    render_manager.switch_target_window(target);
-                }
-                PlaybackEvent::ResizePipWindow { width, height } => {
-                    if let Err(e) = render_manager.resize("pip", width, height) {
-                        log::error!("Failed to resize PiP window: {}", e);
+                    PlaybackEvent::Clear => {
+                        render_manager.clear(&window);
                     }
+                    PlaybackEvent::SwitchTarget(target) => {
+                        render_manager.switch_target_window(target);
+                    }
+                    PlaybackEvent::ResizePipWindow { width, height } => {
+                        if let Err(e) = render_manager.resize("pip", width, height) {
+                            log::error!("Failed to resize PiP window: {}", e);
+                        }
+                    }
+                    _ => render_manager.mpv_player.handle_playback_event(event),
                 }
-                _ => render_manager.mpv_player.handle_playback_event(event),
-            }
             }
             Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
             Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {

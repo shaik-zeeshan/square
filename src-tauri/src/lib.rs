@@ -1,5 +1,3 @@
-use std::str::FromStr;
-
 use keyring::Entry;
 use rand::Rng;
 use specta::specta;
@@ -20,6 +18,7 @@ use crate::mpv::{
 
 mod credentials;
 pub mod mpv;
+mod power;
 mod store;
 
 static VAULT_PASSWORD: std::sync::OnceLock<String> = std::sync::OnceLock::new();

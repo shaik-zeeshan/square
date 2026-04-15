@@ -53,7 +53,9 @@ rand = "0.8"
 chrono = { version = "0.4", features = ["serde"] }
 
 
+objc2 = "0.6.3"
 objc2-app-kit = "0.3.2"
+objc2-foundation = { version = "0.3.2", features = ["NSProcessInfo", "NSString"] }
 tauri-plugin-process = "2"
 
 [profile.dev.package.scrypt]
