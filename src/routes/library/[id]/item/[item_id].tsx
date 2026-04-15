@@ -12,13 +12,16 @@ import {
   AlertCircle,
   ArrowUp,
   Calendar,
+  Check,
   ChevronDown,
   ChevronUp,
   Clock,
   Filter,
   Library as LibraryIcon,
+  Play,
   RefreshCw,
   Star,
+  Tv,
 } from "lucide-solid";
 import { create } from "mutative";
 import {
@@ -49,6 +52,33 @@ import {
   type ExtractQueryData,
 } from "~/effect/tanstack/query";
 
+/**
+ * Build a compact TV-context label from whichever series / season / episode
+ * fields are available on the item, avoiding nested ternaries.
+ */
+function buildTvContextLabel(item: {
+  SeriesName?: string | null;
+  SeasonName?: string | null;
+  ParentIndexNumber?: number | null;
+  IndexNumber?: number | null;
+}): string {
+  const parts: string[] = [];
+  if (item.SeriesName) {
+    parts.push(item.SeriesName);
+  }
+  // Season context: prefer the explicit name, fall back to the numeric index
+  if (item.SeasonName) {
+    parts.push(item.SeasonName);
+  } else if (item.ParentIndexNumber != null) {
+    parts.push(`Season ${item.ParentIndexNumber}`);
+  }
+  // Episode number
+  if (item.IndexNumber != null) {
+    parts.push(`E${item.IndexNumber}`);
+  }
+  return parts.join(" · ");
+}
+
 const itemPageFilters = ["all", "unplayed", "played", "resumable"] as const;
 type ItemPageFilter = (typeof itemPageFilters)[number];
 
@@ -72,7 +102,9 @@ export default function Page(props: RouteSectionProps) {
   );
 
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams<{ filter?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams<{
+    filter?: string;
+  }>();
 
   const [isOverviewExpanded, setIsOverviewExpanded] = createSignal(false);
   const [showScrollTop, setShowScrollTop] = createSignal(false);
@@ -360,6 +392,15 @@ export default function Page(props: RouteSectionProps) {
                       </div>
                     </Show>
 
+                    <Show when={!item?.PremiereDate && item?.ProductionYear}>
+                      <div class="flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-2.5 py-1 ring-1 ring-white/[0.1] ring-inset">
+                        <Calendar class="h-3.5 w-3.5 text-white/45" />
+                        <span class="font-medium text-white/65 text-xs">
+                          {item?.ProductionYear}
+                        </span>
+                      </div>
+                    </Show>
+
                     <Show when={item?.RunTimeTicks}>
                       <div class="flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-2.5 py-1 ring-1 ring-white/[0.1] ring-inset">
                         <Clock class="h-3.5 w-3.5 text-white/45" />
@@ -374,6 +415,51 @@ export default function Page(props: RouteSectionProps) {
                       <div class="rounded-lg border border-white/15 bg-white/[0.05] px-2.5 py-1">
                         <span class="font-semibold text-white/55 text-xs tracking-wider">
                           {item?.OfficialRating}
+                        </span>
+                      </div>
+                    </Show>
+
+                    {/* TV context */}
+                    <Show
+                      when={
+                        item?.SeriesName ||
+                        item?.SeasonName ||
+                        item?.ParentIndexNumber != null ||
+                        item?.IndexNumber != null
+                      }
+                    >
+                      <div class="flex items-center gap-1.5 rounded-lg bg-white/[0.06] px-2.5 py-1 ring-1 ring-white/[0.1] ring-inset">
+                        <Tv class="h-3.5 w-3.5 text-white/45" />
+                        <span class="font-medium text-white/65 text-xs">
+                          {buildTvContextLabel(item)}
+                        </span>
+                      </div>
+                    </Show>
+
+                    {/* Watch state */}
+                    <Show when={item?.UserData?.Played}>
+                      <div class="flex items-center gap-1.5 rounded-lg bg-emerald-400/12 px-2.5 py-1 ring-1 ring-emerald-400/25 ring-inset">
+                        <Check class="h-3.5 w-3.5 text-emerald-400" />
+                        <span class="font-semibold text-emerald-200 text-xs">
+                          Watched
+                        </span>
+                      </div>
+                    </Show>
+
+                    <Show
+                      when={
+                        !item?.UserData?.Played &&
+                        item?.UserData?.PlaybackPositionTicks &&
+                        item.UserData.PlaybackPositionTicks > 0
+                      }
+                    >
+                      <div class="flex items-center gap-1.5 rounded-lg bg-amber-400/12 px-2.5 py-1 ring-1 ring-amber-400/25 ring-inset">
+                        <Play class="h-3.5 w-3.5 text-amber-400" />
+                        <span class="font-semibold text-amber-200 text-xs">
+                          {item?.UserData?.PlayedPercentage != null &&
+                          item.UserData.PlayedPercentage > 0
+                            ? `In Progress · ${Math.round(item.UserData.PlayedPercentage)}%`
+                            : "In Progress"}
                         </span>
                       </div>
                     </Show>
@@ -547,7 +633,7 @@ export default function Page(props: RouteSectionProps) {
                         activeFilter={activeFilter()}
                         items={[]}
                         onFilterChange={setActiveFilter}
-                        parentId={params.item_id}
+                        parentId={params.id}
                         parentItem={item}
                       />
                     }
@@ -556,7 +642,7 @@ export default function Page(props: RouteSectionProps) {
                         activeFilter={activeFilter()}
                         items={[]}
                         onFilterChange={setActiveFilter}
-                        parentId={params.item_id}
+                        parentId={params.id}
                         parentItem={item}
                       />
                     }
@@ -567,7 +653,7 @@ export default function Page(props: RouteSectionProps) {
                         activeFilter={activeFilter()}
                         items={items}
                         onFilterChange={setActiveFilter}
-                        parentId={params.item_id}
+                        parentId={params.id}
                         parentItem={item}
                       />
                     )}
