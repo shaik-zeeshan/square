@@ -55,6 +55,13 @@ const AppContainer = (props: { children: JSX.Element }) => {
 
   const isVideoRoute = () => path.pathname.startsWith("/video");
   const isPipRoute = () => path.pathname === "/pip";
+
+  createEffect(() => {
+    const surface = isVideoRoute() || isPipRoute() ? "transparent" : "app";
+
+    document.documentElement.dataset.windowSurface = surface;
+    document.body.dataset.windowSurface = surface;
+  });
   const isNavRoute = () => {
     const p = path.pathname;
     return p === "/" || p.startsWith("/library") || p.startsWith("/settings");

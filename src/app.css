@@ -160,6 +160,11 @@
     color-scheme: dark;
   }
 
+  html[data-window-surface="app"],
+  body[data-window-surface="app"] {
+    background-color: var(--app-bg);
+  }
+
   /* Button group loading state */
   .button-group:has([data-action="true"]) button:not([data-action="true"]) {
     pointer-events: none;
