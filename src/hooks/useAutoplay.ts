@@ -32,7 +32,7 @@ export function useAutoplay(props: UseAutoplayProps) {
   >(undefined);
   const [isNextEpisodeLoading, setIsNextEpisodeLoading] = createSignal(false);
 
-  let playbackTimeUnlisten: UnlistenFn | undefined;
+  let playbackTimePollInterval: ReturnType<typeof setInterval> | undefined;
   let endOfFileUnlisten: UnlistenFn | undefined;
   let listenerSetupVersion = 0;
 
@@ -258,9 +258,9 @@ export function useAutoplay(props: UseAutoplayProps) {
     const currentID = props.currentItem()?.Id;
 
     // Always clean up existing listeners, even when current item is temporarily undefined.
-    if (playbackTimeUnlisten) {
-      playbackTimeUnlisten();
-      playbackTimeUnlisten = undefined;
+    if (playbackTimePollInterval) {
+      clearInterval(playbackTimePollInterval);
+      playbackTimePollInterval = undefined;
     }
     if (endOfFileUnlisten) {
       endOfFileUnlisten();
@@ -268,17 +268,12 @@ export function useAutoplay(props: UseAutoplayProps) {
     }
 
     if (currentID) {
-      // Listen for playback time updates to detect 80% completion
-      const playbackTimeListener = await events.playBackTimeChange.listen(
-        (event) => {
-          handlePlaybackTime(event.payload.position);
-        }
-      );
-      if (setupVersion !== listenerSetupVersion) {
-        playbackTimeListener();
-        return;
-      }
-      playbackTimeUnlisten = playbackTimeListener;
+      // Poll playback time at a coarse interval (~1s) instead of reacting to
+      // every high-frequency playBackTimeChange event.  The autoplay threshold
+      // is 80% so sub-second precision is unnecessary.
+      playbackTimePollInterval = setInterval(() => {
+        handlePlaybackTime(props.playbackState.currentTime());
+      }, 1000);
 
       // EOFEventChange payload is null; treat every natural EOF as reason 0
       const endOfFileListener = await events.eofEventChange.listen(async () => {
@@ -298,9 +293,9 @@ export function useAutoplay(props: UseAutoplayProps) {
   });
   onCleanup(() => {
     listenerSetupVersion++;
-    if (playbackTimeUnlisten) {
-      playbackTimeUnlisten();
-      playbackTimeUnlisten = undefined;
+    if (playbackTimePollInterval) {
+      clearInterval(playbackTimePollInterval);
+      playbackTimePollInterval = undefined;
     }
     if (endOfFileUnlisten) {
       endOfFileUnlisten();

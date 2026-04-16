@@ -98,6 +98,8 @@ export function useVideoPlayback(
   let hasClearedPlayback = false;
   let lastConfirmedPlaybackProgressAt = 0;
   let pausedForCache = false;
+  let lastWrittenTime = 0; // last parsedTime written to store
+  const TIME_WRITE_THRESHOLD = 0.25; // seconds – coalesce smaller deltas
 
   const removeControlInteractionListeners = () => {
     window.removeEventListener("pointerup", handleControlInteractionEnd);
@@ -659,12 +661,30 @@ export function useVideoPlayback(
             lastConfirmedPlaybackProgressAt = now;
           }
 
-          // Batch state updates for better performance
-          setState({
-            currentTime: newTime,
-            isLoading: false,
-            isSeeking: false,
-          });
+          // Only write currentTime to store when the delta is meaningful
+          // to reduce reactive re-renders on high-frequency events.
+          const timeDelta = Math.abs(parsedTime - lastWrittenTime);
+          const seekJustConfirmed = localSeekTarget === null && state.isSeeking;
+          if (
+            timeDelta >= TIME_WRITE_THRESHOLD ||
+            seekJustConfirmed ||
+            state.isLoading
+          ) {
+            lastWrittenTime = parsedTime;
+            setState({
+              currentTime: newTime,
+              isLoading: false,
+              isSeeking: false,
+            });
+          } else {
+            // Still clear transient flags even when skipping time write
+            if (state.isLoading) {
+              setState("isLoading", false);
+            }
+            if (state.isSeeking) {
+              setState("isSeeking", false);
+            }
+          }
 
           if (state.playing && hasPlaybackProgress) {
             pausedForCache = false;

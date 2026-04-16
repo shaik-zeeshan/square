@@ -1,10 +1,15 @@
 import { Router, useLocation } from "@solidjs/router";
 import { FileRoutes } from "@solidjs/start/router";
 import { QueryClientProvider } from "@tanstack/solid-query";
-import { SolidQueryDevtools } from "@tanstack/solid-query-devtools";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { ManagedRuntime } from "effect";
-import { createEffect, ErrorBoundary, type JSX, Suspense } from "solid-js";
+import {
+  createEffect,
+  ErrorBoundary,
+  type JSX,
+  lazy,
+  Suspense,
+} from "solid-js";
 import { ErrorBoundary as AppErrorBoundary } from "./components/error/ErrorBoundary";
 import { PageLoading } from "./components/ui/loading";
 import { Toaster } from "./components/ui/sonner";
@@ -19,12 +24,22 @@ import { useVideoContext } from "~/contexts/video-context";
 import { VideoContextProvider } from "./contexts/video-context";
 import { queryClient } from "./effect/tanstack/query";
 
+const SolidQueryDevtools = import.meta.env.DEV
+  ? lazy(() =>
+      import("@tanstack/solid-query-devtools").then((m) => ({
+        default: m.SolidQueryDevtools,
+      }))
+    )
+  : () => null;
+
 const AppContainer = (props: { children: JSX.Element }) => {
   const path = useLocation();
   const [videoContext] = useVideoContext();
 
-  // Initialize custom scrollbars
-  useOverlayScrollbars();
+  // Initialize custom scrollbars (skip in PiP — unnecessary overhead)
+  if (getCurrentWindow().label !== "pip") {
+    useOverlayScrollbars();
+  }
 
   createEffect(() => {
     if (!path.pathname.startsWith("/video")) {
@@ -85,7 +100,7 @@ const AppContainer = (props: { children: JSX.Element }) => {
         data-tauri-drag-region
       />
       {props.children}
-      <CheckForUpdate />
+      {getCurrentWindow().label !== "pip" && <CheckForUpdate />}
     </div>
   );
 };
