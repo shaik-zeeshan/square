@@ -264,37 +264,42 @@ impl RenderManager {
         })
     }
 
-    /// Create render manager with both main and PiP contexts
-    pub fn new_with_pip(
-        main_window: &Window,
-        pip_window: &Window,
-    ) -> Result<Self, Box<dyn std::error::Error>> {
-        let main_gl_context = OpenGLContext::new(main_window)?;
-        let mpv_player = MpvPlayer::new(&main_gl_context.display, main_window)?;
+    /// Lazily add a PiP GL context sharing the main display
+    pub fn add_pip_context(&mut self, pip_window: &Window) -> Result<(), Box<dyn std::error::Error>> {
+        if self.gl_contexts.contains_key("pip") {
+            return Ok(());
+        }
 
-        let mut gl_contexts = HashMap::new();
+        let main_ctx = self.gl_contexts.get("main")
+            .ok_or("Main GL context not found")?;
 
         let pip_gl_context = create_gl_context_with_display(
             pip_window,
-            &main_gl_context.display,
-            &main_gl_context.context,
+            &main_ctx.display,
+            &main_ctx.context,
         )?;
 
-        gl_contexts.insert("main".to_string(), main_gl_context);
-        // Create PiP context using shared display
-        gl_contexts.insert("pip".to_string(), pip_gl_context);
+        self.gl_contexts.insert("pip".to_string(), pip_gl_context);
 
-        let mut rm = RenderManager {
-            gl_contexts,
-            mpv_player,
-            // PiP context creation can leave that context current; initialize as PiP
-            // so the startup switch to main always performs make_current.
-            active_window: "pip".to_string(),
-        };
+        // Re-activate main context since pip creation left pip current
+        let main_ctx = self.gl_contexts.get("main").unwrap();
+        main_ctx.context.make_current(&main_ctx.surface)
+            .map_err(|e| format!("Failed to restore main context after pip creation: {}", e))?;
 
-        rm.switch_target_window("main".to_string());
+        log::info!("PiP GL context created lazily");
+        Ok(())
+    }
 
-        Ok(rm)
+    /// Remove the PiP GL context
+    pub fn remove_pip_context(&mut self) {
+        self.gl_contexts.remove("pip");
+        if self.active_window == "pip" {
+            self.active_window = "main".to_string();
+            if let Some(main_ctx) = self.gl_contexts.get("main") {
+                let _ = main_ctx.context.make_current(&main_ctx.surface);
+            }
+        }
+        log::info!("PiP GL context removed");
     }
 
     pub fn render(&mut self, window: &Window) {
@@ -903,6 +908,7 @@ pub enum PlaybackEvent {
     FileLoaded,
     SwitchTarget(String),
     ResizePipWindow { width: u32, height: u32 },
+    DestroyPipContext,
 }
 
 #[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]
@@ -921,12 +927,11 @@ pub async fn run_render_thread(
     window: Window,
     render_tx: Sender<PlaybackEvent>,
     render_rx: Receiver<PlaybackEvent>,
-    pip_window: Window,
     get_pip_window: Box<dyn Fn() -> Option<Window> + Send + Sync>,
 ) {
-    // Create render manager with OpenGL context and MPV player
+    // Create render manager with main window only; PiP context is created lazily
 
-    let mut render_manager = RenderManager::new_with_pip(&window, &pip_window).unwrap();
+    let mut render_manager = RenderManager::new(&window).unwrap();
     log::info!("OpenGL context and MPV player created successfully on render thread");
 
     // Set up MPV update callback to trigger rendering on this thread
@@ -992,12 +997,25 @@ pub async fn run_render_thread(
                         render_manager.clear(&window);
                     }
                     PlaybackEvent::SwitchTarget(target) => {
+                        if target == "pip" && !render_manager.gl_contexts.contains_key("pip") {
+                            // Lazily create PiP GL context on first switch
+                            if let Some(pip_win) = get_pip_window() {
+                                if let Err(e) = render_manager.add_pip_context(&pip_win) {
+                                    log::error!("Failed to create PiP GL context: {}", e);
+                                }
+                            } else {
+                                log::warn!("Cannot switch to PiP: window does not exist");
+                            }
+                        }
                         render_manager.switch_target_window(target);
                     }
                     PlaybackEvent::ResizePipWindow { width, height } => {
                         if let Err(e) = render_manager.resize("pip", width, height) {
                             log::error!("Failed to resize PiP window: {}", e);
                         }
+                    }
+                    PlaybackEvent::DestroyPipContext => {
+                        render_manager.remove_pip_context();
                     }
                     _ => render_manager.mpv_player.handle_playback_event(event),
                 }

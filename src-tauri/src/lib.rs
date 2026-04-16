@@ -534,23 +534,17 @@ pub async fn run() {
                 )
                 .unwrap();
 
-            // Create PiP window at startup (hidden by default)
-            let pip_window = create_pip_window(&handle)
-                .map_err(|e| format!("Failed to create PiP window at startup: {}", e))?;
-            log::info!("PiP window created at startup (hidden)");
-
             // Create channel for render signals
             let (render_tx, render_rx) = std::sync::mpsc::channel::<PlaybackEvent>();
 
             let app_state = AppState {
                 render_tx: render_tx.clone(),
-                pip_window: std::sync::Arc::new(std::sync::Mutex::new(Some(pip_window.clone()))),
+                pip_window: std::sync::Arc::new(std::sync::Mutex::new(None)),
             };
 
             // Move all MPV and OpenGL setup to a dedicated thread
             let window_clone = window.clone();
             let app_state_clone = app_state.clone();
-            let pip_window_clone = pip_window.clone();
             let get_pip_window =
                 Box::new(move || app_state_clone.pip_window.lock().unwrap().clone());
 
@@ -559,7 +553,6 @@ pub async fn run() {
                 window_clone,
                 render_tx,
                 render_rx,
-                pip_window_clone,
                 get_pip_window,
             ));
 
@@ -700,6 +693,17 @@ pub async fn run() {
                         if label == "pip" {
                             let mut pip_window_guard = app_state.pip_window.lock().unwrap();
                             *pip_window_guard = None;
+
+                            // Destroy the stale PiP GL context on the render thread
+                            if let Err(e) = app_state
+                                .render_tx
+                                .send(PlaybackEvent::DestroyPipContext)
+                            {
+                                log::error!(
+                                    "Failed to send DestroyPipContext to render thread: {}",
+                                    e
+                                );
+                            }
 
                             if let Err(e) = app_state
                                 .render_tx
