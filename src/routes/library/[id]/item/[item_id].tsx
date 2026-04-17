@@ -25,6 +25,7 @@ import {
 } from "lucide-solid";
 import { create } from "mutative";
 import {
+  createEffect,
   createSignal,
   For,
   Match,
@@ -220,8 +221,39 @@ export default function Page(props: RouteSectionProps) {
     document.body.style.removeProperty("--item-color");
   });
 
-  const getImage = (id: string) =>
-    `${jf.api.basePath}/Items/${id}/Images/Backdrop?quality=10`;
+  const getLibraryBackdropUrl = () =>
+    `${jf.api.basePath}/Items/${params.id}/Images/Backdrop?quality=10`;
+
+  /**
+   * Pick the best backdrop URL from the enriched item data, falling back
+   * to the parent library backdrop when the item has none.
+   * If the chosen URL fails at runtime, we flip to the library backdrop.
+   */
+  const [backdropFailed, setBackdropFailed] = createSignal(false);
+
+  // Reset backdrop failure state when navigating to a different item
+  createEffect(() => {
+    const _id = params.item_id; // track reactively
+    setBackdropFailed(false);
+  });
+
+  const backdropUrl = () => {
+    if (!backdropFailed()) {
+      const enriched = itemDetails.data?.Images?.Backdrop;
+      if (Array.isArray(enriched) && enriched.length > 0) {
+        return enriched[0];
+      }
+    }
+    return getLibraryBackdropUrl();
+  };
+
+  const handleBackdropError = (e: Event) => {
+    const img = e.currentTarget as HTMLImageElement;
+    // Only fallback once to avoid infinite loop when library backdrop also fails
+    if (!backdropFailed() && img.src !== getLibraryBackdropUrl()) {
+      setBackdropFailed(true);
+    }
+  };
 
   return (
     <section class="relative flex min-h-screen flex-col">
@@ -230,10 +262,8 @@ export default function Page(props: RouteSectionProps) {
         <img
           alt="Backdrop"
           class="h-full w-full object-cover"
-          onError={(e) => {
-            e.currentTarget.src = getImage(params.id);
-          }}
-          src={getImage(params.item_id)}
+          onError={handleBackdropError}
+          src={backdropUrl()}
         />
         {/* Multi-layer gradient — deep navy cinematic depth */}
         <div class="absolute inset-0 bg-gradient-to-b from-[#0a0e1a]/60 via-[#0a0e1a]/80 to-[#080c16]" />
