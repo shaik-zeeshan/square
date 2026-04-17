@@ -9,6 +9,7 @@ import type {
   UserLibraryApiGetLatestMediaRequest,
 } from "@jellyfin/sdk/lib/generated-client";
 import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client/models/base-item-dto";
+import type { ImageRequestParameters } from "@jellyfin/sdk/lib/models/api/image-request-parameters";
 import { ImageUrlsApi } from "@jellyfin/sdk/lib/utils/api/image-urls-api";
 import { Effect } from "effect";
 import { isArray, isEmptyArray } from "effect/Array";
@@ -46,17 +47,153 @@ function arrayToObjectWithDuplicates<K extends PropertyKey, V>(
   );
 }
 
-// const getImageFromTag = (
-//   basePath: string,
-//   itemId: string,
-//   keyTag: string,
-//   value: string
-// ) => `${basePath}/Items/${itemId}/Images/${keyTag}?tag=${value}`;
-
 const getImageByKey = (jf: Api, item: BaseItemDto, keyTag: ImageType) =>
   new ImageUrlsApi(jf.configuration).getItemImageUrl(item, keyTag, {
     quality: 75,
   });
+
+/**
+ * Jellyfin-Web–style fallback chain for the best available primary image.
+ * Tries, in order:
+ *  1. ImageTags.Primary  (own item)
+ *  2. SeriesPrimaryImageTag + SeriesId
+ *  3. PrimaryImageTag    (some DTOs carry this at top-level with own Id)
+ *  4. ParentPrimaryImageTag + ParentPrimaryImageItemId (inferred from ParentId)
+ *  5. AlbumPrimaryImageTag + AlbumId
+ *  6. BackdropImageTags  (first own backdrop)
+ *  7. SeriesThumbImageTag + SeriesId
+ *  8. ParentThumbImageTag + ParentThumbItemId
+ *  9. ParentBackdropImageTags + ParentBackdropItemId (first parent backdrop)
+ * Falls back to the tagless `/Items/{id}/Images/Primary` URL.
+ */
+const getBestPrimaryImageUrl = (
+  api: ImageUrlsApi,
+  item: BaseItemDto,
+  params: ImageRequestParameters = {},
+): string => {
+  const id = item.Id ?? "";
+
+  // 1. Own primary tag
+  if (item.ImageTags?.Primary) {
+    return api.getItemImageUrlById(id, "Primary" as ImageType, {
+      ...params,
+      tag: item.ImageTags.Primary,
+    });
+  }
+
+  // 2. Series primary
+  if (item.SeriesPrimaryImageTag && item.SeriesId) {
+    return api.getItemImageUrlById(item.SeriesId, "Primary" as ImageType, {
+      ...params,
+      tag: item.SeriesPrimaryImageTag,
+    });
+  }
+
+  // 3. Top-level PrimaryImageTag (rare but present on some DTOs)
+  if ((item as Record<string, unknown>).PrimaryImageTag) {
+    return api.getItemImageUrlById(id, "Primary" as ImageType, {
+      ...params,
+      tag: (item as Record<string, unknown>).PrimaryImageTag as string,
+    });
+  }
+
+  // 4. Parent primary
+  const parentPrimaryId =
+    (item as Record<string, unknown>).ParentPrimaryImageItemId as
+      | string
+      | undefined;
+  const parentPrimaryTag =
+    (item as Record<string, unknown>).ParentPrimaryImageTag as
+      | string
+      | undefined;
+  if (parentPrimaryTag && parentPrimaryId) {
+    return api.getItemImageUrlById(parentPrimaryId, "Primary" as ImageType, {
+      ...params,
+      tag: parentPrimaryTag,
+    });
+  }
+
+  // 5. Album primary (music items)
+  if (item.AlbumPrimaryImageTag && item.AlbumId) {
+    return api.getItemImageUrlById(item.AlbumId, "Primary" as ImageType, {
+      ...params,
+      tag: item.AlbumPrimaryImageTag,
+    });
+  }
+
+  // 6. Own backdrop (first)
+  if (item.BackdropImageTags && item.BackdropImageTags.length > 0) {
+    return api.getItemImageUrlById(id, "Backdrop" as ImageType, {
+      ...params,
+      tag: item.BackdropImageTags[0],
+    });
+  }
+
+  // 7. Series thumb
+  if (item.SeriesThumbImageTag && item.SeriesId) {
+    return api.getItemImageUrlById(item.SeriesId, "Thumb" as ImageType, {
+      ...params,
+      tag: item.SeriesThumbImageTag,
+    });
+  }
+
+  // 8. Parent thumb
+  if (item.ParentThumbImageTag && item.ParentThumbItemId) {
+    return api.getItemImageUrlById(
+      item.ParentThumbItemId,
+      "Thumb" as ImageType,
+      { ...params, tag: item.ParentThumbImageTag },
+    );
+  }
+
+  // 9. Parent backdrop (first)
+  if (
+    item.ParentBackdropImageTags &&
+    item.ParentBackdropImageTags.length > 0 &&
+    item.ParentBackdropItemId
+  ) {
+    return api.getItemImageUrlById(
+      item.ParentBackdropItemId,
+      "Backdrop" as ImageType,
+      { ...params, tag: item.ParentBackdropImageTags[0] },
+    );
+  }
+
+  // 10. Tagless fallback
+  return api.getItemImageUrlById(id);
+};
+
+/**
+ * Fallback chain for the best available Logo image URL.
+ *  1. ImageTags.Logo (own item)
+ *  2. ParentLogoImageTag + ParentLogoItemId
+ * Returns undefined when no logo metadata is available.
+ */
+const getBestLogoImageUrl = (
+  api: ImageUrlsApi,
+  item: BaseItemDto,
+  params: ImageRequestParameters = {},
+): string | undefined => {
+  const id = item.Id ?? "";
+
+  // 1. Own logo tag
+  if (item.ImageTags?.Logo) {
+    return api.getItemImageUrlById(id, "Logo" as ImageType, {
+      ...params,
+      tag: item.ImageTags.Logo,
+    });
+  }
+
+  // 2. Parent logo
+  if (item.ParentLogoImageTag && item.ParentLogoItemId) {
+    return api.getItemImageUrlById(item.ParentLogoItemId, "Logo" as ImageType, {
+      ...params,
+      tag: item.ParentLogoImageTag,
+    });
+  }
+
+  return;
+};
 
 const getImagesFromTags = (
   tags: BaseItemDto["ImageTags"],
@@ -101,13 +238,20 @@ export const getImages =
 
           return {
             ...item,
-            Image: new ImageUrlsApi(jf.configuration).getItemImageUrlById(
-              item?.Id || ""
+            Image: getBestPrimaryImageUrl(
+              new ImageUrlsApi(jf.configuration),
+              item,
             ),
             Images: Object.assign(imageTags, {
               Backdrop: new ImageUrlsApi(
                 jf.configuration
               ).getItemBackdropImageUrls(item),
+              ...(!imageTags.Logo && {
+                Logo: getBestLogoImageUrl(
+                  new ImageUrlsApi(jf.configuration),
+                  item,
+                ),
+              }),
             }),
           };
         }) as unknown as WithImage<T>;
@@ -123,15 +267,21 @@ export const getImages =
 
       return {
         ...items,
-        Image: new ImageUrlsApi(jf.configuration).getItemImageUrlById(
-          items?.Id || "",
-          undefined,
-          { quality: 40 }
+        Image: getBestPrimaryImageUrl(
+          new ImageUrlsApi(jf.configuration),
+          items,
+          { quality: 40 },
         ),
         Images: Object.assign(imageTags, {
           Backdrop: new ImageUrlsApi(jf.configuration).getItemBackdropImageUrls(
             items
           ),
+          ...(!imageTags.Logo && {
+            Logo: getBestLogoImageUrl(
+              new ImageUrlsApi(jf.configuration),
+              items,
+            ),
+          }),
         }),
       } as unknown as WithImage<T>;
     });
