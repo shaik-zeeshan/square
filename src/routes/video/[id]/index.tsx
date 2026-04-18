@@ -75,6 +75,8 @@ export default function Page(props: RouteSectionProps) {
     retryPlayback,
     onEndOfFile,
     resetTransientUiState,
+    selectAudioTrack,
+    selectSubtitleTrack,
   } = useVideoPlayback(
     () => routeParams.id,
     () => itemDetails.data
@@ -128,6 +130,8 @@ export default function Page(props: RouteSectionProps) {
     isHelpOpen: () => state.showHelp,
     showOSD,
     handleOpenPip,
+    selectAudioTrack,
+    selectSubtitleTrack,
   });
 
   // Close panel when clicking outside
@@ -356,6 +360,8 @@ export default function Page(props: RouteSectionProps) {
             {/* Dropdown Panels */}
             <VideoSettingsPanels
               onNavigateToChapter={navigateToChapter}
+              onSelectAudioTrack={selectAudioTrack}
+              onSelectSubtitleTrack={selectSubtitleTrack}
               openPanel={openPanel()}
               panelRef={setPanelRef}
               setOpenPanel={setOpenPanel}

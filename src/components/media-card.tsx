@@ -17,8 +17,53 @@ import {
 } from "~/effect/services/jellyfin/service";
 import { createEffectQuery } from "~/effect/tanstack/query";
 import { prefersReducedMotion } from "~/lib/anime-utils";
+import { getLanguageLabel } from "~/lib/playback-language-preferences";
 import { ItemActions } from "./ItemActions";
 import { GlassCard } from "./ui";
+
+const MAX_LANG_CHIPS = 4;
+
+/** Shared language-chip row used by episode card variants. */
+function LanguageChips(props: {
+  label: string;
+  langs: (string | null | undefined)[];
+  borderColor: string;
+  bgColor: string;
+  textColor: string;
+  mutedBorder: string;
+  mutedBg: string;
+  mutedText: string;
+}) {
+  const visible = () => props.langs.slice(0, MAX_LANG_CHIPS);
+  const overflow = () => Math.max(0, props.langs.length - MAX_LANG_CHIPS);
+  return (
+    <Show when={props.langs.length > 0}>
+      <div class="flex min-w-0 items-start gap-1.5">
+        <span class="shrink-0 pt-0.5 font-semibold text-xs uppercase tracking-wider opacity-40">
+          {props.label}
+        </span>
+        <div class="flex min-w-0 flex-wrap gap-1">
+          <For each={visible()}>
+            {(lang) => (
+              <span
+                class={`whitespace-nowrap rounded-md border px-2 py-0.5 font-medium text-xs ${props.borderColor} ${props.bgColor} ${props.textColor}`}
+              >
+                {getLanguageLabel(lang)}
+              </span>
+            )}
+          </For>
+          <Show when={overflow() > 0}>
+            <span
+              class={`rounded-md border px-2 py-0.5 font-medium text-xs ${props.mutedBorder} ${props.mutedBg} ${props.mutedText}`}
+            >
+              +{overflow()}
+            </span>
+          </Show>
+        </div>
+      </div>
+    </Show>
+  );
+}
 
 /**
  * Reactive 3D tilt + specular-shine effect for poster cards.
@@ -377,49 +422,26 @@ export function EpisodeCard(props: EpisodeCardProps) {
 
           {/* Audio & Subtitle Badges */}
           <div class="mt-0.5 flex flex-wrap items-start gap-2">
-            <Show when={audioLangs?.length}>
-              <div class="flex min-w-0 items-start gap-1.5">
-                <span class="shrink-0 pt-0.5 font-semibold text-xs uppercase tracking-wider opacity-40">
-                  Audio
-                </span>
-                <div class="flex min-w-0 flex-wrap gap-1">
-                  <For each={audioLangs()}>
-                    {(lang) => (
-                      <span class="whitespace-nowrap rounded-md border border-blue-500/25 bg-blue-500/15 px-2 py-0.5 font-medium text-blue-300 text-xs">
-                        {lang?.toUpperCase() || "Unknown"}
-                      </span>
-                    )}
-                  </For>
-                  <Show when={audioLangs().length > 4}>
-                    <span class="rounded-md border border-blue-500/15 bg-blue-500/10 px-2 py-0.5 font-medium text-blue-400 text-xs">
-                      +{audioLangs().length - 4}
-                    </span>
-                  </Show>
-                </div>
-              </div>
-            </Show>
-
-            <Show when={subtitleLangs?.length}>
-              <div class="flex min-w-0 items-start gap-1.5">
-                <span class="shrink-0 pt-0.5 font-semibold text-xs uppercase tracking-wider opacity-40">
-                  Subs
-                </span>
-                <div class="flex min-w-0 flex-wrap gap-1">
-                  <For each={subtitleLangs()}>
-                    {(lang) => (
-                      <span class="whitespace-nowrap rounded-md border border-purple-500/25 bg-purple-500/15 px-2 py-0.5 font-medium text-purple-300 text-xs">
-                        {lang?.toUpperCase() || "Unknown"}
-                      </span>
-                    )}
-                  </For>
-                  <Show when={subtitleLangs().length > 4}>
-                    <span class="rounded-md border border-purple-500/15 bg-purple-500/10 px-2 py-0.5 font-medium text-purple-400 text-xs">
-                      +{subtitleLangs().length - 4}
-                    </span>
-                  </Show>
-                </div>
-              </div>
-            </Show>
+            <LanguageChips
+              bgColor="bg-blue-500/15"
+              borderColor="border-blue-500/25"
+              label="Audio"
+              langs={audioLangs()}
+              mutedBg="bg-blue-500/10"
+              mutedBorder="border-blue-500/15"
+              mutedText="text-blue-400"
+              textColor="text-blue-300"
+            />
+            <LanguageChips
+              bgColor="bg-purple-500/15"
+              borderColor="border-purple-500/25"
+              label="Subs"
+              langs={subtitleLangs()}
+              mutedBg="bg-purple-500/10"
+              mutedBorder="border-purple-500/15"
+              mutedText="text-purple-400"
+              textColor="text-purple-300"
+            />
           </div>
         </div>
       </div>

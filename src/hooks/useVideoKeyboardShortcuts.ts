@@ -36,6 +36,8 @@ type UseVideoKeyboardShortcutsProps = {
     label?: string
   ) => void;
   handleOpenPip: () => Promise<void>;
+  selectAudioTrack?: (track: Track) => Promise<void>;
+  selectSubtitleTrack?: (track: Track | null) => Promise<void>;
 };
 
 export function useVideoKeyboardShortcuts(
@@ -260,7 +262,11 @@ export function useVideoKeyboardShortcuts(
               ? 0
               : (currentAudioTrackIndx + 1) % props.state.audioList.length;
           const nextAudioTrack = props.state.audioList[nextIndex];
-          await commands.playbackChangeAudio(nextAudioTrack.id.toString());
+          if (props.selectAudioTrack) {
+            await props.selectAudioTrack(nextAudioTrack);
+          } else {
+            await commands.playbackChangeAudio(nextAudioTrack.id.toString());
+          }
           props.showOSD(
             "audio",
             nextAudioTrack?.title ||
@@ -277,8 +283,7 @@ export function useVideoKeyboardShortcuts(
           const currentIndex = props.state.subtitleIndex;
           // Build a virtual list: [Off (id=0), ...subtitleList]
           // "Off" is represented by subtitleIndex === 0 or -1
-          const isOff =
-            currentIndex === 0 || currentIndex === -1;
+          const isOff = currentIndex === 0 || currentIndex === -1;
           const currentSubtitleTrackIndx = isOff
             ? -1
             : props.state.subtitleList.findIndex(
@@ -286,17 +291,28 @@ export function useVideoKeyboardShortcuts(
               );
 
           // Cycle: Off(-1) → track[0] → track[1] → … → last → Off
-          if (currentSubtitleTrackIndx === props.state.subtitleList.length - 1) {
+          if (
+            currentSubtitleTrackIndx ===
+            props.state.subtitleList.length - 1
+          ) {
             // Was last track → go to Off
-            await commands.playbackChangeSubtitle("0");
+            if (props.selectSubtitleTrack) {
+              await props.selectSubtitleTrack(null);
+            } else {
+              await commands.playbackChangeSubtitle("0");
+            }
             props.showOSD("subtitle", "Off");
           } else {
             // Was Off(-1) or mid-list → advance to next track
             const nextIndex = currentSubtitleTrackIndx + 1;
             const nextSubtitleTrack = props.state.subtitleList[nextIndex];
-            await commands.playbackChangeSubtitle(
-              nextSubtitleTrack.id.toString()
-            );
+            if (props.selectSubtitleTrack) {
+              await props.selectSubtitleTrack(nextSubtitleTrack);
+            } else {
+              await commands.playbackChangeSubtitle(
+                nextSubtitleTrack.id.toString()
+              );
+            }
             props.showOSD(
               "subtitle",
               nextSubtitleTrack?.title ||

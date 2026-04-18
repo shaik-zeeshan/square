@@ -26,6 +26,8 @@ type VideoSettingsPanelsProps = {
   };
   setState: (key: string, value: unknown) => void;
   onNavigateToChapter: (chapter: Chapter) => void;
+  onSelectAudioTrack?: (track: Track) => void;
+  onSelectSubtitleTrack?: (track: Track | null) => void;
   panelRef?: (el: HTMLDivElement) => void;
 };
 
@@ -86,8 +88,14 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
               )}
               onClick={(e) => {
                 e.stopPropagation();
-                commands.playbackChangeAudio("0");
-                props.setState("audioIndex", 0);
+                if (props.onSelectAudioTrack) {
+                  // Use "No Audio" as a special track with id 0
+                  commands.playbackChangeAudio("0");
+                  props.setState("audioIndex", 0);
+                } else {
+                  commands.playbackChangeAudio("0");
+                  props.setState("audioIndex", 0);
+                }
                 props.setOpenPanel(null);
               }}
             >
@@ -109,8 +117,12 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
                   )}
                   onClick={(e) => {
                     e.stopPropagation();
-                    commands.playbackChangeAudio(track.id.toString());
-                    props.setState("audioIndex", track.id);
+                    if (props.onSelectAudioTrack) {
+                      props.onSelectAudioTrack(track);
+                    } else {
+                      commands.playbackChangeAudio(track.id.toString());
+                      props.setState("audioIndex", track.id);
+                    }
                     props.setOpenPanel(null);
                   }}
                 >
@@ -140,8 +152,12 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
               )}
               onClick={(e) => {
                 e.stopPropagation();
-                commands.playbackChangeSubtitle("0");
-                props.setState("subtitleIndex", 0);
+                if (props.onSelectSubtitleTrack) {
+                  props.onSelectSubtitleTrack(null);
+                } else {
+                  commands.playbackChangeSubtitle("0");
+                  props.setState("subtitleIndex", 0);
+                }
                 props.setOpenPanel(null);
               }}
             >
@@ -168,8 +184,12 @@ export default function VideoSettingsPanels(props: VideoSettingsPanelsProps) {
                   )}
                   onClick={(e) => {
                     e.stopPropagation();
-                    commands.playbackChangeSubtitle(track.id.toString());
-                    props.setState("subtitleIndex", track.id);
+                    if (props.onSelectSubtitleTrack) {
+                      props.onSelectSubtitleTrack(track);
+                    } else {
+                      commands.playbackChangeSubtitle(track.id.toString());
+                      props.setState("subtitleIndex", track.id);
+                    }
                     props.setOpenPanel(null);
                   }}
                 >

@@ -17,14 +17,17 @@ import type {
   OSDState,
   Track,
 } from "~/components/video/types";
-import {
-  DEFAULT_AUDIO_LANG,
-  DEFAULT_SUBTITLE_LANG,
-} from "~/components/video/types";
 import { useVideoContext } from "~/contexts/video-context";
 import { useRuntime } from "~/effect/runtime/use-runtime";
 import { AuthService } from "~/effect/services/auth";
 import type { WithImage } from "~/effect/services/jellyfin/service";
+import {
+  findTrackByLanguage,
+  normalizeLanguageCode,
+  resolveLanguagePreferences,
+  SUBTITLE_OFF,
+} from "~/lib/playback-language-preferences";
+import { useAppPreferences } from "~/lib/store-hooks";
 import { commands, events } from "~/lib/tauri";
 
 type ItemDetails = WithImage<BaseItemDto> | undefined;
@@ -41,6 +44,85 @@ export function useVideoPlayback(
       return { api };
     })
   );
+
+  const { store: appPrefs, setStore: setAppPrefs } = useAppPreferences();
+
+  /**
+   * Returns the SeriesId when the current item is an episode, else undefined.
+   * Only returns a value when `itemDetails()` actually corresponds to the
+   * active playback item, preventing stale metadata during fast transitions.
+   */
+  const getSeriesId = (): string | undefined => {
+    const details = itemDetails();
+    if (!details?.Id || details.Id !== state.currentItemId) {
+      return;
+    }
+    if (details.Type === "Episode" && details.SeriesId) {
+      return details.SeriesId;
+    }
+  };
+
+  /** Persist a per-series language override (episodes only).
+   *  If metadata isn't current yet, queue the save for later. */
+  const saveSeriesOverride = (
+    field: "audioLanguage" | "subtitleLanguage",
+    value: string
+  ) => {
+    if (!isMetadataCurrent()) {
+      // Queue the save – it will be flushed when metadata arrives
+      pendingSeriesSaves.push({
+        field,
+        value,
+        forItemId: state.currentItemId,
+      });
+      return;
+    }
+    const seriesId = getSeriesId();
+    if (!seriesId) {
+      return;
+    }
+    const existing = appPrefs.seriesLanguageOverrides[seriesId] ?? {};
+    setAppPrefs("seriesLanguageOverrides", seriesId, {
+      ...existing,
+      [field]: value,
+    });
+  };
+
+  /**
+   * Centralized manual audio-track selection.
+   * Used by both panel click-handlers and keyboard shortcuts.
+   */
+  const selectAudioTrack = async (track: Track) => {
+    audioIsManual = true;
+    await commands.playbackChangeAudio(track.id.toString());
+    setState("audioIndex", track.id);
+    // Persist per-series override when the track has a language code
+    const lang = normalizeLanguageCode(track.lang);
+    if (lang) {
+      saveSeriesOverride("audioLanguage", lang);
+    }
+  };
+
+  /**
+   * Centralized manual subtitle-track selection.
+   * Pass null (or a track with id 0) to turn subtitles off.
+   */
+  const selectSubtitleTrack = async (track: Track | null) => {
+    if (!track || track.id === 0) {
+      subtitleIsManual = true;
+      await commands.playbackChangeSubtitle("0");
+      setState("subtitleIndex", 0);
+      saveSeriesOverride("subtitleLanguage", SUBTITLE_OFF);
+      return;
+    }
+    subtitleIsManual = true;
+    await commands.playbackChangeSubtitle(track.id.toString());
+    setState("subtitleIndex", track.id);
+    const lang = normalizeLanguageCode(track.lang);
+    if (lang) {
+      saveSeriesOverride("subtitleLanguage", lang);
+    }
+  };
 
   const [videoContext, setVideoState] = useVideoContext();
   const playbackSessionId = crypto.randomUUID();
@@ -409,6 +491,13 @@ export function useVideoPlayback(
     setState("currentTime", "0");
     setState("duration", 0);
     setState("playing", true);
+    // Reset track indices so language-preference resolution runs fresh for the new item
+    setState("audioIndex", -1);
+    setState("subtitleIndex", -1);
+    // Clear stale track lists from the previous item
+    setState("audioList", []);
+    setState("subtitleList", []);
+    resetLanguageResolutionState();
     // Reset buffering and loading states for new video
     setState("bufferedTime", 0);
     setState("bufferingPercentage", 0);
@@ -464,6 +553,58 @@ export function useVideoPlayback(
     removeControlInteractionListeners();
   };
 
+  // --- Per-item language-resolution state ---
+  // Whether the current audio/subtitle selection was made manually by the user
+  // (as opposed to automatic startup resolution).
+  let audioIsManual = false;
+  let subtitleIsManual = false;
+  // Whether automatic startup resolution has been finalized with current metadata
+  // (i.e. itemDetails().Id === state.currentItemId).
+  let audioStartupFinalized = false;
+  let subtitleStartupFinalized = false;
+  // Queued manual per-series saves to flush once metadata is ready.
+  // Each entry records the field, value, and the itemId it was intended for.
+  let pendingSeriesSaves: Array<{
+    field: "audioLanguage" | "subtitleLanguage";
+    value: string;
+    forItemId: string;
+  }> = [];
+
+  /** Returns true when itemDetails() is loaded and matches the active item. */
+  const isMetadataCurrent = (): boolean => {
+    const details = itemDetails();
+    return !!details?.Id && details.Id === state.currentItemId;
+  };
+
+  /** Flush any queued manual per-series saves whose itemId still matches. */
+  const flushPendingSeriesSaves = () => {
+    const toFlush = pendingSeriesSaves;
+    pendingSeriesSaves = [];
+    const seriesId = getSeriesId();
+    if (!seriesId) {
+      return;
+    }
+    for (const entry of toFlush) {
+      if (entry.forItemId !== state.currentItemId) {
+        continue;
+      }
+      const existing = appPrefs.seriesLanguageOverrides[seriesId] ?? {};
+      setAppPrefs("seriesLanguageOverrides", seriesId, {
+        ...existing,
+        [entry.field]: entry.value,
+      });
+    }
+  };
+
+  /** Reset all per-item language resolution flags (call on item change). */
+  const resetLanguageResolutionState = () => {
+    audioIsManual = false;
+    subtitleIsManual = false;
+    audioStartupFinalized = false;
+    subtitleStartupFinalized = false;
+    pendingSeriesSaves = [];
+  };
+
   let loadVersion = 0;
   createEffect(async () => {
     const currentItemId = itemId();
@@ -488,6 +629,13 @@ export function useVideoPlayback(
     setState("currentTime", "0");
     setState("duration", 0);
     setState("playbackError", null);
+    // Reset track indices so language-preference resolution runs fresh for the new item
+    setState("audioIndex", -1);
+    setState("subtitleIndex", -1);
+    // Clear stale track lists from the previous item
+    setState("audioList", []);
+    setState("subtitleList", []);
+    resetLanguageResolutionState();
 
     // Stale-guard helper: returns true when a newer effect run has started,
     // meaning this run must stop issuing player commands immediately.
@@ -538,6 +686,59 @@ export function useVideoPlayback(
         })) as Chapter[]) ?? [];
     }
     setState("chapters", chapters);
+  });
+
+  // Re-resolve language preferences and flush queued saves once metadata arrives.
+  // This handles the case where track events fired before itemDetails() was current.
+  createEffect(async () => {
+    const details = itemDetails();
+    if (!details?.Id || details.Id !== state.currentItemId) {
+      return;
+    }
+
+    // Flush any queued manual per-series saves now that we know the series.
+    flushPendingSeriesSaves();
+
+    // Re-resolve audio startup if it wasn't finalized with current metadata
+    // and the user hasn't manually changed it.
+    if (
+      !(audioStartupFinalized || audioIsManual) &&
+      state.audioList.length > 0
+    ) {
+      const resolved = resolveLanguagePreferences(appPrefs, getSeriesId());
+      const preferred = findTrackByLanguage(
+        state.audioList,
+        resolved.audioLanguage
+      );
+      if (preferred) {
+        await commands.playbackChangeAudio(preferred.id.toString());
+        setState("audioIndex", preferred.id as number);
+      }
+      audioStartupFinalized = true;
+    }
+
+    // Re-resolve subtitle startup if it wasn't finalized with current metadata
+    // and the user hasn't manually changed it.
+    if (
+      !(subtitleStartupFinalized || subtitleIsManual) &&
+      state.subtitleList.length > 0
+    ) {
+      const resolved = resolveLanguagePreferences(appPrefs, getSeriesId());
+      if (resolved.subtitleLanguage === SUBTITLE_OFF) {
+        await commands.playbackChangeSubtitle("0");
+        setState("subtitleIndex", 0);
+      } else {
+        const preferred = findTrackByLanguage(
+          state.subtitleList,
+          resolved.subtitleLanguage
+        );
+        if (preferred) {
+          await commands.playbackChangeSubtitle(preferred.id.toString());
+          setState("subtitleIndex", preferred.id);
+        }
+      }
+      subtitleStartupFinalized = true;
+    }
   });
 
   createEffect(async () => {
@@ -740,22 +941,25 @@ export function useVideoPlayback(
     if (
       !(await registerListener(
         events.audioTrackChange.listen(async ({ payload }) => {
-          setState("audioList", payload.tracks as Track[]);
-          if (state.audioIndex > -1) {
+          const tracks = payload.tracks as Track[];
+          setState("audioList", tracks);
+          if (audioIsManual) {
             return;
           }
-          const defaultAudio = (payload.tracks as Track[]).find((track) =>
-            DEFAULT_AUDIO_LANG.includes(track.lang ?? "")
-          );
-          if (defaultAudio) {
-            await commands.playbackChangeAudio(defaultAudio.id.toString());
-            setState("audioIndex", defaultAudio.id as number);
-          } else if ((payload.tracks as Track[]).length > 0) {
-            await commands.playbackChangeAudio(
-              state.audioList[0].id.toString()
-            );
-            setState("audioIndex", state.audioList[0].id);
+          // Resolve preferred language: per-series > global > fallback
+          // If metadata isn't current yet, getSeriesId() returns undefined
+          // so we get global defaults; we'll re-resolve once metadata arrives.
+          const metadataReady = isMetadataCurrent();
+          const resolved = resolveLanguagePreferences(appPrefs, getSeriesId());
+          const preferred = findTrackByLanguage(tracks, resolved.audioLanguage);
+          if (preferred) {
+            await commands.playbackChangeAudio(preferred.id.toString());
+            setState("audioIndex", preferred.id as number);
+          } else if (tracks.length > 0) {
+            await commands.playbackChangeAudio(tracks[0].id.toString());
+            setState("audioIndex", tracks[0].id);
           }
+          audioStartupFinalized = metadataReady;
         })
       ))
     ) {
@@ -765,24 +969,33 @@ export function useVideoPlayback(
     if (
       !(await registerListener(
         events.subtitleTrackChange.listen(async ({ payload }) => {
-          setState("subtitleList", payload.tracks as Track[]);
-          if (state.subtitleIndex > -1) {
+          const tracks = payload.tracks as Track[];
+          setState("subtitleList", tracks);
+          if (subtitleIsManual) {
             return;
           }
-          const defaultSubtitle = (payload.tracks as Track[]).find((track) =>
-            DEFAULT_SUBTITLE_LANG.includes(track.lang ?? "")
-          );
-          if (defaultSubtitle) {
-            await commands.playbackChangeSubtitle(
-              defaultSubtitle.id.toString()
-            );
-            setState("subtitleIndex", defaultSubtitle.id);
-          } else if ((payload.tracks as Track[]).length > 0) {
-            await commands.playbackChangeSubtitle(
-              state.subtitleList[0].id.toString()
-            );
-            setState("subtitleIndex", state.subtitleList[0].id);
+          // Resolve preferred language: per-series > global > fallback
+          const metadataReady = isMetadataCurrent();
+          const resolved = resolveLanguagePreferences(appPrefs, getSeriesId());
+          // If preference is SUBTITLE_OFF, leave subtitles off
+          if (resolved.subtitleLanguage === SUBTITLE_OFF) {
+            await commands.playbackChangeSubtitle("0");
+            setState("subtitleIndex", 0);
+            subtitleStartupFinalized = metadataReady;
+            return;
           }
+          const preferred = findTrackByLanguage(
+            tracks,
+            resolved.subtitleLanguage
+          );
+          if (preferred) {
+            await commands.playbackChangeSubtitle(preferred.id.toString());
+            setState("subtitleIndex", preferred.id);
+          } else if (tracks.length > 0) {
+            await commands.playbackChangeSubtitle(tracks[0].id.toString());
+            setState("subtitleIndex", tracks[0].id);
+          }
+          subtitleStartupFinalized = metadataReady;
         })
       ))
     ) {
@@ -1005,6 +1218,9 @@ export function useVideoPlayback(
     handleControlMouseLeave,
     handleControlInteractionStart,
     navigateToChapter,
+    // Centralized track selection (manual)
+    selectAudioTrack,
+    selectSubtitleTrack,
     // OSD and help functions
     showOSD,
     hideOSD,
