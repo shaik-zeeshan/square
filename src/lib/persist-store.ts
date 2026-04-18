@@ -2,6 +2,7 @@ import type { UserDto } from "@jellyfin/sdk/lib/generated-client/models";
 import { createEventListener } from "@solid-primitives/event-listener";
 import { makePersisted } from "@solid-primitives/storage";
 import { createStore } from "solid-js/store";
+import type { ExternalPlayerId } from "~/components/video/external-players";
 import type { ServerConnection } from "~/types";
 import { safeJsonParse } from "./utils";
 
@@ -65,6 +66,36 @@ export function serversStore(initial?: ServerStore | undefined) {
   createEventListener(window, "storage", (el) => {
     if (el.key === SERVERS_KEY) {
       setStore(safeJsonParse(el.newValue, { current: null, servers: [] }));
+    }
+  });
+
+  return { store, setStore };
+}
+
+export type AppPreferencesStore = {
+  externalPlayer: ExternalPlayerId;
+};
+
+export const APP_PREFERENCES_KEY = "app_preferences";
+export function appPreferencesStore(initial?: AppPreferencesStore | undefined) {
+  const [store, setStore] = makePersisted(
+    createStore<AppPreferencesStore>(
+      initial ?? {
+        externalPlayer: "iina",
+      }
+    ),
+    {
+      name: APP_PREFERENCES_KEY,
+    }
+  );
+
+  createEventListener(window, "storage", (el) => {
+    if (el.key === APP_PREFERENCES_KEY) {
+      setStore(
+        safeJsonParse(el.newValue, {
+          externalPlayer: "iina" as ExternalPlayerId,
+        })
+      );
     }
   });
 

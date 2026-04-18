@@ -1,8 +1,10 @@
 export { default as AutoplayOverlay } from "./AutoplayOverlay";
 export { BufferingIndicator } from "./BufferingIndicator";
+export type { ExternalPlayerId } from "./external-players";
+export { EXTERNAL_PLAYERS, getPlayerMeta } from "./external-players";
 export { KeyboardShortcutsHelp } from "./KeyboardShortcutsHelp";
 export { LoadingSpinner } from "./LoadingSpinner";
-export { OpenInIINAButton } from "./OpenInIINAButton";
+export { OpenExternalPlayerButton } from "./OpenExternalPlayerButton";
 export { OSD } from "./OSD";
 export type {
   BufferHealth,

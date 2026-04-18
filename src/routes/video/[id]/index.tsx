@@ -7,7 +7,7 @@ import {
   BufferingIndicator,
   KeyboardShortcutsHelp,
   LoadingSpinner,
-  OpenInIINAButton,
+  OpenExternalPlayerButton,
   OSD,
   VideoControls,
   VideoInfoOverlay,
@@ -19,11 +19,13 @@ import type { WithImage } from "~/effect/services/jellyfin/service";
 import { useAutoplay } from "~/hooks/useAutoplay";
 import { useVideoKeyboardShortcuts } from "~/hooks/useVideoKeyboardShortcuts";
 import { useVideoPlayback } from "~/hooks/useVideoPlayback";
+import { useAppPreferences } from "~/lib/store-hooks";
 import { commands } from "~/lib/tauri";
 
 export default function Page(props: RouteSectionProps) {
   const [{ params: routeParams }] = splitProps(props, ["params"]);
   const navigate = useNavigate();
+  const { store: appPrefs } = useAppPreferences();
 
   const itemDetails = JellyfinOperations.getItem(
     () => routeParams.id,
@@ -392,13 +394,14 @@ export default function Page(props: RouteSectionProps) {
           <ArrowLeft class="h-[18px] w-[18px]" />
         </button>
 
-        {/* ── IINA Button ── */}
+        {/* ── External Player Button ── */}
         <Show when={state.url.length}>
           <div class="control-element fixed top-8 right-20 z-50">
-            <OpenInIINAButton
+            <OpenExternalPlayerButton
               beforePlaying={() => {
                 commands.playbackPause();
               }}
+              player={appPrefs.externalPlayer}
               url={state.url}
             />
           </div>

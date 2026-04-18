@@ -23,6 +23,7 @@ import { CheckForUpdate } from "~/components/update-component";
 import { useVideoContext } from "~/contexts/video-context";
 import { VideoContextProvider } from "./contexts/video-context";
 import { queryClient } from "./effect/tanstack/query";
+import { AppPreferencesProvider } from "./lib/store-hooks";
 
 const SolidQueryDevtools = import.meta.env.DEV
   ? lazy(() =>
@@ -117,6 +118,7 @@ export default function App() {
           >
             <RuntimeProvider runtime={runtime}>
               <QueryClientProvider client={queryClient}>
+                <AppPreferencesProvider>
                 <VideoContextProvider>
                   <AppContainer>
                     <Suspense fallback={<PageLoading />}>
@@ -130,6 +132,7 @@ export default function App() {
                     position="top"
                   />
                 </VideoContextProvider>
+                </AppPreferencesProvider>
               </QueryClientProvider>
             </RuntimeProvider>
           </ErrorBoundary>

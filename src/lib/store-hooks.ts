@@ -1,5 +1,5 @@
 import { createContextProvider } from "@solid-primitives/context";
-import { serversStore } from "./persist-store";
+import { appPreferencesStore, serversStore } from "./persist-store";
 
 const [ServerStoreProvider, useServerStoreContext] = createContextProvider(() =>
   serversStore()
@@ -16,4 +16,18 @@ export function useServerStore() {
   );
 }
 
-export { ServerStoreProvider };
+const [AppPreferencesProvider, useAppPreferencesContext] =
+  createContextProvider(() => appPreferencesStore());
+
+export function useAppPreferences() {
+  return (
+    useAppPreferencesContext() ??
+    (() => {
+      throw new Error(
+        "useAppPreferences must be used within an AppPreferencesProvider"
+      );
+    })()
+  );
+}
+
+export { ServerStoreProvider, AppPreferencesProvider };
