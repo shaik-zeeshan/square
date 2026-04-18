@@ -115,14 +115,12 @@ export function useVideoKeyboardShortcuts(
           commands.playbackSeek(10);
           props.showOSD("seek", 10);
         }
-        props.showControls();
         break;
 
       case "KeyL":
         e.preventDefault();
         commands.playbackSeek(10);
         props.showOSD("seek", 10);
-        props.showControls();
         break;
 
       case "ArrowUp":
