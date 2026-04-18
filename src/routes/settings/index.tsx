@@ -1,6 +1,7 @@
 import {
   Calendar,
   CheckCircle,
+  Monitor,
   Server,
   Settings as SettingsIcon,
   Shield,
@@ -11,14 +12,17 @@ import { createSignal, For, Show } from "solid-js";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
 import { InlineLoading } from "~/components/ui/loading";
-
+import { EXTERNAL_PLAYERS } from "~/components/video";
+import type { ExternalPlayerId } from "~/components/video/external-players";
 import {
   useCurrentServerQuery,
   useCurrentUserQuery,
 } from "~/effect/services/auth/operations";
+import { useAppPreferences } from "~/lib/store-hooks";
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = createSignal("profile");
+  const { store: appPrefs, setStore: setAppPrefs } = useAppPreferences();
 
   const userDetails = useCurrentUserQuery();
   const serverDetails = useCurrentServerQuery();
@@ -45,6 +49,11 @@ export default function SettingsPage() {
       label: "Server",
       icon: Server,
     },
+    {
+      id: "playback",
+      label: "Playback",
+      icon: Monitor,
+    },
   ] as const;
 
   return (
@@ -57,7 +66,11 @@ export default function SettingsPage() {
             icon: <SettingsIcon class="h-4 w-4 shrink-0 opacity-70" />,
           },
         ]}
-        currentPage={activeTab() === "profile" ? "Profile" : "Server"}
+        currentPage={
+          { profile: "Profile", server: "Server", playback: "Playback" }[
+            activeTab()
+          ] ?? "Settings"
+        }
         variant="light"
       />
 
@@ -265,6 +278,51 @@ export default function SettingsPage() {
                 </div>
               )}
             </QueryBoundary>
+          </Show>
+
+          {/* ── Playback Tab ── */}
+          <Show when={activeTab() === "playback"}>
+            <div
+              class="space-y-4"
+              style={{
+                animation: "fadeSlideUp 280ms cubic-bezier(0.22,1,0.36,1) both",
+              }}
+            >
+              {/* External Player Card */}
+              <div class="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-6">
+                <div class="mb-4 flex items-center gap-3">
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08] ring-inset">
+                    <Monitor class="h-5 w-5 text-white/40" />
+                  </div>
+                  <div>
+                    <h3 class="font-semibold text-sm text-white/90">
+                      External Player
+                    </h3>
+                    <p class="text-white/35 text-xs">
+                      Choose which app opens video streams
+                    </p>
+                  </div>
+                </div>
+                <select
+                  class="w-full appearance-none rounded-lg border border-white/[0.1] bg-white/[0.06] px-3 py-2.5 text-sm text-white/80 outline-none transition-colors hover:border-white/[0.15] focus:border-blue-400/40 focus:ring-1 focus:ring-blue-400/20"
+                  onChange={(e) => {
+                    setAppPrefs(
+                      "externalPlayer",
+                      e.currentTarget.value as ExternalPlayerId
+                    );
+                  }}
+                  value={appPrefs.externalPlayer}
+                >
+                  <For each={EXTERNAL_PLAYERS}>
+                    {(player) => (
+                      <option class="bg-[#1a1a2e] text-white" value={player.id}>
+                        {player.label}
+                      </option>
+                    )}
+                  </For>
+                </select>
+              </div>
+            </div>
           </Show>
         </div>
       </div>
