@@ -1,10 +1,12 @@
 import {
   Calendar,
   CheckCircle,
+  Globe,
   Monitor,
   Server,
   Settings as SettingsIcon,
   Shield,
+  Subtitles,
   User as UserIcon,
   Zap,
 } from "lucide-solid";
@@ -18,7 +20,22 @@ import {
   useCurrentServerQuery,
   useCurrentUserQuery,
 } from "~/effect/services/auth/operations";
+import {
+  getLanguageLabel,
+  LANGUAGE_OPTIONS,
+} from "~/lib/playback-language-preferences";
 import { useAppPreferences } from "~/lib/store-hooks";
+
+/** Return LANGUAGE_OPTIONS with the persisted value prepended when missing. */
+function languageOptionsWithCurrent(currentCode: string | undefined) {
+  if (!currentCode || LANGUAGE_OPTIONS.some((o) => o.code === currentCode)) {
+    return LANGUAGE_OPTIONS;
+  }
+  return [
+    { code: currentCode, label: getLanguageLabel(currentCode) },
+    ...LANGUAGE_OPTIONS,
+  ];
+}
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = createSignal("profile");
@@ -322,6 +339,87 @@ export default function SettingsPage() {
                   </For>
                 </select>
               </div>
+
+              {/* Default Audio Language Card */}
+              <div class="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-6">
+                <div class="mb-4 flex items-center gap-3">
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08] ring-inset">
+                    <Globe class="h-5 w-5 text-white/40" />
+                  </div>
+                  <div>
+                    <h3 class="font-semibold text-sm text-white/90">
+                      Default Audio Language
+                    </h3>
+                    <p class="text-white/35 text-xs">
+                      Preferred language for audio tracks
+                    </p>
+                  </div>
+                </div>
+                <select
+                  class="w-full appearance-none rounded-lg border border-white/[0.1] bg-white/[0.06] px-3 py-2.5 text-sm text-white/80 outline-none transition-colors hover:border-white/[0.15] focus:border-blue-400/40 focus:ring-1 focus:ring-blue-400/20"
+                  onChange={(e) => {
+                    setAppPrefs("defaultAudioLanguage", e.currentTarget.value);
+                  }}
+                  value={appPrefs.defaultAudioLanguage}
+                >
+                  <For
+                    each={languageOptionsWithCurrent(
+                      appPrefs.defaultAudioLanguage
+                    )}
+                  >
+                    {(lang) => (
+                      <option class="bg-[#1a1a2e] text-white" value={lang.code}>
+                        {lang.label}
+                      </option>
+                    )}
+                  </For>
+                </select>
+              </div>
+
+              {/* Default Subtitle Language Card */}
+              <div class="rounded-2xl border border-white/[0.08] bg-white/[0.04] p-6">
+                <div class="mb-4 flex items-center gap-3">
+                  <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/[0.06] ring-1 ring-white/[0.08] ring-inset">
+                    <Subtitles class="h-5 w-5 text-white/40" />
+                  </div>
+                  <div>
+                    <h3 class="font-semibold text-sm text-white/90">
+                      Default Subtitle Language
+                    </h3>
+                    <p class="text-white/35 text-xs">
+                      Preferred language for subtitle tracks
+                    </p>
+                  </div>
+                </div>
+                <select
+                  class="w-full appearance-none rounded-lg border border-white/[0.1] bg-white/[0.06] px-3 py-2.5 text-sm text-white/80 outline-none transition-colors hover:border-white/[0.15] focus:border-blue-400/40 focus:ring-1 focus:ring-blue-400/20"
+                  onChange={(e) => {
+                    setAppPrefs(
+                      "defaultSubtitleLanguage",
+                      e.currentTarget.value
+                    );
+                  }}
+                  value={appPrefs.defaultSubtitleLanguage}
+                >
+                  <For
+                    each={languageOptionsWithCurrent(
+                      appPrefs.defaultSubtitleLanguage
+                    )}
+                  >
+                    {(lang) => (
+                      <option class="bg-[#1a1a2e] text-white" value={lang.code}>
+                        {lang.label}
+                      </option>
+                    )}
+                  </For>
+                </select>
+              </div>
+
+              {/* Override hint */}
+              <p class="px-1 text-white/30 text-xs leading-relaxed">
+                Language choices made during playback for a specific series will
+                override these defaults automatically for that series.
+              </p>
             </div>
           </Show>
         </div>

@@ -72,30 +72,57 @@ export function serversStore(initial?: ServerStore | undefined) {
   return { store, setStore };
 }
 
+export type SeriesLanguageOverride = {
+  audioLanguage?: string;
+  subtitleLanguage?: string;
+};
+
 export type AppPreferencesStore = {
   externalPlayer: ExternalPlayerId;
+  defaultAudioLanguage: string;
+  defaultSubtitleLanguage: string;
+  seriesLanguageOverrides: Record<string, SeriesLanguageOverride>;
 };
 
 export const APP_PREFERENCES_KEY = "app_preferences";
+
+const APP_PREFERENCES_DEFAULTS: AppPreferencesStore = {
+  externalPlayer: "iina",
+  defaultAudioLanguage: "en",
+  defaultSubtitleLanguage: "en",
+  seriesLanguageOverrides: {},
+};
+
+function mergeAppPreferences(
+  persisted: Partial<AppPreferencesStore> | undefined | null
+): AppPreferencesStore {
+  return {
+    ...APP_PREFERENCES_DEFAULTS,
+    ...persisted,
+    seriesLanguageOverrides:
+      persisted?.seriesLanguageOverrides ??
+      APP_PREFERENCES_DEFAULTS.seriesLanguageOverrides,
+  };
+}
+
 export function appPreferencesStore(initial?: AppPreferencesStore | undefined) {
   const [store, setStore] = makePersisted(
-    createStore<AppPreferencesStore>(
-      initial ?? {
-        externalPlayer: "iina",
-      }
-    ),
+    createStore<AppPreferencesStore>(initial ?? APP_PREFERENCES_DEFAULTS),
     {
       name: APP_PREFERENCES_KEY,
+      deserialize: (raw: string) =>
+        mergeAppPreferences(
+          safeJsonParse<Partial<AppPreferencesStore>>(
+            raw,
+            APP_PREFERENCES_DEFAULTS
+          )
+        ),
     }
   );
 
   createEventListener(window, "storage", (el) => {
     if (el.key === APP_PREFERENCES_KEY) {
-      setStore(
-        safeJsonParse(el.newValue, {
-          externalPlayer: "iina" as ExternalPlayerId,
-        })
-      );
+      setStore(mergeAppPreferences(safeJsonParse(el.newValue, null)));
     }
   });
 
