@@ -94,6 +94,24 @@ async togglePipWindow() : Promise<null> {
 },
 async getVaultPassword() : Promise<string> {
     return await TAURI_INVOKE("get_vault_password");
+},
+/**
+ * Perform a native GET request for integration health-check validation.
+ * 
+ * Using an explicit Tauri command ensures the request is always issued via
+ * Rust/reqwest and can never fall back to browser fetch / CORS semantics.
+ */
+async checkIntegration(url: string, apiKey: string) : Promise<IntegrationCheckResponse> {
+    return await TAURI_INVOKE("check_integration", { url, apiKey });
+},
+/**
+ * Perform a native HTTP request (GET or POST) for integration operations.
+ * 
+ * Supports GET for search/lookup and POST for create/request operations.
+ * The API key is always sent via the `X-Api-Key` header.
+ */
+async invokeIntegration(url: string, method: string, apiKey: string, body: string | null) : Promise<IntegrationCheckResponse> {
+    return await TAURI_INVOKE("invoke_integration", { url, method, apiKey, body });
 }
 }
 
@@ -162,6 +180,10 @@ export type EOFEventChange = null
 export type ErrorEventChange = { message: string }
 export type FileLoadedChange = { duration: number; current_time: number }
 export type GeneralSettings = { volume: number; playbackSpeed: number; subtitleLanguage: string | null; audioLanguage: string | null; autoPlayNext: boolean; resumePlayback: boolean }
+/**
+ * Response returned to the frontend for integration validation.
+ */
+export type IntegrationCheckResponse = { status: number; statusText: string; body: string; ok: boolean }
 export type PauseForCacheChange = { pause: boolean }
 export type PlayBackStateChange = { pause: boolean }
 export type PlayBackTimeChange = { position: string }

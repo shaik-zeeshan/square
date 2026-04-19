@@ -4,6 +4,7 @@ use specta::specta;
 use tauri::{Manager, WebviewBuilder, WindowBuilder, Wry};
 use tauri_plugin_http;
 use tauri_specta::{collect_events, Event};
+use serde::Serialize;
 
 use crate::mpv::{
     run_render_thread, AudioChangeEvent, AudioTrackChange, BufferingStateChange, CacheTimeChange,
@@ -416,6 +417,127 @@ fn toggle_titlebar_hide(app: tauri::AppHandle, hide: bool) -> Result<(), String>
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Integration health-check command
+// ---------------------------------------------------------------------------
+
+/// Response returned to the frontend for integration validation.
+#[derive(Debug, Serialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct IntegrationCheckResponse {
+    pub status: u16,
+    pub status_text: String,
+    pub body: String,
+    pub ok: bool,
+}
+
+/// Perform a native GET request for integration health-check validation.
+///
+/// Using an explicit Tauri command ensures the request is always issued via
+/// Rust/reqwest and can never fall back to browser fetch / CORS semantics.
+#[specta]
+#[tauri::command]
+async fn check_integration(
+    url: String,
+    api_key: String,
+) -> Result<IntegrationCheckResponse, String> {
+    use tauri_plugin_http::reqwest;
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    let response = client
+        .get(&url)
+        .header("X-Api-Key", &api_key)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    let status = response.status();
+    let status_code = status.as_u16();
+    let status_text = status
+        .canonical_reason()
+        .unwrap_or("Unknown")
+        .to_string();
+    let ok = status.is_success();
+    let body = response
+        .text()
+        .await
+        .unwrap_or_default();
+
+    Ok(IntegrationCheckResponse {
+        status: status_code,
+        status_text,
+        body,
+        ok,
+    })
+}
+
+/// Perform a native HTTP request (GET or POST) for integration operations.
+///
+/// Supports GET for search/lookup and POST for create/request operations.
+/// The API key is always sent via the `X-Api-Key` header.
+#[specta]
+#[tauri::command]
+async fn invoke_integration(
+    url: String,
+    method: String,
+    api_key: String,
+    body: Option<String>,
+) -> Result<IntegrationCheckResponse, String> {
+    use tauri_plugin_http::reqwest;
+
+    let client = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(30))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    let request_builder = match method.to_uppercase().as_str() {
+        "POST" => {
+            let mut rb = client
+                .post(&url)
+                .header("X-Api-Key", &api_key)
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json");
+            if let Some(b) = body {
+                rb = rb.body(b);
+            }
+            rb
+        }
+        _ => client
+            .get(&url)
+            .header("X-Api-Key", &api_key)
+            .header("Accept", "application/json"),
+    };
+
+    let response = request_builder
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    let status = response.status();
+    let status_code = status.as_u16();
+    let status_text = status
+        .canonical_reason()
+        .unwrap_or("Unknown")
+        .to_string();
+    let ok = status.is_success();
+    let body = response
+        .text()
+        .await
+        .unwrap_or_default();
+
+    Ok(IntegrationCheckResponse {
+        status: status_code,
+        status_text,
+        body,
+        ok,
+    })
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub async fn run() {
     let tauri_context = tauri::generate_context!();
@@ -439,7 +561,9 @@ pub async fn run() {
             show_pip_window,
             hide_pip_window,
             toggle_pip_window,
-            get_vault_password
+            get_vault_password,
+            check_integration,
+            invoke_integration
         ])
         .events(collect_events![
             // Request Events

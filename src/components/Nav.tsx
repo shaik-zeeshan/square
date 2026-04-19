@@ -43,7 +43,8 @@ export function Nav(props: NavProps) {
   // Auto-focus search input when opened
   createEffect(() => {
     if (isSearchOpen() && searchInputRef) {
-      searchInputRef.focus();
+      // Small delay to let the CSS transition start, then focus
+      requestAnimationFrame(() => searchInputRef.focus());
     }
   });
 
@@ -58,22 +59,40 @@ export function Nav(props: NavProps) {
     }
   };
 
-  // Keyboard shortcuts
+  // Keyboard shortcuts: Cmd/Ctrl+K, "/" to open, Escape to close (clears text first)
   createEventListener(
     document,
     "keydown",
     (e) => {
       const target = e.target as HTMLElement;
-      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA") {
-        return;
-      }
+      const isInput =
+        target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault();
-        handleSearchOpen();
+        if (isSearchOpen()) {
+          handleSearchClose();
+        } else {
+          handleSearchOpen();
+        }
+        return;
       }
+
+      // "/" opens search when not already in an input
+      if (e.key === "/" && !isInput && !isSearchOpen()) {
+        e.preventDefault();
+        handleSearchOpen();
+        return;
+      }
+
       if (e.key === "Escape" && isSearchOpen()) {
         e.preventDefault();
-        handleSearchClose();
+        // If there's text, clear it first; if already empty, close
+        if (props.searchValue) {
+          props.onSearchChange?.("");
+        } else {
+          handleSearchClose();
+        }
       }
     },
     { passive: false }
@@ -175,79 +194,124 @@ export function Nav(props: NavProps) {
         {/* ── Right: search + actions + user ── */}
         <div class="flex h-full min-w-0 shrink items-center gap-1.5">
           <Show when={props.showSearch}>
-            <Show
-              fallback={
-                /* Search trigger — wider pill with shortcut hint, calm premium look */
+            {/* 
+              Search container — uses CSS grid with a transitioning column 
+              so the expansion/collapse is smooth without layout jumps.
+            */}
+            <div
+              class={cn(
+                "relative flex items-center overflow-hidden rounded-xl [&_*]:outline-none [&_*]:ring-0",
+                "border transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)]",
+                isSearchOpen()
+                  ? "min-w-[240px] border-white/[0.12] bg-white/[0.07] sm:min-w-[300px]"
+                  : "min-w-[160px] border-white/[0.06] bg-white/[0.04] hover:border-white/[0.12] hover:bg-white/[0.07] sm:min-w-[200px]"
+              )}
+            >
+              {/* Clickable trigger area — always present, but invisible when search is open */}
+              <Show when={!isSearchOpen()}>
                 <button
-                  aria-label="Search (Ctrl+K)"
+                  aria-label="Search (⌘K or /)"
                   class={cn(
-                    "flex items-center gap-2.5 rounded-xl px-4 py-2",
-                    "border border-white/[0.06] bg-white/[0.04]",
+                    "flex w-full items-center gap-2.5 px-3.5 py-2",
                     "text-[13px] text-white/30",
                     "transition-all duration-200",
-                    "hover:border-white/[0.12] hover:bg-white/[0.07] hover:text-white/55",
-                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400 focus-visible:outline-offset-2",
-                    "active:scale-[0.97]",
-                    "min-w-[160px] sm:min-w-[200px]"
+                    "hover:text-white/55",
+                    "focus-visible:outline-none",
+                    "active:scale-[0.98]"
                   )}
                   onClick={handleSearchOpen}
-                  title="Search (Ctrl+K)"
+                  title="Search (⌘K or /)"
                   type="button"
                 >
                   <Search class="h-3.5 w-3.5 shrink-0 opacity-70" />
                   <span class="flex-1 text-left">Search...</span>
-                  <kbd class="hidden rounded-md border border-white/[0.08] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[10px] text-white/20 leading-none sm:inline">
-                    ⌘K
-                  </kbd>
+                  <div class="hidden items-center gap-1 sm:flex">
+                    <kbd class="rounded-md border border-white/[0.08] bg-white/[0.05] px-1.5 py-0.5 font-mono text-[10px] text-white/20 leading-none">
+                      /
+                    </kbd>
+                  </div>
                 </button>
-              }
-              when={isSearchOpen()}
-            >
-              {/* Inline search field — expanded state */}
-              <div
-                class={cn(
-                  "flex h-9 items-center gap-2.5 rounded-xl px-4",
-                  "border border-white/[0.08] bg-white/[0.05]",
-                  "backdrop-blur-sm",
-                  "ring-0 focus-within:border-blue-400/40 focus-within:ring-1 focus-within:ring-blue-400/15",
-                  "min-w-[200px] sm:min-w-[260px]",
-                  "transition-all duration-200"
-                )}
-              >
-                <Search class="h-3.5 w-3.5 shrink-0 text-white/35" />
-                <input
-                  aria-label="Search"
-                  class={cn(
-                    "w-full bg-transparent text-[13px] text-white outline-none",
-                    "placeholder:text-white/25",
-                    "caret-blue-400"
-                  )}
-                  onInput={(e) => props.onSearchChange?.(e.currentTarget.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      handleSearchClose();
-                    }
+              </Show>
+
+              {/* Expanded search input */}
+              <Show when={isSearchOpen()}>
+                <div
+                  class="flex w-full items-center gap-2.5 px-3.5"
+                  style={{
+                    animation:
+                      "searchExpand 250ms cubic-bezier(0.22,1,0.36,1) both",
                   }}
-                  placeholder="Search movies, shows..."
-                  ref={searchInputRef}
-                  type="text"
-                  value={props.searchValue ?? ""}
-                />
-                <button
-                  aria-label="Close search"
-                  class={cn(
-                    "rounded-md p-1 text-white/25",
-                    "transition-colors duration-150 hover:bg-white/[0.06] hover:text-white/55",
-                    "focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400"
-                  )}
-                  onClick={handleSearchClose}
-                  type="button"
                 >
-                  <X class="h-3.5 w-3.5" />
-                </button>
-              </div>
-            </Show>
+                  <Search
+                    class={cn(
+                      "h-3.5 w-3.5 shrink-0 transition-colors duration-200",
+                      props.searchValue ? "text-blue-400/70" : "text-white/35"
+                    )}
+                  />
+                  <input
+                    aria-label="Search"
+                    class={cn(
+                      "h-9 w-full bg-transparent text-[13px] text-white outline-none ring-0 focus:outline-none focus-visible:outline-none",
+                      "placeholder:text-white/25",
+                      "caret-blue-400"
+                    )}
+                    data-search-input
+                    onInput={(e) =>
+                      props.onSearchChange?.(e.currentTarget.value)
+                    }
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") {
+                        e.preventDefault();
+                        if (props.searchValue) {
+                          props.onSearchChange?.("");
+                        } else {
+                          handleSearchClose();
+                        }
+                      }
+                    }}
+                    placeholder="Search movies, shows..."
+                    ref={searchInputRef}
+                    type="text"
+                    value={props.searchValue ?? ""}
+                  />
+                  {/* Clear text button — only when there's text */}
+                  <Show when={props.searchValue}>
+                    <button
+                      aria-label="Clear search"
+                      class={cn(
+                        "rounded-md p-1 text-white/30",
+                        "transition-all duration-150",
+                        "hover:bg-white/[0.08] hover:text-white/60",
+                        "focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400",
+                        "active:scale-90"
+                      )}
+                      onClick={() => {
+                        props.onSearchChange?.("");
+                        searchInputRef?.focus();
+                      }}
+                      type="button"
+                    >
+                      <X class="h-3.5 w-3.5" />
+                    </button>
+                  </Show>
+                  {/* Close search button */}
+                  <button
+                    aria-label="Close search"
+                    class={cn(
+                      "rounded-md px-1.5 py-1 font-mono text-[10px] text-white/20",
+                      "border border-white/[0.06] bg-white/[0.03]",
+                      "transition-all duration-150",
+                      "hover:border-white/[0.12] hover:bg-white/[0.06] hover:text-white/40",
+                      "focus-visible:outline focus-visible:outline-2 focus-visible:outline-blue-400"
+                    )}
+                    onClick={handleSearchClose}
+                    type="button"
+                  >
+                    esc
+                  </button>
+                </div>
+              </Show>
+            </div>
           </Show>
 
           {props.actions}

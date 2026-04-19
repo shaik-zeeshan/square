@@ -1,16 +1,23 @@
 import {
+  AlertCircle,
   Calendar,
   CheckCircle,
   Globe,
+  Loader2,
   Monitor,
+  Plug,
+  Plus,
+  Search,
   Server,
   Settings as SettingsIcon,
   Shield,
   Subtitles,
+  Trash2,
   User as UserIcon,
+  X,
   Zap,
 } from "lucide-solid";
-import { createSignal, For, Show } from "solid-js";
+import { createSignal, For, Match, Show, Switch } from "solid-js";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
 import { InlineLoading } from "~/components/ui/loading";
@@ -20,6 +27,15 @@ import {
   useCurrentServerQuery,
   useCurrentUserQuery,
 } from "~/effect/services/auth/operations";
+import {
+  useCreateConnectionMutation,
+  useIntegrationConnectionsQuery,
+  useIntegrationPluginsQuery,
+  useRemoveConnectionMutation,
+} from "~/effect/services/integrations/operations";
+import type {
+  IntegrationPlugin,
+} from "~/effect/services/integrations/types";
 import {
   getLanguageLabel,
   LANGUAGE_OPTIONS,
@@ -71,6 +87,11 @@ export default function SettingsPage() {
       label: "Playback",
       icon: Monitor,
     },
+    {
+      id: "integrations",
+      label: "Integrations",
+      icon: Plug,
+    },
   ] as const;
 
   return (
@@ -84,9 +105,12 @@ export default function SettingsPage() {
           },
         ]}
         currentPage={
-          { profile: "Profile", server: "Server", playback: "Playback" }[
-            activeTab()
-          ] ?? "Settings"
+          {
+            profile: "Profile",
+            server: "Server",
+            playback: "Playback",
+            integrations: "Integrations",
+          }[activeTab()] ?? "Settings"
         }
         variant="light"
       />
@@ -422,6 +446,11 @@ export default function SettingsPage() {
               </p>
             </div>
           </Show>
+
+          {/* ── Integrations Tab ── */}
+          <Show when={activeTab() === "integrations"}>
+            <IntegrationsPanel />
+          </Show>
         </div>
       </div>
     </section>
@@ -453,3 +482,326 @@ function InfoCard(props: {
     </div>
   );
 }
+
+// ── Integrations panel ────────────────────────────────────────────────────────
+
+function fieldKindToInputType(kind: string): string {
+  if (kind === "secret") {
+    return "password";
+  }
+  if (kind === "url") {
+    return "url";
+  }
+  return "text";
+}
+
+function validationStatusClass(status: string): string {
+  if (status === "validating") {
+    return "border border-white/[0.06] bg-white/[0.03] text-white/50";
+  }
+  if (status === "success") {
+    return "border border-emerald-500/20 bg-emerald-500/10 text-emerald-400";
+  }
+  return "border border-red-500/20 bg-red-500/10 text-red-400";
+}
+
+function IntegrationsPanel() {
+  const plugins = useIntegrationPluginsQuery();
+  const connections = useIntegrationConnectionsQuery();
+  const removeMutation = useRemoveConnectionMutation();
+  const createMutation = useCreateConnectionMutation();
+
+  const [addingPlugin, setAddingPlugin] =
+    createSignal<IntegrationPlugin | null>(null);
+  const [formName, setFormName] = createSignal("");
+  const [formFields, setFormFields] = createSignal<Record<string, string>>({});
+  const [validationStatus, setValidationStatus] = createSignal<
+    "idle" | "validating" | "success" | "error"
+  >("idle");
+  const [validationMsg, setValidationMsg] = createSignal("");
+
+  const resetForm = () => {
+    setAddingPlugin(null);
+    setFormName("");
+    setFormFields({});
+    setValidationStatus("idle");
+    setValidationMsg("");
+  };
+
+  const setFieldValue = (key: string, value: string) => {
+    setFormFields((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const getFieldValue = (key: string) => formFields()[key] ?? "";
+
+  /** Check whether all required fields have a non-empty value */
+  const allRequiredFieldsFilled = () => {
+    const plugin = addingPlugin();
+    if (!plugin) {
+      return false;
+    }
+    return plugin.connectionFields.every(
+      (f) => !f.required || getFieldValue(f.key).length > 0
+    );
+  };
+
+  const handleValidateAndSave = async () => {
+    const plugin = addingPlugin();
+    if (!plugin) {
+      return;
+    }
+
+    setValidationStatus("validating");
+    setValidationMsg("");
+
+    const now = new Date().toISOString();
+    const fields = formFields();
+
+    try {
+      const result = await createMutation.mutateAsync({
+        connection: {
+          connectionId: crypto.randomUUID(),
+          pluginId: plugin.pluginId,
+          displayName: formName() || plugin.displayName,
+          baseUrl: fields.baseUrl ?? "",
+          authMeta: { kind: "api_key" },
+          createdAt: now,
+          updatedAt: now,
+          lastValidationSummary: null,
+        },
+        apiKey: fields.apiKey ?? "",
+      });
+
+      setValidationStatus("success");
+      setValidationMsg(
+        result.validationResult?.message ?? "Connection successful"
+      );
+      setTimeout(() => resetForm(), 1500);
+    } catch (err) {
+      setValidationStatus("error");
+      setValidationMsg(
+        err instanceof Error ? err.message : "Validation failed"
+      );
+    }
+  };
+
+  const connectedPluginIds = () => {
+    const conns = connections.data;
+    if (!conns) {
+      return new Set<string>();
+    }
+    return new Set(conns.map((c) => c.pluginId));
+  };
+
+  return (
+    <div
+      class="space-y-4"
+      style={{
+        animation: "fadeSlideUp 280ms cubic-bezier(0.22,1,0.36,1) both",
+      }}
+    >
+      {/* Saved Connections */}
+      <Show when={(connections.data?.length ?? 0) > 0}>
+        <div class="space-y-3">
+          <h3 class="font-medium text-sm text-white/50 uppercase tracking-widest">
+            Connected
+          </h3>
+          <For each={connections.data}>
+            {(conn) => (
+              <div class="flex items-center gap-4 rounded-2xl border border-white/[0.08] bg-white/[0.04] p-5">
+                <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-emerald-400/10 ring-1 ring-emerald-400/20 ring-inset">
+                  <Plug class="h-5 w-5 text-emerald-400/70" />
+                </div>
+                <div class="min-w-0 flex-1">
+                  <p class="truncate font-semibold text-sm text-white/90">
+                    {conn.displayName}
+                  </p>
+                  <p class="mt-0.5 truncate font-mono text-white/30 text-xs">
+                    {conn.baseUrl}
+                  </p>
+                </div>
+                <span class="shrink-0 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 font-medium text-emerald-400 text-xs">
+                  {conn.pluginId}
+                </span>
+                <button
+                  class="shrink-0 cursor-pointer rounded-lg p-2 text-white/25 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                  onClick={() =>
+                    removeMutation.mutate({
+                      connectionId: conn.connectionId,
+                    })
+                  }
+                  title="Remove integration"
+                  type="button"
+                >
+                  <Trash2 class="h-4 w-4" />
+                </button>
+              </div>
+            )}
+          </For>
+        </div>
+      </Show>
+
+      {/* Add Integration Form (expanded) */}
+      <Show when={addingPlugin()}>
+        {(plugin) => (
+          <div class="rounded-2xl border border-blue-400/15 bg-blue-400/[0.03] p-6">
+            <div class="mb-5 flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-400/10 ring-1 ring-blue-400/20 ring-inset">
+                  <Plug class="h-5 w-5 text-blue-400/70" />
+                </div>
+                <div>
+                  <h3 class="font-semibold text-sm text-white/90">
+                    Connect {plugin().displayName}
+                  </h3>
+                  <p class="text-white/35 text-xs">
+                    Enter connection details below
+                  </p>
+                </div>
+              </div>
+              <button
+                class="cursor-pointer rounded-lg p-1.5 text-white/30 transition-colors hover:bg-white/[0.06] hover:text-white/60"
+                onClick={resetForm}
+                type="button"
+              >
+                <X class="h-4 w-4" />
+              </button>
+            </div>
+
+            <div class="space-y-3">
+              <input
+                class="w-full rounded-lg border border-white/[0.1] bg-white/[0.06] px-3 py-2.5 text-sm text-white/80 outline-none transition-colors placeholder:text-white/20 hover:border-white/[0.15] focus:border-blue-400/40 focus:ring-1 focus:ring-blue-400/20"
+                onInput={(e) => setFormName(e.currentTarget.value)}
+                placeholder={`Display name (default: ${plugin().displayName})`}
+                type="text"
+                value={formName()}
+              />
+              <For each={[...plugin().connectionFields]}>
+                {(field) => (
+                  <input
+                    class={`w-full rounded-lg border border-white/[0.1] bg-white/[0.06] px-3 py-2.5 text-sm text-white/80 outline-none transition-colors placeholder:text-white/20 hover:border-white/[0.15] focus:border-blue-400/40 focus:ring-1 focus:ring-blue-400/20 ${field.kind === "secret" ? "font-mono" : ""}`}
+                    onInput={(e) =>
+                      setFieldValue(field.key, e.currentTarget.value)
+                    }
+                    placeholder={field.placeholder ?? field.label}
+                    type={fieldKindToInputType(field.kind)}
+                    value={getFieldValue(field.key)}
+                  />
+                )}
+              </For>
+
+              {/* Validation feedback */}
+              <Show when={validationStatus() !== "idle"}>
+                <div
+                  class={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs ${validationStatusClass(validationStatus())}`}
+                >
+                  <Switch>
+                    <Match when={validationStatus() === "validating"}>
+                      <Loader2 class="h-3.5 w-3.5 animate-spin" />
+                      Validating connection…
+                    </Match>
+                    <Match when={validationStatus() === "success"}>
+                      <CheckCircle class="h-3.5 w-3.5" />
+                      {validationMsg()}
+                    </Match>
+                    <Match when={validationStatus() === "error"}>
+                      <AlertCircle class="h-3.5 w-3.5" />
+                      {validationMsg()}
+                    </Match>
+                  </Switch>
+                </div>
+              </Show>
+
+              <button
+                class="mt-1 w-full cursor-pointer rounded-lg bg-blue-500/20 px-4 py-2.5 font-medium text-blue-300 text-sm transition-all hover:bg-blue-500/30 disabled:cursor-not-allowed disabled:opacity-40"
+                disabled={
+                  !allRequiredFieldsFilled() ||
+                  validationStatus() === "validating"
+                }
+                onClick={handleValidateAndSave}
+                type="button"
+              >
+                {validationStatus() === "validating"
+                  ? "Validating…"
+                  : "Validate & Save"}
+              </button>
+            </div>
+          </div>
+        )}
+      </Show>
+
+      {/* Available Plugins */}
+      <Show when={!addingPlugin()}>
+        <div class="space-y-3">
+          <h3 class="font-medium text-sm text-white/50 uppercase tracking-widest">
+            Available Plugins
+          </h3>
+          <Show
+            fallback={
+              <div class="flex items-center justify-center py-8">
+                <InlineLoading message="Loading plugins…" size="md" />
+              </div>
+            }
+            when={plugins.data}
+          >
+            {(pluginList) => (
+              <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
+                <For each={[...pluginList()]}>
+                  {(plugin) => {
+                    const isConnected = () =>
+                      connectedPluginIds().has(plugin.pluginId);
+                    return (
+                      <button
+                        class={`group flex cursor-pointer flex-col items-center gap-3 rounded-2xl border p-5 text-center transition-all duration-200 ${
+                          isConnected()
+                            ? "border-emerald-500/15 bg-emerald-500/[0.04] hover:border-emerald-500/25 hover:bg-emerald-500/[0.07]"
+                            : "border-white/[0.08] bg-white/[0.04] hover:border-white/[0.14] hover:bg-white/[0.07]"
+                        }`}
+                        onClick={() => setAddingPlugin(plugin)}
+                        type="button"
+                      >
+                        <div
+                          class={`flex h-11 w-11 items-center justify-center rounded-xl ring-1 ring-inset ${
+                            isConnected()
+                              ? "bg-emerald-400/10 ring-emerald-400/20"
+                              : "bg-white/[0.06] ring-white/[0.08] group-hover:bg-blue-400/10 group-hover:ring-blue-400/20"
+                          }`}
+                        >
+                          <Show
+                            fallback={
+                              <Plus class="h-5 w-5 text-white/30 group-hover:text-blue-400/70" />
+                            }
+                            when={isConnected()}
+                          >
+                            <CheckCircle class="h-5 w-5 text-emerald-400/70" />
+                          </Show>
+                        </div>
+                        <div>
+                          <p class="font-semibold text-sm text-white/80">
+                            {plugin.displayName}
+                          </p>
+                          <p class="mt-0.5 text-white/30 text-xs">
+                            {isConnected() ? "Add another" : "Add integration"}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  }}
+                </For>
+              </div>
+            )}
+          </Show>
+        </div>
+      </Show>
+
+      {/* Global search hint */}
+      <Show when={(connections.data?.length ?? 0) > 0}>
+        <p class="flex items-center gap-2 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-white/35 text-xs leading-relaxed">
+          <Search class="h-3.5 w-3.5 shrink-0 text-white/25" aria-hidden="true" />
+          Use <kbd class="rounded border border-white/[0.1] bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-white/50">/</kbd> to search and run plugin actions from anywhere via global search.
+        </p>
+      </Show>
+    </div>
+  );
+}
+

@@ -36,3 +36,27 @@ export class MutationError extends Data.TaggedError("MutationError")<{
 
 // biome-ignore lint/complexity/noBannedTypes: Tagged Error
 export class NoUpdateFound extends Data.TaggedError("NoUpdateFound")<{}> {}
+
+// ---------------------------------------------------------------------------
+// Integration errors
+// ---------------------------------------------------------------------------
+
+// biome-ignore lint/complexity/noBannedTypes: Tagged Error
+export class NoPluginFound extends Data.TaggedError("NoPluginFound")<{}> {}
+
+// biome-ignore lint/complexity/noBannedTypes: Tagged Error
+export class NoConnectionFound extends Data.TaggedError("NoConnectionFound")<{}> {}
+
+export class IntegrationSecretError extends Data.TaggedError(
+  "IntegrationSecretError"
+)<{ message: string; kind?: "not-found" | "storage-failure" }> {}
+
+// biome-ignore lint/complexity/noBannedTypes: Tagged Error
+export class NoAdapterFound extends Data.TaggedError("NoAdapterFound")<{}> {}
+
+// biome-ignore lint/complexity/noBannedTypes: Tagged Error
+export class CapabilityNotSupported extends Data.TaggedError("CapabilityNotSupported")<{}> {}
+
+export class IntegrationOperationError extends Data.TaggedError(
+  "IntegrationOperationError"
+)<{ message: string }> {}
