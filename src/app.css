@@ -257,6 +257,12 @@
   outline-offset: 2px;
 }
 
+/* Remove focus ring from search input */
+[data-search-input]:focus-visible {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
 * {
   scrollbar-width: none;
 }
@@ -302,6 +308,15 @@
   }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 @keyframes fadeSlideUp {
   from {
     opacity: 0;
@@ -310,6 +325,18 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* Search input expand animation */
+@keyframes searchExpand {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
