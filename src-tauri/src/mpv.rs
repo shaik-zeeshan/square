@@ -211,6 +211,26 @@ impl MpvPlayer {
             PlaybackEvent::ChangeAudio(audio) => {
                 self.mpv.set_property("aid", audio).unwrap();
             }
+            PlaybackEvent::LoadSubtitle { url, title, lang } => {
+                // `sub-add` with "auto" appends the subtitle to the track-list without
+                // force-selecting it, so the user's current sid / subtitle-off choice
+                // is preserved.  The track becomes available for manual selection via
+                // the existing ChangeSubtitle flow.
+                //
+                // When a human-friendly title and/or language code is provided they are
+                // forwarded to mpv as positional arguments so the subtitle track shows a
+                // readable name in the track-list instead of the raw URL.
+                let title_str = title.as_deref().unwrap_or("");
+                let lang_str = lang.as_deref().unwrap_or("");
+                let result = if !title_str.is_empty() || !lang_str.is_empty() {
+                    self.mpv.command("sub-add", &[&url, "auto", title_str, lang_str])
+                } else {
+                    self.mpv.command("sub-add", &[&url, "auto"])
+                };
+                if let Err(e) = result {
+                    log::warn!("sub-add failed for '{}': {}", url, e);
+                }
+            }
             PlaybackEvent::Load(url, start_time) => {
                 if let Some(start_time) = start_time {
                     let start_option = format!("start={}", start_time);
@@ -909,6 +929,15 @@ pub enum PlaybackEvent {
     SwitchTarget(String),
     ResizePipWindow { width: u32, height: u32 },
     DestroyPipContext,
+    /// Load an external subtitle file/URL into mpv without replacing the current video.
+    /// The subtitle will appear in the track-list so the existing UI can select it via sid.
+    /// Optional `title` and `lang` are forwarded to mpv's `sub-add` so the track shows a
+    /// human-friendly name instead of the raw URL.
+    LoadSubtitle {
+        url: String,
+        title: Option<String>,
+        lang: Option<String>,
+    },
 }
 
 #[derive(Debug, specta::Type, tauri_specta::Event, Serialize, Deserialize, Clone)]

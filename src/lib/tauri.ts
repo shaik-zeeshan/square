@@ -65,6 +65,15 @@ async playbackChangeAudio(audio: string) : Promise<void> {
 async playbackClear() : Promise<void> {
     await TAURI_INVOKE("playback_clear");
 },
+/**
+ * Load an external subtitle file or URL into mpv without replacing the current video.
+ * The subtitle will appear in mpv's track-list so the existing UI can select it via sid.
+ * `title` and `lang` are forwarded to mpv's `sub-add` command so the track displays a
+ * human-friendly name (e.g. "English") instead of the raw URL.
+ */
+async playbackLoadSubtitle(url: string, title?: string | null, lang?: string | null) : Promise<void> {
+    await TAURI_INVOKE("playback_load_subtitle", { url, title: title ?? null, lang: lang ?? null });
+},
 async toggleTitlebarHide(hide: boolean) : Promise<null> {
     return await TAURI_INVOKE("toggle_titlebar_hide", { hide });
 },

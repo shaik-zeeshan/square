@@ -165,6 +165,23 @@ fn playback_clear(app: tauri::AppHandle) {
     let _ = send_render_event(&app, PlaybackEvent::Clear);
 }
 
+/// Load an external subtitle file or URL into mpv without replacing the current video.
+/// The subtitle will appear in mpv's track-list so the existing UI can select it via sid.
+/// `title` and `lang` are forwarded to mpv's `sub-add` command so the track displays a
+/// human-friendly name (e.g. "English") instead of the raw URL.
+#[specta]
+#[tauri::command]
+fn playback_load_subtitle(
+    app: tauri::AppHandle,
+    url: String,
+    title: Option<String>,
+    lang: Option<String>,
+) {
+    if let Err(e) = send_render_event(&app, PlaybackEvent::LoadSubtitle { url, title, lang }) {
+        log::error!("{}", e);
+    }
+}
+
 // ===== PICTURE IN PICTURE (PIP) COMMANDS =====
 
 /// Show PiP window (makes it visible)
@@ -556,6 +573,7 @@ pub async fn run() {
             playback_change_subtitle,
             playback_change_audio,
             playback_clear,
+            playback_load_subtitle,
             toggle_titlebar_hide,
             toggle_fullscreen,
             show_pip_window,
