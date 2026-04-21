@@ -36,6 +36,34 @@ export const LANGUAGE_OPTIONS: readonly LanguageOption[] = [
   { code: "id", label: "Indonesian" },
 ] as const;
 
+/**
+ * ISO 639-2 (three-letter) → ISO 639-1 (two-letter) mappings for languages
+ * present in the curated LANGUAGE_OPTIONS list.  Includes both the
+ * bibliographic (B) and terminological (T) variants where they differ.
+ */
+export const ISO_639_2_TO_1: Readonly<Record<string, string>> = {
+  eng: "en",
+  jpn: "ja",
+  hin: "hi",
+  kor: "ko",
+  tam: "ta",
+  tel: "te",
+  mal: "ml",
+  spa: "es",
+  fre: "fr", // bibliographic
+  fra: "fr", // terminological
+  ger: "de", // bibliographic
+  deu: "de", // terminological
+  ita: "it",
+  por: "pt",
+  zho: "zh", // terminological
+  chi: "zh", // bibliographic
+  ara: "ar",
+  rus: "ru",
+  tha: "th",
+  ind: "id",
+};
+
 /** Fast lookup map: lowercase code → label */
 const _codeLabelMap = new Map<string, string>(
   LANGUAGE_OPTIONS.map((o) => [o.code, o.label])
@@ -72,29 +100,7 @@ export function getLanguageLabel(code: string | null | undefined): string {
   }
 
   // ISO 639-2/B three-letter codes commonly seen in media streams
-  const iso639Map: Record<string, string> = {
-    eng: "en",
-    jpn: "ja",
-    hin: "hi",
-    kor: "ko",
-    tam: "ta",
-    tel: "te",
-    mal: "ml",
-    spa: "es",
-    fre: "fr",
-    fra: "fr",
-    ger: "de",
-    deu: "de",
-    ita: "it",
-    por: "pt",
-    zho: "zh",
-    chi: "zh",
-    ara: "ar",
-    rus: "ru",
-    tha: "th",
-    ind: "id",
-  };
-  const mapped = iso639Map[lower];
+  const mapped = ISO_639_2_TO_1[lower];
   if (mapped) {
     const label = _codeLabelMap.get(mapped);
     if (label) {
@@ -117,14 +123,19 @@ export const DEFAULT_AUDIO_LANGUAGE = "en";
 export const DEFAULT_SUBTITLE_LANGUAGE = "en";
 
 /**
- * Normalize a language code to lowercase trimmed form.
+ * Normalize a language code to lowercase trimmed form, resolving ISO 639-2
+ * three-letter codes (e.g. "eng", "jpn") to their two-letter ISO 639-1
+ * equivalents so they match stored preferences.
  * Returns undefined for empty/nullish input.
  */
 export function normalizeLanguageCode(
   code: string | null | undefined
 ): string | undefined {
   const trimmed = code?.trim().toLowerCase();
-  return trimmed || undefined;
+  if (!trimmed) {
+    return;
+  }
+  return ISO_639_2_TO_1[trimmed] ?? trimmed;
 }
 
 /**
