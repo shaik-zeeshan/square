@@ -98,12 +98,7 @@ export function useAutoplay(props: UseAutoplayProps) {
         const progress = (currentTime / duration) * 100;
 
         if (progress >= 80 && props.currentItem()?.Type === "Episode") {
-          // Keep behavior consistent with threshold-triggered path.
-          const wasPlaying = !props.playbackState.paused();
-          if (wasPlaying) {
-            commands.playbackPause();
-          }
-          setDidPauseForAutoplay(wasPlaying);
+          // Show overlay without interrupting playback.
           setShowAutoplay(true);
         }
       }
@@ -175,12 +170,7 @@ export function useAutoplay(props: UseAutoplayProps) {
           !isNextEpisodeLoading() &&
           nextEpisode()
         ) {
-          // Pause the video and show overlay
-          const wasPlaying = !props.playbackState.paused();
-          if (wasPlaying) {
-            commands.playbackPause();
-          }
-          setDidPauseForAutoplay(wasPlaying);
+          // Show overlay without pausing playback.
           setShowAutoplay(true);
         }
 
@@ -233,11 +223,7 @@ export function useAutoplay(props: UseAutoplayProps) {
         props.currentItem()?.Type === "Episode" &&
         !isCancelled()
       ) {
-        const wasPlaying = !props.playbackState.paused();
-        if (wasPlaying) {
-          commands.playbackPause();
-        }
-        setDidPauseForAutoplay(wasPlaying);
+        // Show overlay without pausing playback.
         setShowAutoplay(true);
       }
     }
