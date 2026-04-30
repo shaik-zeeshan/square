@@ -6,6 +6,7 @@ import type {
 import type { SolidQueryOptions } from "@tanstack/solid-query";
 import { Effect, pipe } from "effect";
 import type { Accessor } from "solid-js";
+import { HttpError } from "~/effect/error";
 import {
   createEffectMutation,
   createEffectQuery,
@@ -16,6 +17,8 @@ import {
 import { safeAssign } from "~/lib/utils";
 import { JellyfinService, type WithImage } from "./service";
 
+const LIBRARIES_TIMEOUT = "10 seconds";
+
 class Jellyfin {
   librariesQueryKey = createQueryKey("getLibraries");
   librariesQueryDataHelpers = createQueryDataHelpers(this.librariesQueryKey);
@@ -23,7 +26,18 @@ class Jellyfin {
     createEffectQuery(() => ({
       queryKey: this.librariesQueryKey(),
       queryFn: () =>
-        JellyfinService.pipe(Effect.flatMap((jf) => jf.getLibraries())),
+        JellyfinService.pipe(
+          Effect.flatMap((jf) => jf.getLibraries()),
+          Effect.timeoutFail({
+            duration: LIBRARIES_TIMEOUT,
+            onTimeout: () =>
+              new HttpError({
+                status: 408,
+                message:
+                  "Loading libraries from Jellyfin timed out. Please try again.",
+              }),
+          })
+        ),
     }));
 
   resumeItemsQueryKey = createQueryKey("getResumeItems");
