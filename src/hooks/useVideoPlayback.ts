@@ -889,13 +889,12 @@ export function useVideoPlayback(
 
         // Build a human-friendly track title for the subtitle dropdown.
         // Prefer DisplayTitle (e.g. "English (SRT)"), fall back to Language, then Title.
-        const subtitleTitle: string | undefined =
+        const subtitleTitle: string | null =
           (stream as { DisplayTitle?: string }).DisplayTitle ||
           stream.Language ||
           stream.Title ||
-          undefined;
-        const subtitleLang: string | undefined =
-          stream.Language || undefined;
+          null;
+        const subtitleLang: string | null = stream.Language || null;
 
         // --- Diagnostics: log context for every attempted subtitle load ---
         const diagCodec = stream.Codec ?? "unknown";

@@ -71,8 +71,8 @@ async playbackClear() : Promise<void> {
  * `title` and `lang` are forwarded to mpv's `sub-add` command so the track displays a
  * human-friendly name (e.g. "English") instead of the raw URL.
  */
-async playbackLoadSubtitle(url: string, title?: string | null, lang?: string | null) : Promise<void> {
-    await TAURI_INVOKE("playback_load_subtitle", { url, title: title ?? null, lang: lang ?? null });
+async playbackLoadSubtitle(url: string, title: string | null, lang: string | null) : Promise<void> {
+    await TAURI_INVOKE("playback_load_subtitle", { url, title, lang });
 },
 async toggleTitlebarHide(hide: boolean) : Promise<null> {
     return await TAURI_INVOKE("toggle_titlebar_hide", { hide });
