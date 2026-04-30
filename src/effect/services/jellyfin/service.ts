@@ -671,22 +671,49 @@ export class JellyfinService extends Effect.Service<JellyfinService>()(
           const seasonId = item.ParentId ?? undefined;
           const currentIndex = item.IndexNumber;
 
+          // Fetch all episodes in this season; we cannot rely on
+          // `startIndex` to filter by IndexNumber — it is a pagination
+          // offset, so e.g. on episode 1 (currentIndex+1=2) the API
+          // returns the third episode in the result set, skipping the
+          // actual next one. Likewise, we cannot trust the returned
+          // sort order, so we pick the candidate with the smallest
+          // IndexNumber strictly greater than the current episode.
           const res = yield* getItems({
             userId: user.Id,
             parentId: seasonId,
             fields: ["ParentId", "MediaStreams", "ParentId"],
-            startIndex: currentIndex + 1,
             enableUserData: true,
             includeItemTypes: ["Episode"],
             sortBy: ["IndexNumber"],
             sortOrder: ["Ascending"],
-            limit: 1,
             enableImages: true,
           });
 
-          const items = res[0];
+          const next = res.reduce<(typeof res)[number] | undefined>(
+            (best, candidate) => {
+              if (typeof candidate.IndexNumber !== "number") {
+                return best;
+              }
+              if (candidate.IndexNumber <= currentIndex) {
+                return best;
+              }
+              if (
+                !best ||
+                typeof best.IndexNumber !== "number" ||
+                candidate.IndexNumber < best.IndexNumber
+              ) {
+                return candidate;
+              }
+              return best;
+            },
+            undefined
+          );
 
-          return yield* getImages(jf)(items);
+          if (!next) {
+            return yield* new NoEpisodeFound();
+          }
+
+          return yield* getImages(jf)(next);
         });
 
       const getPlaybackState = (

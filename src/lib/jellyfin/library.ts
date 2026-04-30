@@ -302,14 +302,15 @@ const queries = {
         return null;
       }
 
-      // Get all episodes in the same season
+      // Get all episodes in the same season and pick the one whose
+      // IndexNumber is the smallest value greater than the current episode's.
+      // NOTE: `startIndex` is a pagination offset, not a filter by
+      // IndexNumber, so we must filter the result set ourselves.
       const seasonEpisodes = await getItemsApi(jf).getItems({
         userId,
         parentId: seasonId,
         fields: ["MediaStreams", "ParentId"],
         enableUserData: true,
-        startIndex: currentIndex + 1,
-        limit: 1,
         includeItemTypes: ["Episode"],
         sortBy: ["IndexNumber"],
         sortOrder: ["Ascending"],
@@ -320,8 +321,29 @@ const queries = {
         return null;
       }
 
-      // Find the next episode by index number
-      const nextEpisode = seasonEpisodes.data.Items[0];
+      // Find the next episode by index number: the candidate with the
+      // smallest IndexNumber strictly greater than the current episode's.
+      // We do not rely on server-side sort order here — if the response
+      // came back unordered (or with gaps) we'd otherwise pick the wrong
+      // episode (e.g. ep 18 before ep 13 for a current ep 12).
+      const nextEpisode = seasonEpisodes.data.Items.reduce<
+        (typeof seasonEpisodes.data.Items)[number] | undefined
+      >((best, item) => {
+        if (typeof item.IndexNumber !== "number") {
+          return best;
+        }
+        if (item.IndexNumber <= currentIndex) {
+          return best;
+        }
+        if (
+          !best ||
+          typeof best.IndexNumber !== "number" ||
+          item.IndexNumber < best.IndexNumber
+        ) {
+          return item;
+        }
+        return best;
+      }, undefined);
 
       if (nextEpisode) {
         const imageEntries: Record<string, string> = {};
