@@ -56,10 +56,10 @@ export interface ValidationResult {
  * UI and service code dispatch against these rather than branching on pluginId.
  */
 export type PluginCapability =
-  | "search"       // search across content (movies, series, etc.)
-  | "request"      // submit a media request (Jellyseerr-style)
-  | "add_movie"    // add a movie to a library (Radarr-style)
-  | "add_series";  // add a series to a library (Sonarr-style)
+  | "search" // search across content (movies, series, etc.)
+  | "request" // submit a media request (Jellyseerr-style)
+  | "add_movie" // add a movie to a library (Radarr-style)
+  | "add_series"; // add a series to a library (Sonarr-style)
 
 // ---------------------------------------------------------------------------
 // Normalised shared payload / result types
@@ -76,8 +76,49 @@ export interface PluginSearchResult {
   overview?: string;
   /** Absolute or relative poster URL as returned by the provider */
   posterUrl?: string;
+  /** Optional normalised provider status suitable for a compact UI badge */
+  status?: PluginMediaStatus;
   /** Provider-specific extra fields kept for pass-through to adapters */
   raw?: Record<string, unknown>;
+}
+
+/** Normalised media/request status suitable for concise UI display */
+export interface PluginMediaStatus {
+  kind: "available" | "partial" | "processing" | "pending" | "requested";
+  label: string;
+}
+
+/** A compact active request summary returned by supported integrations */
+export interface PluginActiveRequest {
+  id: string;
+  mediaId: string;
+  mediaType: string;
+  title: string;
+  year?: number;
+  overview?: string;
+  posterUrl?: string;
+  requestedAt?: string;
+  status: PluginMediaStatus;
+  /**
+   * Optional normalised download progress for active downloads.
+   * Present when the integration's queue exposes meaningful size data.
+   */
+  progress?: PluginDownloadProgress;
+  raw?: Record<string, unknown>;
+}
+
+/** Compact normalised download progress suitable for UI display */
+export interface PluginDownloadProgress {
+  /** Aggregate completion percent in [0, 100] */
+  percent: number;
+  /** Number of active queue items contributing to the aggregate */
+  itemCount: number;
+  /**
+   * Compact time-left label (e.g. "12m", "1h 5m") representing the longest
+   * remaining duration across active queue items.  Omitted when the queue
+   * exposes no usable time-left data.
+   */
+  timeLeft?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -88,7 +129,7 @@ export interface PluginSearchResult {
 export interface JellyseerrRequestParams {
   mediaType: "movie" | "tv";
   mediaId: number;
-  seasons?: number[];
+  seasons?: number[] | "all";
 }
 
 /** Params for Sonarr `add_series` capability */
@@ -213,6 +254,13 @@ export interface CapabilityAdapter {
     apiKey: string;
     mediaId: number;
   }): Promise<TvSeason[]>;
+
+  /** Fetch the current integration user's active requests, if supported */
+  fetchActiveRequests?(opts: {
+    connectionId: string;
+    baseUrl: string;
+    apiKey: string;
+  }): Promise<PluginActiveRequest[]>;
 }
 
 // ---------------------------------------------------------------------------

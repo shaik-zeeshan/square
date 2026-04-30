@@ -19,10 +19,11 @@ import {
   type CapabilityActionResult,
   type IntegrationConnection,
   type IntegrationPlugin,
+  type PluginActiveRequest,
   type PluginSearchResult,
   type ProviderOption,
-  type ProviderOptionType,
   type ProviderOptions,
+  type ProviderOptionType,
   type TvSeason,
   type ValidationResult,
 } from "./types";
@@ -229,8 +230,8 @@ export class IntegrationService extends Effect.Service<IntegrationService>()(
 
       /**
        * Validate a connection's credentials against the provider's health
-        * endpoint without persisting anything.  Retrieves the stored API key
-        * from local file-backed storage automatically.
+       * endpoint without persisting anything.  Retrieves the stored API key
+       * from local file-backed storage automatically.
        */
       const validateConnection = (
         connectionId: string
@@ -335,8 +336,8 @@ export class IntegrationService extends Effect.Service<IntegrationService>()(
 
       /**
        * Execute a `search` capability against a saved connection.
-        * Resolves the adapter for the connection's plugin, fetches the stored
-        * API key from local file-backed storage, and delegates to the adapter's `search` method.
+       * Resolves the adapter for the connection's plugin, fetches the stored
+       * API key from local file-backed storage, and delegates to the adapter's `search` method.
        */
       const dispatchSearch = (
         connectionId: string,
@@ -564,6 +565,53 @@ export class IntegrationService extends Effect.Service<IntegrationService>()(
         });
 
       // ------------------------------------------------------------------
+      // Active request lookup (Jellyseerr)
+      // ------------------------------------------------------------------
+
+      const fetchActiveRequests = (
+        connectionId: string
+      ): Effect.Effect<
+        PluginActiveRequest[],
+        | NoConnectionFound
+        | NoAdapterFound
+        | IntegrationSecretError
+        | IntegrationOperationError
+      > =>
+        Effect.gen(function* () {
+          const conn = yield* getConnection(connectionId);
+          const adapter = getAdapter(conn.pluginId);
+          if (!adapter?.fetchActiveRequests) {
+            return yield* Effect.fail(new NoAdapterFound());
+          }
+
+          const apiKey = yield* getSecret(connectionId);
+          if (!apiKey) {
+            return yield* Effect.fail(
+              new IntegrationSecretError({
+                message: "No API key stored for this connection",
+              })
+            );
+          }
+
+          return yield* Effect.tryPromise({
+            try: () =>
+              // biome-ignore lint/style/noNonNullAssertion: checked above
+              adapter.fetchActiveRequests!({
+                connectionId,
+                baseUrl: conn.baseUrl,
+                apiKey,
+              }),
+            catch: (e) =>
+              new IntegrationOperationError({
+                message:
+                  e instanceof Error
+                    ? e.message
+                    : "Active request lookup failed",
+              }),
+          });
+        });
+
+      // ------------------------------------------------------------------
 
       return {
         listPlugins,
@@ -582,6 +630,7 @@ export class IntegrationService extends Effect.Service<IntegrationService>()(
         lookupOptions,
         fetchProviderOptions,
         fetchTvSeasons,
+        fetchActiveRequests,
       };
     }),
   }

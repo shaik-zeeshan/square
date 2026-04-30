@@ -19,7 +19,9 @@ import { QueryBoundary } from "~/components/query-boundary";
 import { InlineLoading } from "~/components/ui/loading";
 import { useCurrentUserQuery } from "~/effect/services/auth/operations";
 import {
+  activeIntegrationRequestsKey,
   useActionIntegrationMutation,
+  useActiveIntegrationRequestsQuery,
   useIntegrationConnectionsQuery,
   useProviderOptionsQuery,
   useSearchIntegrationMutation,
@@ -28,8 +30,10 @@ import {
 import type {
   CapabilityActionPayload,
   PluginCapability,
+  PluginMediaStatus,
   PluginSearchResult,
 } from "~/effect/services/integrations/types";
+import { queryClient } from "~/effect/tanstack/query";
 import { BUILT_IN_PLUGINS } from "~/effect/services/integrations/types";
 import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
 import HouseIcon from "~icons/lucide/house";
@@ -165,6 +169,156 @@ function safeParseInt(val: string | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+// ── Status badge — concise, per-kind tinted chip ─────────────────────────────
+
+function statusBadgeClasses(kind: PluginMediaStatus["kind"]): string {
+  switch (kind) {
+    case "available":
+      return "border-emerald-400/30 bg-emerald-500/15 text-emerald-200";
+    case "partial":
+      return "border-amber-400/30 bg-amber-500/15 text-amber-200";
+    case "processing":
+      return "border-sky-400/30 bg-sky-500/15 text-sky-200";
+    case "pending":
+      return "border-violet-400/30 bg-violet-500/15 text-violet-200";
+    default:
+      return "border-blue-400/30 bg-blue-500/15 text-blue-200";
+  }
+}
+
+function StatusBadge(props: { status: PluginMediaStatus; class?: string }) {
+  return (
+    <span
+      class={`inline-flex items-center gap-1 rounded border px-1.5 py-0.5 font-semibold text-[9px] uppercase tracking-widest backdrop-blur-sm ${statusBadgeClasses(props.status.kind)} ${props.class ?? ""}`}
+    >
+      <span class="h-1 w-1 shrink-0 rounded-full bg-current opacity-70" />
+      {props.status.label}
+    </span>
+  );
+}
+
+// ── Active Jellyseerr requests rail (home page) ───────────────────────────────
+
+function ActiveRequestsSection() {
+  const connections = useIntegrationConnectionsQuery();
+  // Use the first available Jellyseerr connection — slice scope per spec.
+  const jellyseerrConn = createMemo(() =>
+    (connections.data ?? []).find((c) => c.pluginId === "jellyseerr")
+  );
+  const connId = () => jellyseerrConn()?.connectionId;
+  const activeRequests = useActiveIntegrationRequestsQuery(connId);
+
+  return (
+    <Show when={jellyseerrConn() && (activeRequests.data?.length ?? 0) > 0}>
+      <div
+        style={{
+          animation: "fadeSlideUp 380ms cubic-bezier(0.22,1,0.36,1) both",
+        }}
+      >
+        <SectionHeading
+          count={activeRequests.data?.length ?? 0}
+          label="Your Active Requests"
+        />
+        <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
+          <For each={activeRequests.data}>
+            {(req) => (
+              <div class="group relative">
+                <div class="relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-[0_2px_12px_rgba(0,0,0,0.3)] transition-all duration-300 group-hover:border-white/[0.12] group-hover:shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
+                  <div class="aspect-2/3 overflow-hidden">
+                    <Show
+                      fallback={
+                        <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-violet-950/20 to-slate-950/30">
+                          <span class="font-bold text-3xl text-white/15">
+                            {req.title.charAt(0)}
+                          </span>
+                        </div>
+                      }
+                      when={req.posterUrl}
+                    >
+                      {(url) => (
+                        <img
+                          alt={req.title}
+                          class="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                          loading="lazy"
+                          src={url()}
+                        />
+                      )}
+                    </Show>
+                  </div>
+
+                  {/* Cinematic gradient */}
+                  <div class="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent" />
+
+                  {/* Plugin badge */}
+                  <div class="absolute top-2 left-2 z-10 rounded border border-white/10 bg-black/55 px-1.5 py-0.5 font-semibold text-[9px] text-white/55 uppercase tracking-wider backdrop-blur-sm">
+                    Jellyseerr
+                  </div>
+
+                  {/* Status badge */}
+                  <div class="absolute top-2 right-2 z-10">
+                    <StatusBadge status={req.status} />
+                  </div>
+
+                  {/* Title area */}
+                  <div class="absolute right-0 bottom-0 left-0 p-2.5">
+                    <Show when={req.progress}>
+                      {(progress) => (
+                        <div
+                          aria-label={`Download progress ${progress().percent}%`}
+                          class="mb-1.5 flex items-center gap-1.5"
+                          role="progressbar"
+                          aria-valuenow={progress().percent}
+                          aria-valuemin={0}
+                          aria-valuemax={100}
+                        >
+                          <div class="relative h-1 flex-1 overflow-hidden rounded-full border border-white/10 bg-black/55 backdrop-blur-sm">
+                            <div
+                              class="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-sky-400/90 to-cyan-300/90 shadow-[0_0_8px_rgba(56,189,248,0.45)] transition-[width] duration-500 ease-out"
+                              style={{ width: `${progress().percent}%` }}
+                            />
+                          </div>
+                          <span class="font-semibold text-[9px] text-white/75 tabular-nums tracking-wider drop-shadow">
+                            {progress().percent}%
+                          </span>
+                        </div>
+                      )}
+                    </Show>
+                    <Show when={req.progress?.timeLeft}>
+                      {(timeLeft) => (
+                        <div class="mb-1 flex items-center gap-1 text-[9px] text-white/55 tracking-wide">
+                          <svg
+                            aria-hidden="true"
+                            class="h-2.5 w-2.5 text-white/45"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="2"
+                            viewBox="0 0 24 24"
+                          >
+                            <title>Time left</title>
+                            <circle cx="12" cy="12" r="9" />
+                            <path d="M12 7v5l3 2" />
+                          </svg>
+                          <span class="tabular-nums">{timeLeft()} left</span>
+                        </div>
+                      )}
+                    </Show>
+                    <h3 class="line-clamp-2 font-semibold text-white text-xs leading-tight drop-shadow-lg">
+                      {req.title}
+                    </h3>
+                    <Show when={req.year}>
+                      <span class="text-[10px] text-white/40">{req.year}</span>
+                    </Show>
+                  </div>
+                </div>
+              </div>
+            )}
+          </For>
+        </div>
+      </div>
+    </Show>
+  );
+}
+
 // ── Plugin search section for global search ──────────────────────────────────
 
 interface PendingAction {
@@ -293,11 +447,11 @@ function PluginSearchSection(props: { searchTerm: string }) {
 
   const submitAction = () => {
     const action = pendingAction();
-    const connId = selectedConnId();
+    const connectionId = selectedConnId();
     if (!action) {
       return;
     }
-    if (!connId) {
+    if (!connectionId) {
       return;
     }
 
@@ -357,8 +511,55 @@ function PluginSearchSection(props: { searchTerm: string }) {
     }
 
     actionMutation.mutate(
-      { connectionId: connId, payload },
-      { onSuccess: () => setPendingAction(null) }
+      { connectionId, payload },
+      {
+        onSuccess: (result) => {
+          if (!result.success) {
+            // Backend reported a soft failure — keep modal open so the user
+            // can adjust inputs.  Toast already surfaced via the mutation.
+            return;
+          }
+          setPendingAction(null);
+
+          // For Jellyseerr requests, optimistically reflect "Requested" on
+          // the originating search result and refresh the active-requests
+          // rail so the home page updates without a manual refresh.
+          if (action.capability === "request") {
+            const requestedId = action.result.id;
+            setSearchResults((prev) =>
+              prev.map((r) =>
+                r.id === requestedId
+                  ? {
+                      ...r,
+                      status: { kind: "pending", label: "Requested" },
+                    }
+                  : r
+              )
+            );
+            queryClient.invalidateQueries({
+              queryKey: activeIntegrationRequestsKey({ connectionId }),
+            });
+            // The home rail is bound to the first Jellyseerr connection,
+            // which may differ from the currently selected search
+            // connection in multi-Jellyseerr setups. Invalidate that
+            // query too so the visible rail refreshes immediately
+            // instead of waiting for the next 5s poll.
+            const homeRailConn = (connections.data ?? []).find(
+              (c) => c.pluginId === "jellyseerr"
+            );
+            if (
+              homeRailConn &&
+              homeRailConn.connectionId !== connectionId
+            ) {
+              queryClient.invalidateQueries({
+                queryKey: activeIntegrationRequestsKey({
+                  connectionId: homeRailConn.connectionId,
+                }),
+              });
+            }
+          }
+        },
+      }
     );
   };
 
@@ -484,6 +685,15 @@ function PluginSearchSection(props: { searchTerm: string }) {
                     <div class="absolute top-2 left-2 z-10 rounded border border-white/10 bg-black/50 px-1.5 py-0.5 font-semibold text-[9px] text-white/55 uppercase tracking-wider backdrop-blur-sm">
                       {selectedConn()?.pluginId}
                     </div>
+
+                    {/* Status badge — Jellyseerr presence/request state */}
+                    <Show when={result.status}>
+                      {(status) => (
+                        <div class="absolute top-2 right-2 z-10">
+                          <StatusBadge status={status()} />
+                        </div>
+                      )}
+                    </Show>
 
                     {/* Action buttons overlay — appear on hover */}
                     <div class="absolute right-1.5 bottom-12 left-1.5 z-20 flex flex-wrap justify-end gap-1 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
@@ -736,6 +946,24 @@ function PluginSearchSection(props: { searchTerm: string }) {
                             <span class="mb-1.5 block text-white/40 text-xs">
                               Seasons (optional)
                             </span>
+                            <p class="mb-2 flex items-start gap-1.5 rounded-md border border-blue-400/15 bg-blue-400/[0.06] px-2.5 py-1.5 text-[11px] text-blue-200/80 leading-snug">
+                              <svg
+                                aria-hidden="true"
+                                class="mt-px h-3 w-3 shrink-0 text-blue-300/80"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="2"
+                                viewBox="0 0 24 24"
+                              >
+                                <title>Info</title>
+                                <circle cx="12" cy="12" r="10" />
+                                <path d="M12 16v-4M12 8h.01" />
+                              </svg>
+                              <span>
+                                If you leave seasons unselected, all seasons
+                                will be requested.
+                              </span>
+                            </p>
                             <Show when={tvSeasons.isPending}>
                               <div class="flex items-center gap-2 py-2 text-xs text-white/30">
                                 <InlineLoading size="sm" />
@@ -1447,6 +1675,9 @@ export default function Home() {
                   </Switch>
                 )}
               </QueryBoundary>
+
+              {/* ── Active Jellyseerr Requests (current user) ── */}
+              <ActiveRequestsSection />
 
               {/* ── Continue Watching ── */}
               <QueryBoundary

@@ -11,9 +11,10 @@ import type {
   CapabilityActionPayload,
   IntegrationConnection,
   IntegrationPlugin,
+  PluginActiveRequest,
   ProviderOption,
-  ProviderOptionType,
   ProviderOptions,
+  ProviderOptionType,
   TvSeason,
 } from "./types";
 
@@ -32,6 +33,11 @@ export const integrationConnectionsKey = createQueryKey(
 export const integrationConnectionsHelpers = createQueryDataHelpers<
   IntegrationConnection[]
 >(integrationConnectionsKey);
+
+export const activeIntegrationRequestsKey = createQueryKey<
+  "activeIntegrationRequests",
+  { connectionId: string }
+>("activeIntegrationRequests");
 
 // ---------------------------------------------------------------------------
 // Queries
@@ -232,6 +238,30 @@ export const useFetchProviderOptionsQuery = (
       );
     },
     enabled: !!connectionId(),
+  }));
+
+export const useActiveIntegrationRequestsQuery = (
+  connectionId: () => string | undefined
+) =>
+  createEffectQuery(() => ({
+    queryKey: activeIntegrationRequestsKey({
+      connectionId: connectionId() ?? "",
+    }),
+    queryFn: () => {
+      const connId = connectionId();
+      if (!connId) {
+        return Effect.succeed([] as PluginActiveRequest[]);
+      }
+
+      return IntegrationService.pipe(
+        Effect.flatMap((svc) => svc.fetchActiveRequests(connId)),
+        Effect.catchAll(() => Effect.succeed([] as PluginActiveRequest[]))
+      );
+    },
+    enabled: !!connectionId(),
+    // Poll the downloading rail so progress and time-left stay fresh while
+    // active requests are in-flight.  Other queries are deliberately untouched.
+    refetchInterval: 5000,
   }));
 
 // ---------------------------------------------------------------------------
