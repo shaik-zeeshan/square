@@ -1,10 +1,9 @@
-import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 import { ChevronDown, ChevronUp, Play, SkipForward, X } from "lucide-solid";
 import { Show } from "solid-js";
-import type { WithImage } from "~/effect/services/jellyfin/service";
+import type { MediaItem } from "~/effect/services/jellyfin/catalogue/types";
 
 type AutoplayOverlayProps = {
-  nextEpisode: WithImage<BaseItemDto>;
+  nextEpisode: MediaItem;
   onPlayNext: () => void;
   onCancel: () => void;
   isVisible: boolean;
@@ -88,20 +87,20 @@ export default function AutoplayOverlay(props: AutoplayOverlayProps) {
             <Show when={!props.isCollapsed}>
               <div class="mb-3">
                 <h4 class="mb-1 line-clamp-1 font-semibold text-sm text-white tracking-tight">
-                  {props.nextEpisode?.Name}
+                  {props.nextEpisode?.name}
                 </h4>
-                <Show when={props.nextEpisode?.SeriesName}>
+                <Show when={props.nextEpisode?.seriesName}>
                   <p class="mb-1 font-mono text-[11px] text-white/40 tabular-nums tracking-tight">
-                    {props.nextEpisode?.SeriesName}
-                    <Show when={props.nextEpisode?.IndexNumber}>
+                    {props.nextEpisode?.seriesName}
+                    <Show when={props.nextEpisode?.indexNumber}>
                       {" "}
-                      · Ep {props.nextEpisode?.IndexNumber}
+                      · Ep {props.nextEpisode?.indexNumber}
                     </Show>
                   </p>
                 </Show>
-                <Show when={props.nextEpisode?.Overview}>
+                <Show when={props.nextEpisode?.overview}>
                   <p class="line-clamp-2 text-[12px] text-white/50 leading-relaxed">
-                    {props.nextEpisode?.Overview}
+                    {props.nextEpisode?.overview}
                   </p>
                 </Show>
               </div>

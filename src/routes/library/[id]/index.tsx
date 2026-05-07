@@ -1,10 +1,10 @@
 import type { RouteSectionProps } from "@solidjs/router";
 import { createSignal, For, Show, splitProps } from "solid-js";
-import { SeriesCard } from "~/components/media-card";
+import { NormalizedSeriesCard } from "~/components/media-card";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
 import { InlineLoading } from "~/components/ui/loading";
-import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
+import { JellyfinCatalogueOperations } from "~/effect/services/jellyfin/catalogue/operations";
 import LibraryIcon from "~icons/lucide/library";
 
 // ── Skeleton grid for loading state ──────────────────────────────────────────
@@ -92,9 +92,9 @@ export default function Page(props: RouteSectionProps) {
 
   const [searchTerm, setSearchTerm] = createSignal("");
 
-  const libraryDetails = JellyfinOperations.getItem(() => params.id);
+  const libraryDetails = JellyfinCatalogueOperations.getItem(() => params.id);
 
-  const itemsDetails = JellyfinOperations.getItems(() => ({
+  const itemsDetails = JellyfinCatalogueOperations.getItems(() => ({
     parentId: params.id,
     fields: [],
     enableImages: true,
@@ -134,7 +134,7 @@ export default function Page(props: RouteSectionProps) {
               },
             ]}
             class="relative z-50"
-            currentPage={library?.Name || "Library"}
+            currentPage={library?.name || "Library"}
             onSearchChange={setSearchTerm}
             searchValue={searchTerm()}
             showSearch={true}
@@ -207,7 +207,7 @@ export default function Page(props: RouteSectionProps) {
                 }}
               >
                 <For each={data}>
-                  {(item) => <SeriesCard item={item} parentId={params.id} />}
+                  {(item) => <NormalizedSeriesCard item={item} parentId={params.id} />}
                 </For>
               </div>
             </Show>

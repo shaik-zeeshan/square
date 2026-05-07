@@ -15,6 +15,10 @@ import { Effect } from "effect";
 import { isArray, isEmptyArray } from "effect/Array";
 import { HttpError, MutationError, NoEpisodeFound } from "../../error";
 import { AuthService, AuthServiceLayer } from "../auth";
+import {
+  getBestLogoImageUrl as getCatalogueLogoImageUrl,
+  getBestPrimaryImageUrl as getCataloguePrimaryImageUrl,
+} from "./catalogue/mapper";
 
 /*
  *
@@ -210,7 +214,7 @@ const getImagesFromTags = (
   return arrayToObjectWithDuplicates(images);
 };
 
-export type WithImage<T> = T extends Array<infer U>
+type LegacyEnrichedItem<T> = T extends Array<infer U>
   ? Array<U & { Image: string; Images: ReturnType<typeof getImagesFromTags> }>
   : T extends undefined
     ? undefined
@@ -220,9 +224,9 @@ export const getImages =
   (jf: Api) =>
   <T extends BaseItemDto | BaseItemDto[] | undefined>(
     items: T
-  ): Effect.Effect<WithImage<T>, never, never> => {
+  ): Effect.Effect<LegacyEnrichedItem<T>, never, never> => {
     if (!items) {
-      return Effect.succeed(undefined as WithImage<T>);
+      return Effect.succeed(undefined as LegacyEnrichedItem<T>);
     }
 
     return Effect.sync(() => {
@@ -238,7 +242,7 @@ export const getImages =
 
           return {
             ...item,
-            Image: getBestPrimaryImageUrl(
+            Image: getCataloguePrimaryImageUrl(
               new ImageUrlsApi(jf.configuration),
               item,
             ),
@@ -247,14 +251,14 @@ export const getImages =
                 jf.configuration
               ).getItemBackdropImageUrls(item),
               ...(!imageTags.Logo && {
-                Logo: getBestLogoImageUrl(
+                Logo: getCatalogueLogoImageUrl(
                   new ImageUrlsApi(jf.configuration),
                   item,
                 ),
               }),
             }),
           };
-        }) as unknown as WithImage<T>;
+        }) as unknown as LegacyEnrichedItem<T>;
       }
 
       const imageTags = getImagesFromTags(
@@ -267,7 +271,7 @@ export const getImages =
 
       return {
         ...items,
-        Image: getBestPrimaryImageUrl(
+        Image: getCataloguePrimaryImageUrl(
           new ImageUrlsApi(jf.configuration),
           items,
           { quality: 40 },
@@ -277,13 +281,13 @@ export const getImages =
             items
           ),
           ...(!imageTags.Logo && {
-            Logo: getBestLogoImageUrl(
+            Logo: getCatalogueLogoImageUrl(
               new ImageUrlsApi(jf.configuration),
               items,
             ),
           }),
         }),
-      } as unknown as WithImage<T>;
+      } as unknown as LegacyEnrichedItem<T>;
     });
   };
 

@@ -1,7 +1,4 @@
-import {
-  type BaseItemDto,
-  PlayMethod,
-} from "@jellyfin/sdk/lib/generated-client";
+import { PlayMethod } from "@jellyfin/sdk/lib/generated-client";
 import { getPlaystateApi } from "@jellyfin/sdk/lib/utils/api/playstate-api";
 import type { UnlistenFn } from "@tauri-apps/api/event";
 import { getAllWindows, getCurrentWindow } from "@tauri-apps/api/window";
@@ -20,7 +17,8 @@ import type {
 import { useVideoContext } from "~/contexts/video-context";
 import { useRuntime } from "~/effect/runtime/use-runtime";
 import { AuthService } from "~/effect/services/auth";
-import type { WithImage } from "~/effect/services/jellyfin/service";
+import { JellyfinCatalogueOperations } from "~/effect/services/jellyfin/catalogue/operations";
+import type { MediaItem } from "~/effect/services/jellyfin/catalogue/types";
 import {
   findTrackByLanguage,
   normalizeLanguageCode,
@@ -31,7 +29,7 @@ import { useAppPreferences } from "~/lib/store-hooks";
 import { commands, events } from "~/lib/tauri";
 import { planPlaybackSessionTeardown } from "~/playback/playback-session-lifecycle";
 
-type ItemDetails = WithImage<BaseItemDto> | undefined;
+type ItemDetails = MediaItem | undefined;
 
 /**
  * Returns true only when `url` is a canonical Jellyfin subtitle stream URL
@@ -92,11 +90,16 @@ export function useVideoPlayback(
       const auth = yield* AuthService;
       const api = yield* auth.getApi();
       const user = yield* auth.getUser();
-      return { api, userId: user.Id };
+      return { api, userId: user.id };
     })
   );
 
   const { store: appPrefs, setStore: setAppPrefs } = useAppPreferences();
+  const playbackMetadata = JellyfinCatalogueOperations.getPlaybackMetadata(
+    itemId,
+    undefined,
+    () => ({ enabled: !!itemId(), refetchOnWindowFocus: false })
+  );
 
   /**
    * Returns the SeriesId when the current item is an episode, else undefined.
@@ -105,11 +108,11 @@ export function useVideoPlayback(
    */
   const getSeriesId = (): string | undefined => {
     const details = itemDetails();
-    if (!details?.Id || details.Id !== state.currentItemId) {
+    if (!details?.id || details.id !== state.currentItemId) {
       return;
     }
-    if (details.Type === "Episode" && details.SeriesId) {
-      return details.SeriesId;
+    if (details.type === "Episode" && details.seriesId) {
+      return details.seriesId;
     }
   };
 
@@ -610,7 +613,7 @@ export function useVideoPlayback(
   let audioIsManual = false;
   let subtitleIsManual = false;
   // Whether automatic startup resolution has been finalized with current metadata
-  // (i.e. itemDetails().Id === state.currentItemId).
+  // (i.e. itemDetails().id === state.currentItemId).
   let audioStartupFinalized = false;
   let subtitleStartupFinalized = false;
   // Whether external subtitle injection has already been performed for this item.
@@ -629,7 +632,7 @@ export function useVideoPlayback(
   /** Returns true when itemDetails() is loaded and matches the active item. */
   const isMetadataCurrent = (): boolean => {
     const details = itemDetails();
-    return !!details?.Id && details.Id === state.currentItemId;
+    return !!details?.id && details.id === state.currentItemId;
   };
 
   /** Flush any queued manual per-series saves whose itemId still matches. */
@@ -707,27 +710,15 @@ export function useVideoPlayback(
     // meaning this run must stop issuing player commands immediately.
     const isStale = () => thisLoad !== loadVersion;
 
-    // Fetch playback info to obtain the chosen MediaSourceId (and LiveStreamId)
-    // so the video stream URL and subtitle injection both reference the same source.
+    // Use catalogue Playback Metadata to obtain the chosen media source anchors.
     let mediaSourceId: string | undefined;
     let liveStreamId: string | undefined;
-    try {
-      const { getMediaInfoApi } = await import(
-        "@jellyfin/sdk/lib/utils/api/media-info-api"
-      );
-      const res = await getMediaInfoApi(jf.api).getPlaybackInfo({
-        itemId: currentItemId,
-        userId: jf.userId ?? undefined,
-      });
-      if (!isStale()) {
-        const source = res.data?.MediaSources?.[0];
-        mediaSourceId = source?.Id ?? undefined;
-        liveStreamId = source?.LiveStreamId ?? undefined;
-        activeMediaSourceId = mediaSourceId;
-        activeLiveStreamId = liveStreamId;
-      }
-    } catch (_e) {
-      // Playback-info unavailable; fall back to URL without media-source params.
+    const source = playbackMetadata.data?.sources[0];
+    if (source && !isStale()) {
+      mediaSourceId = source.id;
+      liveStreamId = source.liveStreamId;
+      activeMediaSourceId = mediaSourceId;
+      activeLiveStreamId = liveStreamId;
     }
 
     if (isStale()) {
@@ -778,16 +769,14 @@ export function useVideoPlayback(
   createEffect(() => {
     let chapters: Chapter[] = [];
 
-    // Check for chapters in different possible fields
-    if (itemDetails()?.Chapters && Array.isArray(itemDetails()?.Chapters)) {
-      chapters =
-        (itemDetails()?.Chapters?.map((chapter) => ({
-          startPositionTicks: chapter?.StartPositionTicks || 0,
-          name: chapter?.Name || null,
-          imagePath: chapter?.ImagePath || null,
-          imageDateModified: chapter?.ImageDateModified || null,
-          imageTag: chapter?.ImageTag || null,
-        })) as Chapter[]) ?? [];
+    if (playbackMetadata.data?.chapters) {
+      chapters = playbackMetadata.data.chapters.map((chapter) => ({
+        startPositionTicks: chapter.startPositionTicks || 0,
+        name: chapter.name || null,
+        imagePath: null,
+        imageDateModified: null,
+        imageTag: null,
+      }));
     }
     setState("chapters", chapters);
   });
@@ -808,7 +797,7 @@ export function useVideoPlayback(
       return;
     }
     externalSubtitlesLoaded = true;
-    const injectionItemId = details.Id;
+    const injectionItemId = details.id;
     if (!jf.api) {
       return;
     }
@@ -819,44 +808,34 @@ export function useVideoPlayback(
       return;
     }
     try {
-      const { getMediaInfoApi } = await import(
-        "@jellyfin/sdk/lib/utils/api/media-info-api"
-      );
-      const res = await getMediaInfoApi(jf.api).getPlaybackInfo({
-        itemId: injectionItemId,
-        userId: jf.userId,
-      });
-      // Abort if the active item changed while the request was in-flight.
       if (state.currentItemId !== injectionItemId) {
         return;
       }
-      // Prefer the media source whose Id matches the one chosen during
-      // playback startup (activeMediaSourceId).  Fall back to index 0 only
-      // when no anchor is available so that the previous behaviour is
-      // preserved for edge cases where playback-info was unavailable.
-      const sources = res.data?.MediaSources ?? [];
+      // Prefer the media source whose id matches the one chosen during
+      // playback startup (activeMediaSourceId). Fall back to index 0.
+      const sources = playbackMetadata.data?.sources ?? [];
       const activeSource =
         (activeMediaSourceId
-          ? sources.find((s) => s.Id === activeMediaSourceId)
+          ? sources.find((s) => s.id === activeMediaSourceId)
           : undefined) ?? sources[0];
       const basePath = jf.api.basePath ?? "";
       const token = jf.api.accessToken ?? "";
       const subtitleSourceId =
-        activeSource?.Id ?? activeMediaSourceId ?? "";
-      for (const stream of activeSource?.MediaStreams ?? []) {
-        if (stream.Type !== "Subtitle" || !stream.IsExternal) {
+        activeSource?.id ?? activeMediaSourceId ?? "";
+      for (const stream of activeSource?.streams ?? []) {
+        if (stream.type !== "Subtitle" || !stream.isExternal) {
           continue;
         }
         // Use DeliveryUrl only when it is a canonical Jellyfin subtitle
         // stream URL for the active item/mediaSource.  Loose checks (e.g.
         // just looking for "/Subtitles/" anywhere) could accept
         // filesystem-backed or unrelated URLs that mpv cannot fetch.
-        const deliveryUrl = (stream as { DeliveryUrl?: string }).DeliveryUrl;
+        const deliveryUrl = stream.deliveryUrl;
         const useDeliveryUrl =
           typeof deliveryUrl === "string" &&
           isCanonicalSubtitleStreamUrl(
             deliveryUrl,
-            details.Id ?? "",
+            details.id ?? "",
             subtitleSourceId
           );
         let url: string;
@@ -865,7 +844,7 @@ export function useVideoPlayback(
             ? `${basePath}${deliveryUrl}`
             : deliveryUrl;
         } else {
-          if (stream.Index == null || !subtitleSourceId || !details.Id) {
+          if (stream.index == null || !subtitleSourceId || !details.id) {
             continue;
           }
           const SUBTITLE_CODEC_TO_EXT: Record<string, string> = {
@@ -879,9 +858,9 @@ export function useVideoPlayback(
             dvd_subtitle: "sub",
             hdmv_pgs_subtitle: "sup",
           };
-          const codec = stream.Codec ?? "srt";
+          const codec = stream.codec ?? "srt";
           const format = SUBTITLE_CODEC_TO_EXT[codec.toLowerCase()] ?? codec;
-          url = `${basePath}/Videos/${details.Id}/${subtitleSourceId}/Subtitles/${stream.Index}/Stream.${format}?api_key=${token}`;
+          url = `${basePath}/Videos/${details.id}/${subtitleSourceId}/Subtitles/${stream.index}/Stream.${format}?api_key=${token}`;
         }
         // Re-check staleness before each individual sub-add command.
         if (state.currentItemId !== injectionItemId) {
@@ -891,15 +870,15 @@ export function useVideoPlayback(
         // Build a human-friendly track title for the subtitle dropdown.
         // Prefer DisplayTitle (e.g. "English (SRT)"), fall back to Language, then Title.
         const subtitleTitle: string | null =
-          (stream as { DisplayTitle?: string }).DisplayTitle ||
-          stream.Language ||
-          stream.Title ||
+          stream.displayTitle ||
+          stream.language ||
+          stream.title ||
           null;
-        const subtitleLang: string | null = stream.Language || null;
+        const subtitleLang: string | null = stream.language || null;
 
         // --- Diagnostics: log context for every attempted subtitle load ---
-        const diagCodec = stream.Codec ?? "unknown";
-        const subtitleIndex = stream.Index ?? -1;
+        const diagCodec = stream.codec ?? "unknown";
+        const subtitleIndex = stream.index ?? -1;
         const urlSource = useDeliveryUrl ? "DeliveryUrl" : "constructed";
         // biome-ignore lint/suspicious/noConsole: subtitle diagnostics
         console.debug(
@@ -983,7 +962,7 @@ export function useVideoPlayback(
 
   createEffect(async () => {
     const details = itemDetails();
-    if (!details?.Id || details.Id !== state.currentItemId) {
+    if (!details?.id || details.id !== state.currentItemId) {
       return;
     }
 
@@ -1084,8 +1063,8 @@ export function useVideoPlayback(
           // metadata arrives and fileLoadedForCurrentItem is already true.
           const loadedDetails = itemDetails();
           if (
-            loadedDetails?.Id &&
-            loadedDetails.Id === state.currentItemId &&
+            loadedDetails?.id &&
+            loadedDetails.id === state.currentItemId &&
             !externalSubtitlesLoaded
           ) {
             // Fire-and-forget; errors are caught inside doInjectExternalSubtitles.
@@ -1097,8 +1076,8 @@ export function useVideoPlayback(
           if (Number(state.currentTime) > 0) {
             beginAbsoluteSeek(Number(state.currentTime));
           } else {
-            const userProgress = itemDetails()?.UserData?.PlaybackPositionTicks
-              ? (itemDetails()?.UserData?.PlaybackPositionTicks as number) /
+            const userProgress = itemDetails()?.userData?.playbackPositionTicks
+              ? (itemDetails()?.userData?.playbackPositionTicks as number) /
                 10_000_000
               : 0;
 

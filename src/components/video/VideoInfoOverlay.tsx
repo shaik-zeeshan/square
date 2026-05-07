@@ -1,27 +1,15 @@
 import { useNavigate } from "@solidjs/router";
 import { Show } from "solid-js";
+import type { MediaItem } from "~/effect/services/jellyfin/catalogue/types";
 
 type VideoInfoOverlayProps = {
   /** When true the cached data belongs to a previous item; hide overlay until fresh data arrives. */
   isStale?: boolean;
   itemDetails: {
-    data?: {
-      Name?: string | null;
-      SeriesName?: string | null;
-      Overview?: string | null;
-      Type?: string | null;
-      Id?: string | null;
-      ParentId?: string | null;
-      SeriesId?: string | null;
-      IndexNumber?: number | null;
-      ParentIndexNumber?: number | null;
-    };
+    data?: MediaItem;
   };
   seriesDetails: {
-    data?: {
-      Id?: string | null;
-      ParentId?: string | null;
-    };
+    data?: MediaItem;
   };
 };
 
@@ -37,51 +25,51 @@ export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
             {/* Episode / Season meta */}
             <Show
               when={
-                props.itemDetails.data?.Type === "Episode" &&
-                (props.itemDetails.data?.ParentIndexNumber ||
-                  props.itemDetails.data?.IndexNumber)
+                props.itemDetails.data?.type === "episode" &&
+                (props.itemDetails.data?.parentIndexNumber ||
+                  props.itemDetails.data?.indexNumber)
               }
             >
               <div class="mb-2.5 text-center font-mono text-[10px] text-blue-300/50 uppercase tracking-[0.25em]">
-                <Show when={props.itemDetails.data?.ParentIndexNumber}>
-                  S{props.itemDetails.data?.ParentIndexNumber}
+                <Show when={props.itemDetails.data?.parentIndexNumber}>
+                  S{props.itemDetails.data?.parentIndexNumber}
                 </Show>
                 <Show
                   when={
-                    props.itemDetails.data?.ParentIndexNumber &&
-                    props.itemDetails.data?.IndexNumber
+                    props.itemDetails.data?.parentIndexNumber &&
+                    props.itemDetails.data?.indexNumber
                   }
                 >
                   &thinsp;·&thinsp;
                 </Show>
-                <Show when={props.itemDetails.data?.IndexNumber}>
-                  E{props.itemDetails.data?.IndexNumber}
+                <Show when={props.itemDetails.data?.indexNumber}>
+                  E{props.itemDetails.data?.indexNumber}
                 </Show>
               </div>
             </Show>
 
             {/* Primary title */}
             <h1 class="mb-2.5 text-center font-semibold text-[22px] text-white leading-tight tracking-tight drop-shadow-[0_2px_16px_rgba(0,0,0,0.9)]">
-              {props.itemDetails.data?.Name}
+              {props.itemDetails.data?.name}
             </h1>
 
             {/* Series link */}
             <Show
               when={
-                props.itemDetails.data?.Type === "Episode" &&
-                props.itemDetails.data?.SeriesName &&
-                props.itemDetails.data?.SeriesId &&
-                props.seriesDetails.data?.ParentId &&
-                props.seriesDetails.data?.Id ===
-                  props.itemDetails.data?.SeriesId
+                props.itemDetails.data?.type === "episode" &&
+                props.itemDetails.data?.seriesName &&
+                props.itemDetails.data?.seriesId &&
+                props.seriesDetails.data?.parentId &&
+                props.seriesDetails.data?.id ===
+                  props.itemDetails.data?.seriesId
               }
             >
               <button
                 class="pointer-events-auto mx-auto mb-3 block cursor-pointer text-center text-[13px] text-blue-300/45 drop-shadow-md transition-colors duration-150 hover:text-blue-200/75"
                 onClick={(e) => {
                   e.stopPropagation();
-                  const libraryId = props.seriesDetails.data?.ParentId;
-                  const seriesId = props.itemDetails.data?.SeriesId;
+                  const libraryId = props.seriesDetails.data?.parentId;
+                  const seriesId = props.itemDetails.data?.seriesId;
                   if (!libraryId) {
                     return;
                   }
@@ -91,18 +79,18 @@ export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
                   navigate(`/library/${libraryId}/item/${seriesId}`);
                 }}
               >
-                {props.itemDetails.data?.SeriesName}
+                {props.itemDetails.data?.seriesName}
               </button>
             </Show>
 
             {/* Movie "view details" */}
-            <Show when={props.itemDetails.data?.Type === "Movie"}>
+            <Show when={props.itemDetails.data?.type === "movie"}>
               <button
                 class="pointer-events-auto mx-auto mb-3 block cursor-pointer text-center text-[12px] text-white/30 drop-shadow-md transition-colors duration-150 hover:text-white/60"
                 onClick={(e) => {
                   e.stopPropagation();
                   navigate(
-                    `/library/${props.itemDetails.data?.ParentId}/item/${props.itemDetails.data?.Id}`
+                    `/library/${props.itemDetails.data?.parentId}/item/${props.itemDetails.data?.id}`
                   );
                 }}
               >
@@ -110,9 +98,9 @@ export default function VideoInfoOverlay(props: VideoInfoOverlayProps) {
               </button>
             </Show>
 
-            <Show when={props.itemDetails.data?.Overview}>
+            <Show when={props.itemDetails.data?.overview}>
               <p class="line-clamp-2 text-center text-[12px] text-white/40 leading-relaxed drop-shadow-md">
-                {props.itemDetails.data?.Overview}
+                {props.itemDetails.data?.overview}
               </p>
             </Show>
           </div>

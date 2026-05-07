@@ -12,7 +12,10 @@ import {
 } from "solid-js";
 import { Portal } from "solid-js/web";
 import { ItemActions } from "~/components/ItemActions";
-import { MainPageEpisodeCard, SeriesCard } from "~/components/media-card";
+import {
+  MainPageEpisodeCard,
+  NormalizedSeriesCard,
+} from "~/components/media-card";
 import { Nav } from "~/components/Nav";
 import { QueryBoundary } from "~/components/query-boundary";
 
@@ -35,7 +38,7 @@ import type {
 } from "~/effect/services/integrations/types";
 import { queryClient } from "~/effect/tanstack/query";
 import { BUILT_IN_PLUGINS } from "~/effect/services/integrations/types";
-import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
+import { JellyfinCatalogueOperations } from "~/effect/services/jellyfin/catalogue/operations";
 import HouseIcon from "~icons/lucide/house";
 
 // ── Section heading — streaming rail label with curated feel ──────────────────
@@ -833,7 +836,7 @@ function PluginSearchSection(props: { searchTerm: string }) {
                   animation: "fadeIn 150ms ease-out both",
                 }}
               >
-                {/* Backdrop */}
+                {/* Modal backdrop */}
                 <button
                   aria-label="Close modal"
                   class="absolute inset-0 bg-black/60 backdrop-blur-sm"
@@ -1284,30 +1287,29 @@ function SearchActiveBanner(props: { term: string }) {
 // ── Featured Hero — full-bleed banner from top edge, dissolves at ~40% vh ────
 function FeaturedHero(props: {
   item: {
-    Id?: string | null;
-    Name?: string | null;
-    Overview?: string | null;
-    Image?: string;
-    ProductionYear?: number | null;
-    SeriesName?: string | null;
-    Type?: string | null;
-    ParentIndexNumber?: number | null;
-    IndexNumber?: number | null;
-    SeasonName?: string | null;
-    UserData?: {
-      Played?: boolean | null;
-      IsFavorite?: boolean | null;
-      PlayedPercentage?: number | null;
-      PlaybackPositionTicks?: number | null;
+    id: string;
+    name: string;
+    overview?: string;
+    artwork: { backdrop?: string; primary?: string };
+    year?: number;
+    seriesName?: string;
+    type: string;
+    indexNumber?: number;
+    seasonName?: string;
+    userData: {
+      played: boolean;
+      favorite: boolean;
+      playedPercentage?: number;
+      playbackPositionTicks?: number;
     };
   };
 }) {
   const episodeLabel = () => {
-    if (props.item.Type !== "Episode") {
+    if (props.item.type !== "Episode") {
       return null;
     }
-    const s = props.item.ParentIndexNumber;
-    const e = props.item.IndexNumber;
+    const s = undefined;
+    const e = props.item.indexNumber;
     if (s != null && e != null) {
       return `S${s} E${e}`;
     }
@@ -1330,12 +1332,12 @@ function FeaturedHero(props: {
           fallback={
             <div class="h-full w-full bg-gradient-to-br from-blue-950/40 to-slate-950/60" />
           }
-          when={props.item.Image}
+          when={(props.item.artwork.backdrop ?? props.item.artwork.primary)}
         >
           <img
-            alt={props.item.Name ?? "Featured"}
+            alt={props.item.name ?? "Featured"}
             class="h-full w-full object-cover object-[center_20%] transition-transform duration-[1.2s] ease-out"
-            src={props.item.Image}
+            src={(props.item.artwork.backdrop ?? props.item.artwork.primary)}
             style={{ animation: "heroZoom 20s ease-in-out alternate infinite" }}
           />
         </Show>
@@ -1362,7 +1364,7 @@ function FeaturedHero(props: {
         <div class="absolute right-0 bottom-0 left-0 px-8 pb-12 sm:px-10 sm:pb-16 lg:px-12">
           <div class="max-w-lg space-y-4">
             {/* Type badge with subtle glow */}
-            <Show when={props.item.Type}>
+            <Show when={props.item.type}>
               <span
                 class="inline-flex items-center gap-1.5 rounded-md border border-white/[0.08] bg-white/[0.06] px-2.5 py-1 font-semibold text-[10px] text-white/55 uppercase tracking-widest backdrop-blur-sm"
                 style={{
@@ -1371,14 +1373,14 @@ function FeaturedHero(props: {
                 }}
               >
                 <span class="h-1.5 w-1.5 rounded-full bg-blue-400/70" />
-                {props.item.Type === "Episode"
+                {props.item.type === "Episode"
                   ? "Continue Watching"
                   : "Featured"}
               </span>
             </Show>
 
             {/* Series name for episodes */}
-            <Show when={props.item.SeriesName}>
+            <Show when={props.item.seriesName}>
               <p
                 class="font-medium text-blue-300/60 text-sm uppercase tracking-widest"
                 style={{
@@ -1386,7 +1388,7 @@ function FeaturedHero(props: {
                     "fadeSlideUp 500ms cubic-bezier(0.22,1,0.36,1) 250ms both",
                 }}
               >
-                {props.item.SeriesName}
+                {props.item.seriesName}
               </p>
             </Show>
 
@@ -1398,7 +1400,7 @@ function FeaturedHero(props: {
                   "fadeSlideUp 600ms cubic-bezier(0.22,1,0.36,1) 300ms both",
               }}
             >
-              {props.item.Name}
+              {props.item.name}
             </h1>
 
             {/* Meta row */}
@@ -1414,20 +1416,20 @@ function FeaturedHero(props: {
                   {episodeLabel()}
                 </span>
               </Show>
-              <Show when={props.item.ProductionYear}>
+              <Show when={props.item.year}>
                 <span class="rounded border border-white/[0.08] px-2 py-0.5 text-white/45 text-xs tabular-nums">
-                  {props.item.ProductionYear}
+                  {props.item.year}
                 </span>
               </Show>
-              <Show when={props.item.SeasonName}>
+              <Show when={props.item.seasonName}>
                 <span class="text-white/35 text-xs">
-                  {props.item.SeasonName}
+                  {props.item.seasonName}
                 </span>
               </Show>
             </div>
 
             {/* Overview — better readability */}
-            <Show when={props.item.Overview}>
+            <Show when={props.item.overview}>
               <p
                 class="line-clamp-2 max-w-md text-[13px] text-white/40 leading-relaxed sm:text-sm"
                 style={{
@@ -1435,7 +1437,7 @@ function FeaturedHero(props: {
                     "fadeSlideUp 500ms cubic-bezier(0.22,1,0.36,1) 450ms both",
                 }}
               >
-                {props.item.Overview}
+                {props.item.overview}
               </p>
             </Show>
 
@@ -1449,7 +1451,7 @@ function FeaturedHero(props: {
             >
               <a
                 class="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-semibold text-slate-950 text-sm shadow-[0_4px_24px_rgba(255,255,255,0.1)] transition-all duration-200 hover:bg-white/90 hover:shadow-[0_4px_32px_rgba(255,255,255,0.18)] active:scale-[0.97]"
-                href={`/video/${props.item.Id}`}
+                href={`/video/${props.item.id}`}
               >
                 <svg class="h-4 w-4 fill-current" viewBox="0 0 24 24">
                   <title>Play</title>
@@ -1460,7 +1462,7 @@ function FeaturedHero(props: {
               <ItemActions
                 class="hero-item-actions [&_button]:border [&_button]:border-white/[0.12] [&_button]:bg-white/[0.08] [&_button]:backdrop-blur-sm [&_button]:hover:border-white/[0.2] [&_button]:hover:bg-white/[0.15]"
                 item={props.item as Parameters<typeof ItemActions>[0]["item"]}
-                itemId={props.item.Id as string}
+                itemId={props.item.id as string}
                 variant="detail"
               />
             </div>
@@ -1493,18 +1495,18 @@ export default function Home() {
     }
   };
 
-  const libraries = JellyfinOperations.getLibraries();
+  const libraries = JellyfinCatalogueOperations.getLibraries();
 
-  const resumeItems = JellyfinOperations.getResumeItems();
+  const resumeItems = JellyfinCatalogueOperations.getResumeRail();
 
-  const nextupItems = JellyfinOperations.getNextupItems();
+  const nextupItems = JellyfinCatalogueOperations.getNextUpRail();
 
-  const latestMovies = JellyfinOperations.getLatestMovies(
+  const latestMovies = JellyfinCatalogueOperations.getLatestMovies(
     () => searchTerm(),
     libraries.data
   );
 
-  const latestTVShows = JellyfinOperations.getLatestTVShows(
+  const latestTVShows = JellyfinCatalogueOperations.getLatestTVShows(
     () => searchTerm(),
     libraries.data
   );
@@ -1627,24 +1629,24 @@ export default function Home() {
                             {(item) => (
                               <a
                                 class="group block h-full w-full"
-                                href={`/library/${item.Id}`}
+                                href={`/library/${item.id}`}
                               >
                                 <div class="relative h-full w-full overflow-hidden rounded-xl border border-white/[0.06] shadow-[0_2px_16px_rgba(0,0,0,0.4)] transition-all duration-300 group-hover:scale-[1.02] group-hover:border-white/[0.12] group-hover:shadow-[0_8px_40px_rgba(0,0,0,0.6)]">
-                                  {/* Image */}
+                                  {/* Artwork */}
                                   <Show
                                     fallback={
                                       <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-950/30 to-slate-950/40">
                                         <span class="font-bold text-5xl text-white/15">
-                                          {item.Name?.charAt(0)}
+                                          {item.name?.charAt(0)}
                                         </span>
                                       </div>
                                     }
-                                    when={item.Image}
+                                    when={item.artwork.primary}
                                   >
                                     <img
-                                      alt={item.Name ?? "Library"}
+                                      alt={item.name ?? "Library"}
                                       class="absolute inset-0 h-full w-full scale-[1.08] object-cover transition-transform duration-700 ease-out group-hover:scale-100"
-                                      src={item.Image}
+                                      src={item.artwork.primary}
                                     />
                                   </Show>
 
@@ -1657,11 +1659,11 @@ export default function Home() {
                                   {/* Title */}
                                   <div class="absolute right-0 bottom-0 left-0 p-3.5">
                                     <h3 class="line-clamp-2 font-semibold text-sm text-white drop-shadow-lg">
-                                      {item.Name}
+                                      {item.name}
                                     </h3>
-                                    <Show when={item.CollectionType}>
+                                    <Show when={item.collectionType}>
                                       <p class="mt-0.5 text-white/45 text-xs capitalize tracking-wide">
-                                        {item.CollectionType}
+                                        {item.collectionType}
                                       </p>
                                     </Show>
                                   </div>
@@ -1709,14 +1711,14 @@ export default function Home() {
                         <For each={data.slice(0, 4)}>
                           {(item) => {
                             const progressPercentage =
-                              item.UserData?.PlayedPercentage || 0;
-                            const isEpisode = item.Type === "Episode";
-                            const isMovie = item.Type === "Movie";
+                              item.userData.playedPercentage || 0;
+                            const isEpisode = item.jellyfinType === "Episode";
+                            const isMovie = item.jellyfinType === "Movie";
 
                             const remainingMinutes = (() => {
-                              const totalTicks = item.RunTimeTicks ?? 0;
+                              const totalTicks = item.runtimeTicks ?? 0;
                               const pos =
-                                item.UserData?.PlaybackPositionTicks ?? 0;
+                                item.userData.playbackPositionTicks ?? 0;
                               if (totalTicks === 0 || pos === 0) {
                                 return null;
                               }
@@ -1739,8 +1741,8 @@ export default function Home() {
                               if (!isEpisode) {
                                 return null;
                               }
-                              const s = item.ParentIndexNumber;
-                              const e = item.IndexNumber;
+                              const s = undefined;
+                              const e = item.indexNumber;
                               if (s != null && e != null) {
                                 return `S${s} E${e}`;
                               }
@@ -1751,7 +1753,7 @@ export default function Home() {
                             })();
 
                             return (
-                              <a class="group block" href={`/video/${item.Id}`}>
+                              <a class="group block" href={`/video/${item.id}`}>
                                 <div class="relative overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] shadow-[0_2px_12px_rgba(0,0,0,0.3)] transition-all duration-300 group-hover:scale-[1.02] group-hover:border-white/[0.12] group-hover:shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
                                   {/* Blue top-edge accent on hover */}
                                   <div class="pointer-events-none absolute inset-x-0 top-0 z-30 h-px bg-gradient-to-r from-transparent via-blue-400/0 to-transparent transition-all duration-300 group-hover:via-blue-400/40" />
@@ -1764,17 +1766,17 @@ export default function Home() {
                                       fallback={
                                         <div class="flex h-full w-full items-center justify-center bg-gradient-to-br from-blue-950/20 to-slate-950/30">
                                           <span class="font-bold text-3xl text-white/15">
-                                            {item.Name?.charAt(0)}
+                                            {item.name?.charAt(0)}
                                           </span>
                                         </div>
                                       }
-                                      when={item.Image}
+                                      when={item.artwork.primary}
                                     >
                                       <img
-                                        alt={item.Name ?? "Item"}
+                                        alt={item.name ?? "Item"}
                                         class="h-full w-full scale-[1.06] object-cover transition-transform duration-700 ease-out group-hover:scale-100"
                                         loading="lazy"
-                                        src={item.Image}
+                                        src={item.artwork.primary}
                                       />
                                     </Show>
 
@@ -1820,38 +1822,38 @@ export default function Home() {
                                     <div class="absolute top-1.5 right-1.5 z-20 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
                                       <ItemActions
                                         item={item}
-                                        itemId={item.Id as string}
+                                        itemId={item.id}
                                         variant="card"
                                       />
                                     </div>
 
                                     {/* Metadata footer */}
                                     <div class="absolute right-0 bottom-0 left-0 px-2.5 pt-4 pb-2.5">
-                                      <Show when={isEpisode && item.SeriesName}>
+                                      <Show when={isEpisode && item.seriesName}>
                                         <p class="mb-px line-clamp-1 font-semibold text-[10px] text-white/40 uppercase tracking-wide drop-shadow-lg">
-                                          {item.SeriesName}
+                                          {item.seriesName}
                                         </p>
                                       </Show>
                                       <h3 class="line-clamp-1 font-bold text-white text-xs drop-shadow-lg">
-                                        {item.Name}
+                                        {item.name}
                                       </h3>
                                       <div class="mt-0.5 flex items-center gap-1.5">
                                         <Show
-                                          when={isMovie && item.ProductionYear}
+                                          when={isMovie && item.year}
                                         >
                                           <span class="text-[10px] text-white/35 drop-shadow-md">
-                                            {item.ProductionYear}
+                                            {item.year}
                                           </span>
                                         </Show>
                                         <Show
                                           when={
                                             isEpisode &&
-                                            item.SeasonName &&
+                                            item.seasonName &&
                                             !episodeLabel
                                           }
                                         >
                                           <span class="text-[10px] text-white/35 drop-shadow-md">
-                                            {item.SeasonName}
+                                            {item.seasonName}
                                           </span>
                                         </Show>
                                         <Show when={remainingMinutes}>
@@ -1967,7 +1969,7 @@ export default function Home() {
                     />
                     <div class="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
                       <For each={data}>
-                        {(item) => <SeriesCard item={item} />}
+                        {(item) => <NormalizedSeriesCard item={item} />}
                       </For>
                     </div>
                   </div>
@@ -2021,7 +2023,7 @@ export default function Home() {
                     />
                     <div class="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7">
                       <For each={data}>
-                        {(item) => <SeriesCard item={item} />}
+                        {(item) => <NormalizedSeriesCard item={item} />}
                       </For>
                     </div>
                   </div>

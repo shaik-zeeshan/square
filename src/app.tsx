@@ -22,7 +22,7 @@ import "./app.css";
 import { CheckForUpdate } from "~/components/update-component";
 import { useVideoContext } from "~/contexts/video-context";
 import { VideoContextProvider } from "./contexts/video-context";
-import { queryClient } from "./effect/tanstack/query";
+import { queryClient } from "./effect/tanstack/query-client";
 import { AppPreferencesProvider } from "./lib/store-hooks";
 
 const SolidQueryDevtools = import.meta.env.DEV
@@ -110,36 +110,36 @@ export default function App() {
   const runtime = ManagedRuntime.make(LiveLayer);
 
   return (
-    <Router
-      root={(props) => (
-        <AppErrorBoundary>
-          <ErrorBoundary
-            fallback={(e: Error) => <div>error occured : {e.message}</div>}
-          >
-            <RuntimeProvider runtime={runtime}>
-              <QueryClientProvider client={queryClient}>
+    <AppErrorBoundary>
+      <ErrorBoundary
+        fallback={(e: Error) => <div>error occured : {e.message}</div>}
+      >
+        <RuntimeProvider runtime={runtime}>
+          <QueryClientProvider client={queryClient}>
+            <Router
+              root={(props) => (
                 <AppPreferencesProvider>
-                <VideoContextProvider>
-                  <AppContainer>
-                    <Suspense fallback={<PageLoading />}>
-                      {props.children}
-                    </Suspense>
-                  </AppContainer>
-                  <Toaster />
-                  <SolidQueryDevtools
-                    buttonPosition="bottom-left"
-                    initialIsOpen={false}
-                    position="top"
-                  />
-                </VideoContextProvider>
+                  <VideoContextProvider>
+                    <AppContainer>
+                      <Suspense fallback={<PageLoading />}>
+                        {props.children}
+                      </Suspense>
+                    </AppContainer>
+                    <Toaster />
+                    <SolidQueryDevtools
+                      buttonPosition="bottom-left"
+                      initialIsOpen={false}
+                      position="top"
+                    />
+                  </VideoContextProvider>
                 </AppPreferencesProvider>
-              </QueryClientProvider>
-            </RuntimeProvider>
-          </ErrorBoundary>
-        </AppErrorBoundary>
-      )}
-    >
-      <FileRoutes />
-    </Router>
+              )}
+            >
+              <FileRoutes />
+            </Router>
+          </QueryClientProvider>
+        </RuntimeProvider>
+      </ErrorBoundary>
+    </AppErrorBoundary>
   );
 }

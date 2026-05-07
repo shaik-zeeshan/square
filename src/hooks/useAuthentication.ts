@@ -1,6 +1,5 @@
 import { useMutation } from "@tanstack/solid-query";
 import { batch, createMemo } from "solid-js";
-import { queryClient } from "~/effect/tanstack/query";
 import { strongholdService } from "~/lib/jellyfin/stronghold";
 import { user } from "~/lib/jellyfin/user";
 import { useServerStore } from "~/lib/store-hooks";
@@ -16,8 +15,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
   const { store: serverStore, setStore: setServerStore } = useServerStore();
 
   // Login mutation
-  const loginMutation = useMutation(
-    () => ({
+  const loginMutation = useMutation(() => ({
       mutationKey: ["login"],
       mutationFn: async (credentials: AuthCredentials) => {
         try {
@@ -121,13 +119,11 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
 
         options.onError?.(inner_error);
       },
-    }),
-    () => queryClient
+    })
   );
 
   // Logout mutation
-  const logoutMutation = useMutation(
-    () => ({
+  const logoutMutation = useMutation(() => ({
       mutationFn: () => {
         user.mutation.logout();
         return Promise.resolve();
@@ -138,8 +134,7 @@ export function useAuthentication(options: UseAuthenticationOptions = {}) {
       onError: (_error: Error) => {
         showErrorToast("Failed to sign out");
       },
-    }),
-    () => queryClient
+    })
   );
 
   // Authentication state

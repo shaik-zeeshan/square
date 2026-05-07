@@ -1,4 +1,3 @@
-import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 import { type RouteSectionProps, useNavigate } from "@solidjs/router";
 import { AlertTriangle, ArrowLeft, Eye, EyeOff, RefreshCw } from "lucide-solid";
 import { createEffect, onCleanup, Show, splitProps } from "solid-js";
@@ -14,8 +13,7 @@ import {
   VideoSettingsPanels,
 } from "~/components/video";
 import { useVideoContext } from "~/contexts/video-context";
-import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
-import type { WithImage } from "~/effect/services/jellyfin/service";
+import { JellyfinCatalogueOperations } from "~/effect/services/jellyfin/catalogue/operations";
 import { useAutoplay } from "~/hooks/useAutoplay";
 import { useVideoKeyboardShortcuts } from "~/hooks/useVideoKeyboardShortcuts";
 import { useVideoPlayback } from "~/hooks/useVideoPlayback";
@@ -27,7 +25,7 @@ export default function Page(props: RouteSectionProps) {
   const navigate = useNavigate();
   const { store: appPrefs } = useAppPreferences();
 
-  const itemDetails = JellyfinOperations.getItem(
+  const itemDetails = JellyfinCatalogueOperations.getItem(
     () => routeParams.id,
     {
       fields: ["Overview", "ParentId"],
@@ -39,14 +37,14 @@ export default function Page(props: RouteSectionProps) {
     })
   );
 
-  const seriesDetails = JellyfinOperations.getItem(
-    () => itemDetails.data?.SeriesId as string,
+  const seriesDetails = JellyfinCatalogueOperations.getItem(
+    () => itemDetails.data?.seriesId as string,
     {
       fields: ["ParentId"],
     },
     () => ({
       enabled:
-        !!itemDetails.data?.SeriesId && itemDetails.data?.Type === "Episode",
+        !!itemDetails.data?.seriesId && itemDetails.data?.type === "episode",
       refetchOnWindowFocus: false,
     })
   );
@@ -334,7 +332,7 @@ export default function Page(props: RouteSectionProps) {
       <Show when={state.showControls}>
         {/* ── Item Info Overlay ── */}
         <VideoInfoOverlay
-          isStale={itemDetails.data?.Id !== routeParams.id}
+          isStale={itemDetails.data?.id !== routeParams.id}
           itemDetails={itemDetails}
           seriesDetails={seriesDetails}
         />
@@ -420,7 +418,7 @@ export default function Page(props: RouteSectionProps) {
           <AutoplayOverlay
             isCollapsed={autoplayHook().isCollapsed()}
             isVisible={autoplayHook().showAutoplay()}
-            nextEpisode={autoplayHook().nextEpisode as WithImage<BaseItemDto>}
+            nextEpisode={autoplayHook().nextEpisode}
             onCancel={autoplayHook().cancelAutoplay}
             onPlayNext={() => {
               autoplayHook().playNextEpisode();

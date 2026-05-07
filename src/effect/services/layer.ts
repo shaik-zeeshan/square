@@ -3,6 +3,7 @@ import { IntegrationServiceLayer } from "~/effect/services/integrations/service"
 import { IntegrationConnectionStorageServiceLayer } from "~/effect/services/storage/integrations";
 import { UpdateSerivceLayer } from "~/effect/services/update/serives";
 import { AuthServiceLayer } from "./auth";
+import { JellyfinCatalogueServiceLayer } from "./jellyfin/catalogue/service";
 import { JellyfinClientServiceLayer } from "./jellyfin/client";
 import { JellyfinServiceLayer } from "./jellyfin/service";
 import { AuthStorageServiceLayer } from "./storage/auth";
@@ -15,6 +16,7 @@ export const LiveLayer = Layer.mergeAll(
   AuthServiceLayer,
   JellyfinClientServiceLayer,
   JellyfinServiceLayer,
+  JellyfinCatalogueServiceLayer,
   UpdateSerivceLayer,
   IntegrationServiceLayer
 ).pipe(Layer.provide(Logger.pretty));

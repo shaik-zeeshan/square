@@ -1,16 +1,12 @@
-import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 import { useNavigate } from "@solidjs/router";
 import type { UnlistenFn } from "@tauri-apps/api/event";
-import { Effect } from "effect";
 import { createEffect, createMemo, createSignal, onCleanup } from "solid-js";
-import { useRuntime } from "~/effect/runtime/use-runtime";
-import { AuthService } from "~/effect/services/auth";
-import type { WithImage } from "~/effect/services/jellyfin/service";
-import { JellyfinService } from "~/effect/services/jellyfin/service";
+import { JellyfinCatalogueOperations } from "~/effect/services/jellyfin/catalogue/operations";
+import type { MediaItem } from "~/effect/services/jellyfin/catalogue/types";
 import { commands, events } from "~/lib/tauri";
 
 type UseAutoplayProps = {
-  currentItem: () => WithImage<BaseItemDto> | undefined;
+  currentItem: () => MediaItem | undefined;
   onEndOfFile?: () => Promise<void>;
   playbackState: {
     currentTime: () => string;
@@ -21,73 +17,24 @@ type UseAutoplayProps = {
 
 export function useAutoplay(props: UseAutoplayProps) {
   const navigate = useNavigate();
-  const runtime = useRuntime();
 
   const [showAutoplay, setShowAutoplay] = createSignal(false);
   const [isCollapsed, setIsCollapsed] = createSignal(false);
   const [isCancelled, setIsCancelled] = createSignal(false);
   const [didPauseForAutoplay, setDidPauseForAutoplay] = createSignal(false);
-  const [nextEpisode, setNextEpisode] = createSignal<
-    WithImage<BaseItemDto> | undefined
-  >(undefined);
-  const [isNextEpisodeLoading, setIsNextEpisodeLoading] = createSignal(false);
+  const nextEpisodeQuery = JellyfinCatalogueOperations.getNextEpisode(props.currentItem);
 
   let playbackTimePollInterval: ReturnType<typeof setInterval> | undefined;
   let endOfFileUnlisten: UnlistenFn | undefined;
   let listenerSetupVersion = 0;
 
-  let fetchVersion = 0;
-  createEffect(() => {
-    const currentItem = props.currentItem();
-    const currentId = currentItem?.Id;
-    const version = ++fetchVersion;
-
-    if (!currentId || currentItem?.Type !== "Episode") {
-      setNextEpisode(undefined);
-      setIsNextEpisodeLoading(false);
-      return;
-    }
-
-    // Clear stale nextEpisode immediately so the previous autoplay card does
-    // not linger while we fetch the next episode for the new item.
-    setNextEpisode(undefined);
-    setIsNextEpisodeLoading(true);
-
-    runtime
-      .runPromise(
-        Effect.gen(function* () {
-          yield* AuthService;
-          return yield* JellyfinService.pipe(
-            Effect.flatMap((jf) => jf.getNextEpisode(currentItem))
-          );
-        })
-      )
-      .then((item) => {
-        if (version !== fetchVersion) {
-          return;
-        }
-        setNextEpisode(item);
-      })
-      .catch(() => {
-        if (version !== fetchVersion) {
-          return;
-        }
-        setNextEpisode(undefined);
-      })
-      .finally(() => {
-        if (version !== fetchVersion) {
-          return;
-        }
-        setIsNextEpisodeLoading(false);
-      });
-  });
 
   // Check if we should show autoplay when query completes
   createEffect(() => {
     // If nextEpisode query just completed and we're at 80%+, show autoplay
     if (
-      !isNextEpisodeLoading() &&
-      nextEpisode() &&
+      !nextEpisodeQuery.isLoading &&
+      nextEpisodeQuery.data &&
       !showAutoplay() &&
       !isCancelled()
     ) {
@@ -97,7 +44,7 @@ export function useAutoplay(props: UseAutoplayProps) {
       if (duration > 0 && currentTime > 0) {
         const progress = (currentTime / duration) * 100;
 
-        if (progress >= 80 && props.currentItem()?.Type === "Episode") {
+        if (progress >= 80 && props.currentItem()?.type === "episode") {
           // Show overlay without interrupting playback.
           setShowAutoplay(true);
         }
@@ -124,8 +71,8 @@ export function useAutoplay(props: UseAutoplayProps) {
   };
 
   const playNextEpisode = () => {
-    const next = nextEpisode();
-    if (!next?.Id) {
+    const next = nextEpisodeQuery.data;
+    if (!next?.id) {
       return;
     }
 
@@ -139,7 +86,7 @@ export function useAutoplay(props: UseAutoplayProps) {
       resetAutoplay();
 
       // Navigate to the new episode
-      navigate(`/video/${next.Id}`, { replace: true });
+      navigate(`/video/${next.id}`, { replace: true });
     } catch {
       setShowAutoplay(false);
     }
@@ -152,8 +99,8 @@ export function useAutoplay(props: UseAutoplayProps) {
     // Don't show if user has already cancelled autoplay
     if (
       reason === 0 &&
-      nextEpisode() &&
-      props.currentItem()?.Type === "Episode" &&
+      nextEpisodeQuery.data &&
+      props.currentItem()?.type === "episode" &&
       !isCancelled()
     ) {
       const duration = props.playbackState.duration();
@@ -167,8 +114,8 @@ export function useAutoplay(props: UseAutoplayProps) {
         if (
           progress >= 80 &&
           !showAutoplay() &&
-          !isNextEpisodeLoading() &&
-          nextEpisode()
+          !nextEpisodeQuery.isLoading &&
+          nextEpisodeQuery.data
         ) {
           // Show overlay without pausing playback.
           setShowAutoplay(true);
@@ -180,7 +127,7 @@ export function useAutoplay(props: UseAutoplayProps) {
         // cancel or confirm; we leave navigation entirely to their action.
         if (
           progress >= 95 &&
-          props.currentItem()?.Type === "Episode" &&
+          props.currentItem()?.type === "episode" &&
           !isCancelled() &&
           !showAutoplay()
         ) {
@@ -218,9 +165,9 @@ export function useAutoplay(props: UseAutoplayProps) {
       if (
         progress >= 80 &&
         !showAutoplay() &&
-        !isNextEpisodeLoading() &&
-        nextEpisode() &&
-        props.currentItem()?.Type === "Episode" &&
+        !nextEpisodeQuery.isLoading &&
+        nextEpisodeQuery.data &&
+        props.currentItem()?.type === "episode" &&
         !isCancelled()
       ) {
         // Show overlay without pausing playback.
@@ -232,7 +179,7 @@ export function useAutoplay(props: UseAutoplayProps) {
   // Reset autoplay state when current item changes
   let lastItemId = "";
   createEffect(() => {
-    const currentId = props.currentItem()?.Id;
+    const currentId = props.currentItem()?.id;
     if (currentId && currentId !== lastItemId) {
       resetAutoplay();
       lastItemId = currentId;
@@ -241,7 +188,7 @@ export function useAutoplay(props: UseAutoplayProps) {
 
   createEffect(async () => {
     const setupVersion = ++listenerSetupVersion;
-    const currentID = props.currentItem()?.Id;
+    const currentID = props.currentItem()?.id;
 
     // Always clean up existing listeners, even when current item is temporarily undefined.
     if (playbackTimePollInterval) {
@@ -290,7 +237,7 @@ export function useAutoplay(props: UseAutoplayProps) {
   });
 
   // Create a memoized nextEpisode that will be reactive
-  const nextEpisodeData = createMemo(() => nextEpisode());
+  const nextEpisodeData = createMemo(() => nextEpisodeQuery.data);
 
   // Create a memoized return object to ensure reactivity
   const returnValue = createMemo(() => ({

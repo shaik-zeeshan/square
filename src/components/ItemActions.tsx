@@ -1,12 +1,11 @@
-import type { BaseItemDto } from "@jellyfin/sdk/lib/generated-client";
 import { Check, Heart, X } from "lucide-solid";
 import { type ComponentProps, Show, splitProps } from "solid-js";
-import type { WithImage } from "~/effect/services/jellyfin/service";
+import type { MediaItem } from "~/effect/services/jellyfin/catalogue/types";
 import { useItemActions } from "~/hooks/useItemActions";
 import { cn } from "~/lib/utils";
 
 type ItemActionsProps = {
-  item: WithImage<BaseItemDto>;
+  item: MediaItem;
   itemId: string;
   variant: "card" | "detail"; // card = icon-only, detail = with tooltips
   class?: string;
@@ -24,8 +23,8 @@ export function ItemActions(props: ItemActionsProps) {
 
   const actions = useItemActions(local.itemId, local.onDone);
 
-  const isPlayed = () => local.item.UserData?.Played ?? false;
-  const isFavorite = () => local.item.UserData?.IsFavorite ?? false;
+  const isPlayed = () => local.item.userData.played;
+  const isFavorite = () => local.item.userData.favorite;
 
   const handleMarkPlayed = (e: Event) => {
     e.preventDefault();

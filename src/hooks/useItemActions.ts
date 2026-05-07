@@ -1,19 +1,22 @@
-import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
+import { JellyfinCatalogueOperations } from "~/effect/services/jellyfin/catalogue/operations";
 
 export function useItemActions(
   itemId: string,
   onDone?: () => Promise<void> | void
 ) {
-  const markPlayedMutation = JellyfinOperations.markItemPlayed(itemId, onDone);
-  const markUnplayedMutation = JellyfinOperations.markItemUnPlayed(
+  const markPlayedMutation = JellyfinCatalogueOperations.markItemPlayed(
     itemId,
     onDone
   );
-  const markFavoriteMutation = JellyfinOperations.markItemFavorite(
+  const markUnplayedMutation = JellyfinCatalogueOperations.markItemUnPlayed(
     itemId,
     onDone
   );
-  const unmarkFavoriteMutation = JellyfinOperations.markItemUnFavorite(
+  const markFavoriteMutation = JellyfinCatalogueOperations.markItemFavorite(
+    itemId,
+    onDone
+  );
+  const unmarkFavoriteMutation = JellyfinCatalogueOperations.markItemUnFavorite(
     itemId,
     onDone
   );

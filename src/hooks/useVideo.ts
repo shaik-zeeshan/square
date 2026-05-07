@@ -15,8 +15,8 @@ import {
 } from "~/contexts/video-context";
 import { useRuntime } from "~/effect/runtime/use-runtime";
 import { AuthService } from "~/effect/services/auth";
-import { JellyfinOperations } from "~/effect/services/jellyfin/operations";
-import { JellyfinService } from "~/effect/services/jellyfin/service";
+import { JellyfinCatalogueOperations } from "~/effect/services/jellyfin/catalogue/operations";
+import { JellyfinCatalogueService } from "~/effect/services/jellyfin/catalogue/service";
 import { createEffectQuery } from "~/effect/tanstack/query";
 import { commands, events } from "~/lib/tauri";
 
@@ -75,24 +75,22 @@ export const useVideo = (id: string) => {
   );
 
   const item = createEffectQuery(() => ({
-    queryKey: JellyfinOperations.itemQueryKey({ id }),
+    queryKey: JellyfinCatalogueOperations.itemQueryKey({ id }),
     queryFn: () =>
-      JellyfinService.pipe(
-        Effect.flatMap((jf) =>
-          jf.getItem(id, {
+      JellyfinCatalogueService.pipe(
+        Effect.flatMap((catalogue) =>
+          catalogue.itemById(id, {
             enableImages: true,
             enableUserData: true,
           })
         ),
         Effect.tap(() => Effect.logInfo("fetched item, now start the video")),
-
         Effect.tap((data) =>
           Effect.promise(async () => {
-            // here we will load the video
             await events.requestFileLoad.emit({
-              url: getJellyfinStreamUrl(jf.api, data.Id as string),
+              url: getJellyfinStreamUrl(jf.api, data.id),
               start_time: convertPlaybackTicksToSeconds(
-                data.UserData?.PlaybackPositionTicks ?? 0
+                data.userData.playbackPositionTicks ?? 0
               ),
             });
 
@@ -108,18 +106,20 @@ export const useVideo = (id: string) => {
   const progressHelper = new ProgressHelper(jf.api);
 
   const nextItem = createEffectQuery(() => ({
-    queryKey: ["getNextEpisode", { id: item?.data?.Id }],
+    queryKey: ["catalogueNextEpisode", { id: item?.data?.id }],
     queryFn: () =>
       pipe(
         Effect.fromNullable(item.data),
         Effect.flatMap((i) =>
-          JellyfinService.pipe(Effect.flatMap((jf) => jf.getNextEpisode(i)))
+          JellyfinCatalogueService.pipe(
+            Effect.flatMap((catalogue) => catalogue.nextEpisode(i))
+          )
         )
       ),
 
     // enabled: when the user reaches last 15% of video
     enabled: () =>
-      Boolean(item.data?.Id) &&
+      Boolean(item.data?.id) &&
       getPercentage(state.currentTime, state.duration) > 80,
   }));
 
@@ -144,7 +144,7 @@ export const useVideo = (id: string) => {
     setState("duration", () => payload.duration);
     setState("currentTime", () => payload.current_time);
 
-    await progressHelper.start(playSessionId, item.data?.Id as string);
+    await progressHelper.start(playSessionId, item.data?.id as string);
   });
 
   createTauriListener("playBackStateChange", ({ payload }) => {
@@ -204,7 +204,7 @@ export const useVideo = (id: string) => {
   createTauriListener("eofEventChange", async () => {
     await progressHelper.stop(
       playSessionId,
-      item.data?.Id as string,
+      item.data?.id as string,
       state.currentTime
     );
   });
@@ -248,7 +248,7 @@ export const useVideo = (id: string) => {
 
           await progressHelper.progress(
             playSessionId,
-            item.data?.Id as string,
+            item.data?.id as string,
             time
           );
         }

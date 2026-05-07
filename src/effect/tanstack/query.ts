@@ -1,7 +1,6 @@
 import {
   type InitialDataFunction,
   type MutationFunction,
-  QueryClient,
   type QueryFunction,
   type QueryFunctionContext,
   type SolidMutationOptions,
@@ -17,14 +16,9 @@ import { create, type Draft } from "mutative";
 import type { Accessor } from "solid-js";
 import type { RuntimeContext } from "~/effect/runtime/runtime-context";
 import { useRuntime } from "~/effect/runtime/use-runtime";
+import { queryClient } from "./query-client";
 
-export const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: false,
-    },
-  },
-});
+export { queryClient };
 
 /*
  *
@@ -271,21 +265,18 @@ export function createEffectQuery<
     return effect.pipe(effectRunner(spanName as string));
   };
 
-  return useQuery<A, E, A, QueryKeyType>(
-    () => ({
-      // enabled: () =>
-      //   runtime.runSync(
-      //     AuthService.pipe(
-      //       Effect.flatMap((auth) => auth.getUser()),
-      //       Effect.isSuccess
-      //     )
-      //   ),
-      ...opts(),
-      initialData: (opts().initialData ?? undefined) as A | (() => A),
-      queryFn,
-    }),
-    () => queryClient
-  );
+  return useQuery<A, E, A, QueryKeyType>(() => ({
+    // enabled: () =>
+    //   runtime.runSync(
+    //     AuthService.pipe(
+    //       Effect.flatMap((auth) => auth.getUser()),
+    //       Effect.isSuccess
+    //     )
+    //   ),
+    ...opts(),
+    initialData: (opts().initialData ?? undefined) as A | (() => A),
+    queryFn,
+  }));
 }
 
 /*
@@ -324,11 +315,8 @@ export function createEffectMutation<
     return effect.pipe(effectRunner(spanName as string));
   };
 
-  return useMutation<A, E, MutationVariables, MutationContext>(
-    () => ({
-      ...opts(),
-      mutationFn,
-    }),
-    () => queryClient
-  );
+  return useMutation<A, E, MutationVariables, MutationContext>(() => ({
+    ...opts(),
+    mutationFn,
+  }));
 }
