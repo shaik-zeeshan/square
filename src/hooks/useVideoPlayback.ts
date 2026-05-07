@@ -29,6 +29,7 @@ import {
 } from "~/lib/playback-language-preferences";
 import { useAppPreferences } from "~/lib/store-hooks";
 import { commands, events } from "~/lib/tauri";
+import { planPlaybackSessionTeardown } from "~/playback/playback-session-lifecycle";
 
 type ItemDetails = WithImage<BaseItemDto> | undefined;
 
@@ -1468,13 +1469,26 @@ export function useVideoPlayback(
       videoContext.activePlaybackSessionId === playbackSessionId;
     const isPipActive = await syncPipVisibility().catch(() => false);
 
-    if (!isPipActive && ownsActivePlaybackSession) {
+    const teardownActions = planPlaybackSessionTeardown({
+      ownsActivePlaybackSession,
+      isPipActive,
+    });
+
+    if (teardownActions.includes("mark-paused")) {
       setVideoState("pause", true);
+    }
+
+    if (teardownActions.includes("destroy-pip-viewer")) {
+      await commands.destroyPipWindow().catch(() => {
+        // PiP teardown is best-effort; playback cleanup must continue.
+      });
+      setVideoState("isPip", false);
+      setVideoState("isPipTransitioning", false);
     }
 
     resetTransientUiState();
     offFullscreenIfOnWhenCleanup();
-    if (!isPipActive) {
+    if (teardownActions.includes("clear-mpv")) {
       await clearPlaybackIfActiveSession();
     }
     unlistenFuncs.forEach((unlisten) => {

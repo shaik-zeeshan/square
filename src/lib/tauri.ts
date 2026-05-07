@@ -96,6 +96,12 @@ async hidePipWindow() : Promise<null> {
     return await TAURI_INVOKE("hide_pip_window");
 },
 /**
+ * Destroy PiP window and release its render context.
+ */
+async destroyPipWindow() : Promise<null> {
+    return await TAURI_INVOKE("destroy_pip_window");
+},
+/**
  * Toggle PiP window visibility
  */
 async togglePipWindow() : Promise<null> {

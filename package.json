@@ -5,6 +5,7 @@
     "localdev": "vinxi dev --port 3001",
     "dev": "tauri dev",
     "build": "vinxi build",
+    "test": "bun test",
     "start": "vinxi start",
     "changelog": "conventional-changelog -p angular -i CHANGELOG.md -s -r 0",
     "version": "conventional-changelog -p angular -i CHANGELOG.md -s && git add CHANGELOG.md",

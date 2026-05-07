@@ -239,6 +239,25 @@ fn hide_pip_window(app: tauri::AppHandle) -> Result<(), String> {
     }
 }
 
+/// Destroy PiP window and release its render context.
+#[specta]
+#[tauri::command]
+fn destroy_pip_window(app: tauri::AppHandle) -> Result<(), String> {
+    let app_state = app.state::<AppState>();
+    let pip_window = app_state.pip_window.lock().unwrap().clone();
+
+    if let Some(window) = pip_window {
+        window
+            .destroy()
+            .map_err(|e| format!("Failed to destroy PiP window: {}", e))?;
+        log::info!("PiP window destroyed");
+        Ok(())
+    } else {
+        // Already absent is benign for teardown callers.
+        Ok(())
+    }
+}
+
 /// Toggle PiP window visibility
 #[specta]
 #[tauri::command]
@@ -578,6 +597,7 @@ pub async fn run() {
             toggle_fullscreen,
             show_pip_window,
             hide_pip_window,
+            destroy_pip_window,
             toggle_pip_window,
             get_vault_password,
             check_integration,
